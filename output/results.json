@@ -1,1220 +1,822 @@
 [
   {
-    "file_name": "combined_result_tile106.jpg",
-    "file_path": "./input/combined_result_tile106.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        332,
-        0,
-        733,
-        640
-      ],
-      "tdw_size": [
-        401,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.2517962905236908,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.3347568017001853,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 70,
-      "best_shift": -10,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile106_vis.jpg"
+    "file_name": "combined_result_tile0.jpg",
+    "file_path": "./input/combine_result/combined_result_tile0.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1046,
+            640
+          ],
+          "tdw_size": [
+            1046,
+            640
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.2178821104206501,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.47708627853007224,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 375,
+          "best_shift": 0,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile0_vis.jpg"
+      }
+    ]
   },
   {
-    "file_name": "combined_result_tile107.jpg",
-    "file_path": "./input/combined_result_tile107.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        552,
-        0,
-        809,
-        896
-      ],
-      "tdw_size": [
-        257,
-        896
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.24182705669816565,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.37390054570201814,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 77,
-      "best_shift": -1,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile107_vis.jpg"
+    "file_name": "combined_result_tile1.jpg",
+    "file_path": "./input/combine_result/combined_result_tile1.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1052,
+            640
+          ],
+          "tdw_size": [
+            1052,
+            640
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.2122861216730038,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.42337363481302404,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 424,
+          "best_shift": 4,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile1_vis.jpg"
+      }
+    ]
+  },
+  {
+    "file_name": "combined_result_tile10.jpg",
+    "file_path": "./input/combine_result/combined_result_tile10.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          false,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            986,
+            896
+          ],
+          "tdw_size": [
+            986,
+            896
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.1952162869458128,
+          "passed": false,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.4674389907637015,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 492,
+          "best_shift": -2,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile10_vis.jpg"
+      }
+    ]
+  },
+  {
+    "file_name": "combined_result_tile11.jpg",
+    "file_path": "./input/combine_result/combined_result_tile11.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1138,
+            768
+          ],
+          "tdw_size": [
+            1138,
+            768
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.24514293167838314,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.4692377687394032,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 568,
+          "best_shift": 1,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile11_vis.jpg"
+      }
+    ]
+  },
+  {
+    "file_name": "combined_result_tile12.jpg",
+    "file_path": "./input/combine_result/combined_result_tile12.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1030,
+            896
+          ],
+          "tdw_size": [
+            1030,
+            896
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.2461771844660194,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.3970701280084316,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 512,
+          "best_shift": 6,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile12_vis.jpg"
+      }
+    ]
+  },
+  {
+    "file_name": "combined_result_tile13.jpg",
+    "file_path": "./input/combine_result/combined_result_tile13.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1118,
+            640
+          ],
+          "tdw_size": [
+            1118,
+            640
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.21644398479427548,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.4190329824791706,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 411,
+          "best_shift": 1,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile13_vis.jpg"
+      }
+    ]
+  },
+  {
+    "file_name": "combined_result_tile14.jpg",
+    "file_path": "./input/combine_result/combined_result_tile14.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1074,
+            768
+          ],
+          "tdw_size": [
+            1074,
+            768
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.22040245771260086,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.4109661315920525,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 537,
+          "best_shift": 2,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile14_vis.jpg"
+      }
+    ]
+  },
+  {
+    "file_name": "combined_result_tile15.jpg",
+    "file_path": "./input/combine_result/combined_result_tile15.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1126,
+            768
+          ],
+          "tdw_size": [
+            1126,
+            768
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.20976955669034933,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.423823514309944,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 563,
+          "best_shift": 0,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile15_vis.jpg"
+      }
+    ]
+  },
+  {
+    "file_name": "combined_result_tile16.jpg",
+    "file_path": "./input/combine_result/combined_result_tile16.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            992,
+            768
+          ],
+          "tdw_size": [
+            992,
+            768
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.2391961210517473,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.43991748980964285,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 493,
+          "best_shift": -3,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile16_vis.jpg"
+      }
+    ]
+  },
+  {
+    "file_name": "combined_result_tile17.jpg",
+    "file_path": "./input/combine_result/combined_result_tile17.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1220,
+            640
+          ],
+          "tdw_size": [
+            1220,
+            640
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.22826972336065574,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.4739211975745982,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 462,
+          "best_shift": 1,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile17_vis.jpg"
+      }
+    ]
+  },
+  {
+    "file_name": "combined_result_tile18.jpg",
+    "file_path": "./input/combine_result/combined_result_tile18.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1102,
+            768
+          ],
+          "tdw_size": [
+            1102,
+            768
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.2296771022383545,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.5358707945488204,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 550,
+          "best_shift": 0,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile18_vis.jpg"
+      }
+    ]
+  },
+  {
+    "file_name": "combined_result_tile19.jpg",
+    "file_path": "./input/combine_result/combined_result_tile19.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1162,
+            896
+          ],
+          "tdw_size": [
+            1162,
+            896
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.20641654628718958,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.42763996860134657,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 434,
+          "best_shift": 5,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile19_vis.jpg"
+      }
+    ]
   },
   {
     "file_name": "combined_result_tile2.jpg",
-    "file_path": "./input/combined_result_tile2.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        371,
-        0,
-        549,
-        768
-      ],
-      "tdw_size": [
-        178,
-        768
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.27216467696629215,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.31665239713709364,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 86,
-      "best_shift": 20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile2_vis.jpg"
+    "file_path": "./input/combine_result/combined_result_tile2.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1084,
+            768
+          ],
+          "tdw_size": [
+            1084,
+            768
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.22766999154366543,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.43295640063131163,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 588,
+          "best_shift": 1,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile2_vis.jpg"
+      }
+    ]
   },
   {
-    "file_name": "combined_result_tile37.jpg",
-    "file_path": "./input/combined_result_tile37.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
+    "file_name": "combined_result_tile3.jpg",
+    "file_path": "./input/combine_result/combined_result_tile3.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1074,
+            896
+          ],
+          "tdw_size": [
+            1074,
+            896
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.2181181830274009,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.460799927085256,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 390,
+          "best_shift": 5,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile3_vis.jpg"
+      }
+    ]
   },
   {
-    "file_name": "combined_result_tile509.jpg",
-    "file_path": "./input/combined_result_tile509.jpg",
-    "passed": false,
-    "error": "TDW裁剪失败：最大轮廓面积过小 max_area=23018.0, image_area=625920"
+    "file_name": "combined_result_tile4.jpg",
+    "file_path": "./input/combine_result/combined_result_tile4.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          false,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1212,
+            640
+          ],
+          "tdw_size": [
+            1212,
+            640
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.1836762582508251,
+          "passed": false,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.4807946907523852,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 606,
+          "best_shift": 3,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile4_vis.jpg"
+      }
+    ]
   },
   {
-    "file_name": "combined_result_tile644.jpg",
-    "file_path": "./input/combined_result_tile644.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        574,
-        0,
-        841,
-        640
-      ],
-      "tdw_size": [
-        267,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.2719452247191011,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.2235199626920764,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 78,
-      "best_shift": -20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile644_vis.jpg"
+    "file_name": "combined_result_tile5.jpg",
+    "file_path": "./input/combine_result/combined_result_tile5.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1170,
+            640
+          ],
+          "tdw_size": [
+            1170,
+            640
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.23,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.41792377983989526,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 558,
+          "best_shift": 0,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile5_vis.jpg"
+      }
+    ]
   },
   {
-    "file_name": "combined_result_tile91.jpg",
-    "file_path": "./input/combined_result_tile91.jpg",
-    "passed": false,
-    "error": "TDW裁剪失败：最大轮廓面积过小 max_area=33503.0, image_area=739840"
+    "file_name": "combined_result_tile6.jpg",
+    "file_path": "./input/combine_result/combined_result_tile6.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1110,
+            768
+          ],
+          "tdw_size": [
+            1110,
+            768
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.20668871996996996,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.4784801763324988,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 528,
+          "best_shift": 5,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile6_vis.jpg"
+      }
+    ]
   },
   {
-    "file_name": "combined_result_tile937.jpg",
-    "file_path": "./input/combined_result_tile937.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
+    "file_name": "combined_result_tile7.jpg",
+    "file_path": "./input/combine_result/combined_result_tile7.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          false,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1078,
+            640
+          ],
+          "tdw_size": [
+            1078,
+            640
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.19975794294990723,
+          "passed": false,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.49049802160908895,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 539,
+          "best_shift": 3,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile7_vis.jpg"
+      }
+    ]
   },
   {
-    "file_name": "combined_result_tile938.jpg",
-    "file_path": "./input/combined_result_tile938.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
+    "file_name": "combined_result_tile8.jpg",
+    "file_path": "./input/combine_result/combined_result_tile8.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1076,
+            768
+          ],
+          "tdw_size": [
+            1076,
+            768
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.23122991209727387,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.44979979095458006,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 511,
+          "best_shift": 0,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile8_vis.jpg"
+      }
+    ]
   },
   {
-    "file_name": "combined_result_tile939.jpg",
-    "file_path": "./input/combined_result_tile939.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        667,
-        0,
-        1094,
-        640
-      ],
-      "tdw_size": [
-        427,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.12725043911007025,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.5858299888197646,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 91,
-      "best_shift": -7,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile939_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile940.jpg",
-    "file_path": "./input/combined_result_tile940.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        526,
-        0,
-        1055,
-        896
-      ],
-      "tdw_size": [
-        529,
-        896
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.1925866695922225,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.5202998869532117,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 77,
-      "best_shift": -1,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile940_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile941.jpg",
-    "file_path": "./input/combined_result_tile941.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        664,
-        0,
-        1100,
-        768
-      ],
-      "tdw_size": [
-        436,
-        768
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.23032241494648317,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.3491091695979987,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 92,
-      "best_shift": -20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile941_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile942.jpg",
-    "file_path": "./input/combined_result_tile942.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile943.jpg",
-    "file_path": "./input/combined_result_tile943.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        599,
-        0,
-        1147,
-        640
-      ],
-      "tdw_size": [
-        548,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.17002452098540147,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.5701000191742186,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 45,
-      "best_shift": -2,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile943_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile944.jpg",
-    "file_path": "./input/combined_result_tile944.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile945.jpg",
-    "file_path": "./input/combined_result_tile945.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile946.jpg",
-    "file_path": "./input/combined_result_tile946.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        753,
-        0,
-        1108,
-        640
-      ],
-      "tdw_size": [
-        355,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.1777112676056338,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.40949926117242286,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 53,
-      "best_shift": 20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile946_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile947.jpg",
-    "file_path": "./input/combined_result_tile947.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        351,
-        0,
-        675,
-        768
-      ],
-      "tdw_size": [
-        324,
-        768
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.19433995627572018,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.4060651807271853,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 91,
-      "best_shift": 20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile947_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile951.jpg",
-    "file_path": "./input/combined_result_tile951.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile952.jpg",
-    "file_path": "./input/combined_result_tile952.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile953.jpg",
-    "file_path": "./input/combined_result_tile953.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile954.jpg",
-    "file_path": "./input/combined_result_tile954.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        352,
-        0,
-        1074,
-        640
-      ],
-      "tdw_size": [
-        722,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.20027484418282548,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.3428975345368482,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 93,
-      "best_shift": -6,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile954_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile955.jpg",
-    "file_path": "./input/combined_result_tile955.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        456,
-        0,
-        1189,
-        896
-      ],
-      "tdw_size": [
-        733,
-        896
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.18780604414344182,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.5183399821765257,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 56,
-      "best_shift": 20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile955_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile956.jpg",
-    "file_path": "./input/combined_result_tile956.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile957.jpg",
-    "file_path": "./input/combined_result_tile957.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        582,
-        0,
-        856,
-        640
-      ],
-      "tdw_size": [
-        274,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.2258268704379562,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.3806525040745819,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 95,
-      "best_shift": 11,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile957_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile958.jpg",
-    "file_path": "./input/combined_result_tile958.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        418,
-        0,
-        805,
-        768
-      ],
-      "tdw_size": [
-        387,
-        768
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.2605041451335056,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.1130761564779863,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 51,
-      "best_shift": 0,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile958_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile959.jpg",
-    "file_path": "./input/combined_result_tile959.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        368,
-        0,
-        565,
-        640
-      ],
-      "tdw_size": [
-        197,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.19832645939086294,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.4038246739091853,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 78,
-      "best_shift": 14,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile959_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile960.jpg",
-    "file_path": "./input/combined_result_tile960.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile961.jpg",
-    "file_path": "./input/combined_result_tile961.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        27,
-        0,
-        515,
-        768
-      ],
-      "tdw_size": [
-        488,
-        768
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.18504525273224043,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.39726716861207095,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 284,
-      "best_shift": 20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile961_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile965.jpg",
-    "file_path": "./input/combined_result_tile965.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile966.jpg",
-    "file_path": "./input/combined_result_tile966.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        357,
-        0,
-        792,
-        768
-      ],
-      "tdw_size": [
-        435,
-        768
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.24382483237547892,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.42461479214682324,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 100,
-      "best_shift": -20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile966_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile967.jpg",
-    "file_path": "./input/combined_result_tile967.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile968.jpg",
-    "file_path": "./input/combined_result_tile968.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile969.jpg",
-    "file_path": "./input/combined_result_tile969.jpg",
-    "passed": false,
-    "error": "TDW裁剪失败：最大轮廓面积过小 max_area=28725.5, image_area=756480"
-  },
-  {
-    "file_name": "combined_result_tile970.jpg",
-    "file_path": "./input/combined_result_tile970.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        458,
-        0,
-        782,
-        640
-      ],
-      "tdw_size": [
-        324,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.22789351851851852,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.5217133372517703,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 46,
-      "best_shift": 20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile970_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile971.jpg",
-    "file_path": "./input/combined_result_tile971.jpg",
-    "passed": false,
-    "error": "TDW裁剪失败：最大轮廓面积过小 max_area=35154.0, image_area=792576"
-  },
-  {
-    "file_name": "combined_result_tile972.jpg",
-    "file_path": "./input/combined_result_tile972.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile973.jpg",
-    "file_path": "./input/combined_result_tile973.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile974.jpg",
-    "file_path": "./input/combined_result_tile974.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        715,
-        0,
-        1117,
-        640
-      ],
-      "tdw_size": [
-        402,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.16773554104477612,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.5824081950778506,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 70,
-      "best_shift": -20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile974_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile975.jpg",
-    "file_path": "./input/combined_result_tile975.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        536,
-        0,
-        1000,
-        640
-      ],
-      "tdw_size": [
-        464,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.18140153556034483,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.4342773475835283,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 77,
-      "best_shift": -2,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile975_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile979.jpg",
-    "file_path": "./input/combined_result_tile979.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile980.jpg",
-    "file_path": "./input/combined_result_tile980.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile981.jpg",
-    "file_path": "./input/combined_result_tile981.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        493,
-        0,
-        1064,
-        640
-      ],
-      "tdw_size": [
-        571,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.16836416374781085,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.5106458882523659,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 98,
-      "best_shift": -3,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile981_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile982.jpg",
-    "file_path": "./input/combined_result_tile982.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile983.jpg",
-    "file_path": "./input/combined_result_tile983.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        335,
-        0,
-        632,
-        896
-      ],
-      "tdw_size": [
-        297,
-        896
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.22963263588263588,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.42473184354846,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 113,
-      "best_shift": -20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile983_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile984.jpg",
-    "file_path": "./input/combined_result_tile984.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        548,
-        0,
-        825,
-        640
-      ],
-      "tdw_size": [
-        277,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.23509702166064983,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.39162763503972026,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 91,
-      "best_shift": -20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile984_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile985.jpg",
-    "file_path": "./input/combined_result_tile985.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        350,
-        0,
-        780,
-        896
-      ],
-      "tdw_size": [
-        430,
-        896
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.26633357558139537,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.48246741068311605,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 98,
-      "best_shift": -20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile985_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile986.jpg",
-    "file_path": "./input/combined_result_tile986.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        747,
-        0,
-        1186,
-        640
-      ],
-      "tdw_size": [
-        439,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.15817910022779044,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.2701429306782946,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 53,
-      "best_shift": 10,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile986_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile987.jpg",
-    "file_path": "./input/combined_result_tile987.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        558,
-        0,
-        831,
-        640
-      ],
-      "tdw_size": [
-        273,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.2606627747252747,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.5235125362781833,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 90,
-      "best_shift": -20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile987_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile988.jpg",
-    "file_path": "./input/combined_result_tile988.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        0,
-        0,
-        714,
-        768
-      ],
-      "tdw_size": [
-        714,
-        768
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.20103145424836602,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.3491709478309319,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 326,
-      "best_shift": -20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile988_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile989.jpg",
-    "file_path": "./input/combined_result_tile989.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile993.jpg",
-    "file_path": "./input/combined_result_tile993.jpg",
-    "passed": [
-      true,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        554,
-        0,
-        1146,
-        640
-      ],
-      "tdw_size": [
-        592,
-        640
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.20770428631756757,
-      "passed": true,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.559526841795528,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 81,
-      "best_shift": -20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile993_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile994.jpg",
-    "file_path": "./input/combined_result_tile994.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile995.jpg",
-    "file_path": "./input/combined_result_tile995.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        321,
-        0,
-        970,
-        896
-      ],
-      "tdw_size": [
-        649,
-        896
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.19147245762711865,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.5108487297343524,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 95,
-      "best_shift": 20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile995_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile996.jpg",
-    "file_path": "./input/combined_result_tile996.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
-  },
-  {
-    "file_name": "combined_result_tile997.jpg",
-    "file_path": "./input/combined_result_tile997.jpg",
-    "passed": [
-      false,
-      false
-    ],
-    "tdw_crop": {
-      "crop_box_xyxy": [
-        102,
-        0,
-        406,
-        768
-      ],
-      "tdw_size": [
-        304,
-        768
-      ]
-    },
-    "land_sea": {
-      "ratio": 0.19677734375,
-      "passed": false,
-      "threshold_low": 0.2,
-      "threshold_high": 0.5
-    },
-    "symmetry": {
-      "score": 0.460065222724638,
-      "passed": false,
-      "threshold": 0.9,
-      "center_x": 228,
-      "best_shift": 20,
-      "allow_shift_px": 20
-    },
-    "visual_path": "output\\visual\\combined_result_tile997_vis.jpg"
-  },
-  {
-    "file_name": "combined_result_tile998.jpg",
-    "file_path": "./input/combined_result_tile998.jpg",
-    "passed": false,
-    "error": "TDW裁剪失败：最大轮廓面积过小 max_area=38828.5, image_area=847872"
-  },
-  {
-    "file_name": "combined_result_tile999.jpg",
-    "file_path": "./input/combined_result_tile999.jpg",
-    "passed": false,
-    "error": "win_size exceeds image extent. Either ensure that your images are at least 7x7; or pass win_size explicitly in the function call, with an odd value less than or equal to the smaller side of your images. If your images are multichannel (with color channels), set channel_axis to the axis number corresponding to the channels."
+    "file_name": "combined_result_tile9.jpg",
+    "file_path": "./input/combine_result/combined_result_tile9.jpg",
+    "tdw_count": 1,
+    "tdw_results": [
+      {
+        "tdw_index": 0,
+        "passed": [
+          true,
+          false
+        ],
+        "tdw_crop": {
+          "crop_box_xyxy": [
+            0,
+            0,
+            1094,
+            640
+          ],
+          "tdw_size": [
+            1094,
+            640
+          ]
+        },
+        "land_sea": {
+          "ratio": 0.2190570726691042,
+          "passed": true,
+          "threshold_low": 0.2,
+          "threshold_high": 0.5
+        },
+        "symmetry": {
+          "score": 0.472300876101687,
+          "passed": false,
+          "threshold": 0.9,
+          "center_x": 549,
+          "best_shift": 0,
+          "allow_shift_px": 20
+        },
+        "visual_path": "output/image_handl/combined_result_tile9_vis.jpg"
+      }
+    ]
   }
 ]
