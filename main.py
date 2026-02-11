@@ -5,9 +5,9 @@ import cv2
 import numpy as np
 
 from read_data import list_images, read_image_bgr
-from crop_tdw import crop_tdw_region, detect_centerline_x
-from land_sea_ratio import compute_land_sea_ratio, filter_by_land_sea_ratio
-from symmetry_check import symmetry_score_mirror, symmetry_pass
+from data_operation.crop_tdw import crop_tdw_region, detect_centerline_x
+from function.land_sea_ratio import compute_land_sea_ratio, filter_by_land_sea_ratio
+from function.symmetry_check import symmetry_score_mirror, symmetry_pass
 
 
 def ensure_dir(path: str):
