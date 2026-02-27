@@ -206,5 +206,11 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# Claude Code
+CLAUDE.md
+
+# Project setup scripts
+.setup*
+
 # Mac
 *.DS_Store
