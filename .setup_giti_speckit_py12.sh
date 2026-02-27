@@ -2,7 +2,7 @@
 
 # ==================== 配置区域 ====================
 ENV_NAME="py12_giti_speckit"
-PROJECT_PATH="/Users/guiyu/aiProjects/claudeProjects/Giti_test"
+PROJECT_PATH="/Users/guiyu/aiProjects/claudeProjects/giti-tire-ai-pattern"
 
 # ==================== 1. 检查conda环境（不存在则报错退出） ====================
 echo -e "\n===== conda env: ${ENV_NAME} ===== START ====="
