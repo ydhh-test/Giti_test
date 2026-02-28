@@ -19,19 +19,22 @@ class TestPatternContinuity:
         """测试正例1：花纹不连续"""
         image_path = Path(self.TEST_DATA_PATH) / "1.png"
         image = load_image(image_path, ImageType.PNG)
-        result = detect_pattern_continuity(image)
-        assert result == True
+        flag, details = detect_pattern_continuity(image)
+        assert flag == True
+        assert details == {}
 
     def test_positive_case_2(self):
         """测试正例2：花纹不连续"""
         image_path = Path(self.TEST_DATA_PATH) / "2.png"
         image = load_image(image_path, ImageType.PNG)
-        result = detect_pattern_continuity(image)
-        assert result == True
+        flag, details = detect_pattern_continuity(image)
+        assert flag == True
+        assert details == {}
 
     def test_negative_case_1(self):
         """测试反例1：花纹连续"""
         image_path = Path(self.TEST_DATA_PATH) / "0.png"
         image = load_image(image_path, ImageType.PNG)
-        result = detect_pattern_continuity(image)
-        assert result == False
+        flag, details = detect_pattern_continuity(image)
+        assert flag == False
+        assert details == {}

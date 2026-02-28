@@ -18,7 +18,9 @@ def detect_pattern_continuity(image):
         image: 灰度图像 (numpy.ndarray)
 
     Returns:
-        bool: True表示花纹不连续，False表示花纹连续
+        tuple: (flag, details)
+            - flag (bool): True表示花纹不连续，False表示花纹连续
+            - details (dict): 详细信息字典
 
     规则:
         1. 如果上下边缘4像素高度内没有黑色或灰色线条，则连续(返回False)
@@ -35,4 +37,6 @@ def detect_pattern_continuity(image):
     # 5. 检查x中心差值是否超过4像素
     # 6. 返回判定结果
 
-    pass
+    flag = True
+    details = {}
+    return flag, details
