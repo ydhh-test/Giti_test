@@ -1,3 +1,24 @@
+# Postprocessor 入口函数代码设计
+
+## 函数签名
+```python
+def postprocessor(task_id: str, conf: dict, user_conf: dict) -> tuple[int, dict]:
+    """
+    后处理入口函数
+
+    Args:
+        task_id: 任务ID
+        conf: 配置字典
+        user_conf: 用户配置字典
+
+    Returns:
+        tuple[int, dict]: (score, details)
+    """
+```
+
+## 代码结构
+
+```python
 # -*- coding: utf-8 -*-
 
 """
@@ -16,17 +37,6 @@
 
 
 def postprocessor(task_id: str, conf: dict, user_conf: dict) -> tuple[int, dict]:
-    """
-    后处理入口函数
-
-    Args:
-        task_id: 任务ID
-        conf: 配置字典
-        user_conf: 用户配置字典
-
-    Returns:
-        tuple[int, dict]: (score, details)
-    """
     # 0. Conf处理
     merged_conf = _merge_conf(conf, user_conf)
 
@@ -90,3 +100,12 @@ def _calculate_total_score(task_id: str, conf: dict) -> tuple[bool, dict]:
     """统计总分"""
     # TODO: 实现统计总分逻辑
     return True, {}
+```
+
+## 设计说明
+
+1. **主函数 `postprocessor`**: 按照计划串行调用各阶段，失败时立即返回
+2. **配置合并**: `_merge_conf` 函数将 user_conf 合并到 conf 中
+3. **各阶段函数**: 以 `_` 开头表示内部函数，统一返回 `(flag, details)`
+4. **错误处理**: 每个阶段失败时返回 `0` 和包含 `err_msg` 及 `failed_stage` 的 details
+5. **TODO 标记**: 整理输出和各阶段的具体逻辑暂时留空
