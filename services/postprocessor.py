@@ -15,6 +15,9 @@
 # AI Assistant: ClaudeCode (Claude Sonnet 4)
 
 
+from services.postprocessor.vertical_stitch_module import VerticalStitch
+
+
 def postprocessor(task_id: str, conf: dict, user_conf: dict) -> tuple[int, dict]:
     """
     后处理入口函数
@@ -76,8 +79,8 @@ def _small_image_filter(task_id: str, conf: dict) -> tuple[bool, dict]:
 
 def _vertical_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
     """纵图拼接"""
-    # TODO: 实现纵图拼接逻辑
-    return True, {}
+    stitcher = VerticalStitch(task_id, conf)
+    return stitcher.process()
 
 
 def _horizontal_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
