@@ -13,6 +13,7 @@
 import cv2
 import numpy as np
 from itertools import product
+from pathlib import Path
 from typing import Tuple, Dict, Any, List, Optional
 
 from configs.rules_config import PatternContinuityConfig
@@ -30,7 +31,12 @@ def detect_pattern_continuity(
     Parameters:
     - image: 输入灰度图 (H, W)
     - conf: 配置字典，包含评分规则和参数
-    - *args, **kwargs: 额外参数（method='A'或'B', visualize=True等）
+    - *args, **kwargs: 额外参数
+        - method: 检测方法，'A'（纯像素操作）或'B'（OpenCV轮廓检测），默认'B'
+        - visualize: 是否生成可视化，默认True
+        - task_id: 任务ID，用于保存可视化图片，格式如'task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed'
+        - image_type: 图片类型，如'center_inf'或'side_inf'，默认'center_inf'
+        - image_id: 图片ID，如'0'、'1'等，默认'0'
 
     Returns:
     - score: 评分（连续返回conf['score']，不连续返回0）
@@ -44,15 +50,20 @@ def detect_pattern_continuity(
         'matches': List[Tuple[int, int]],
         'unmatched_top': List[int],
         'unmatched_bottom': List[int],
-        'visualization': Optional[np.ndarray]
+        'visualization': Optional[str]  # visualize=True时返回图片保存路径，否则None
     }
+
+    注意：当visualize=True时，需要提供task_id、image_type和image_id参数来保存可视化图片。
     """
     # 创建配置对象
     config = PatternContinuityConfig.from_dict(conf)
 
     # 获取额外参数
-    method = kwargs.get('method', 'A')
-    visualize = kwargs.get('visualize', False)
+    method = kwargs.get('method', 'B')
+    visualize = kwargs.get('visualize', True)
+    task_id = kwargs.get('task_id')
+    image_type = kwargs.get('image_type', 'center_inf')
+    image_id = kwargs.get('image_id', '0')
 
     # 提取边缘端点
     if method.upper() == 'A':
@@ -84,10 +95,26 @@ def detect_pattern_continuity(
 
     # 可视化
     if visualize:
-        details['visualization'] = _visualize_detection(
+        vis_image = _visualize_detection(
             image, top_ends, bottom_ends, matches,
             unmatched_top, unmatched_bottom, config
         )
+
+        # 保存可视化图片
+        if task_id is not None:
+            # 构造保存路径: tests/datasets/task_id_<task_id>/detect_pattern_continuity/<image_type>/<image_id>.png
+            save_dir = Path(f"tests/datasets/{task_id}/detect_pattern_continuity/{image_type}")
+            save_dir.mkdir(parents=True, exist_ok=True)
+            save_path = save_dir / f"{image_id}.png"
+
+            # 保存图片
+            cv2.imwrite(str(save_path), vis_image)
+            details['visualization'] = str(save_path)
+        else:
+            # 如果没有提供task_id，返回numpy数组（兼容旧版本）
+            details['visualization'] = vis_image
+    else:
+        details['visualization'] = None
 
     return score, details
 
@@ -352,22 +379,12 @@ def _can_match(
 
     # 粗线-粗线匹配
     if top_type == 'coarse' and bottom_type == 'coarse':
-        # 计算重合长度
+        # 只要有重叠就算连续
         overlap_start = max(top_min_x, bottom_min_x)
         overlap_end = min(top_max_x, bottom_max_x)
         overlap_length = overlap_end - overlap_start + 1
 
-        # 计算较短区间长度
-        top_length = top_max_x - top_min_x + 1
-        bottom_length = bottom_max_x - bottom_min_x + 1
-        shorter_length = min(top_length, bottom_length)
-
-        # 计算重合比例
-        if shorter_length == 0:
-            return False
-        overlap_ratio = overlap_length / shorter_length
-
-        return overlap_ratio >= config.coarse_overlap_ratio
+        return overlap_length > 0
 
     return False
 
