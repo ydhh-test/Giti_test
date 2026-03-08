@@ -147,10 +147,13 @@ def detect_pattern_continuity(
 
                 # 保存可视化图片
                 if task_id is not None:
-                    # 构造保存路径: {output_base_dir}/task_id_{task_id}/detect_pattern_continuity/{image_type}/{image_id}.png
-                    save_dir = Path(f"{output_base_dir}/task_id_{task_id}/detect_pattern_continuity/{image_type}")
+                    # 构造保存路径: {output_base_dir}/task_id_{task_id}/{base_type}_mid_results/detect_pattern_continuity_{image_id}.png
+                    # 去掉image_type中的'_inf'后缀，例如 center_inf -> center, side_inf -> side
+                    base_type = image_type.replace('_inf', '')
+                    output_dir_name = f"{base_type}_mid_results"
+                    save_dir = Path(f"{output_base_dir}/task_id_{task_id}/{output_dir_name}")
                     save_dir.mkdir(parents=True, exist_ok=True)
-                    save_path = save_dir / f"{image_id}.png"
+                    save_path = save_dir / f"detect_pattern_continuity_{image_id}.png"
 
                     # 保存图片
                     cv2.imwrite(str(save_path), vis_image)

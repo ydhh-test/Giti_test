@@ -58,7 +58,7 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
         # 验证可视化保存路径
-        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/detect_pattern_continuity/center_inf/2.png'
+        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/center_mid_results/detect_pattern_continuity_2.png'
         # 花纹连续
         assert details['is_continuous'] == True
 
@@ -103,7 +103,7 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
         # 验证可视化保存路径
-        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/detect_pattern_continuity/side_inf/0.png'
+        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/side_mid_results/detect_pattern_continuity_0.png'
         # 花纹连续
         assert details['is_continuous'] == True
 
@@ -148,7 +148,7 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
         # 验证可视化保存路径
-        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/detect_pattern_continuity/center_inf/0.png'
+        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/center_mid_results/detect_pattern_continuity_0.png'
         # 花纹不连续
         assert details['is_continuous'] == False
 
@@ -193,6 +193,6 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
         # 验证可视化保存路径
-        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/detect_pattern_continuity/center_inf/1.png'
+        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/center_mid_results/detect_pattern_continuity_1.png'
         # 花纹不连续
         assert details['is_continuous'] == False
