@@ -540,7 +540,8 @@ def _visualize_detection(
             cv2.circle(vis, (center_x, 0), config.vis_line_width * 2, color, -1)
         else:
             # 粗线画矩形
-            cv2.rectangle(vis, (min_x, 0), (max_x, 3), color, config.vis_line_width)
+            rectangle_height = config.vis_rectangle_height
+            cv2.rectangle(vis, (min_x, 0), (max_x, rectangle_height), color, config.vis_line_width)
 
     # 绘制下边缘端点
     h = image.shape[0]
@@ -558,7 +559,8 @@ def _visualize_detection(
             cv2.circle(vis, (center_x, h - 1), config.vis_line_width * 2, color, -1)
         else:
             # 粗线画矩形
-            cv2.rectangle(vis, (min_x, h - 4), (max_x, h - 1), color, config.vis_line_width)
+            rectangle_bottom_offset = config.vis_rectangle_bottom_offset
+            cv2.rectangle(vis, (min_x, h - rectangle_bottom_offset), (max_x, h - 1), color, config.vis_line_width)
 
     # 绘制匹配连线
     for top_idx, bottom_idx in matches:

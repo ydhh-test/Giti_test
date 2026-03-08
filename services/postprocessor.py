@@ -24,14 +24,21 @@ def postprocessor(task_id: str, conf: dict, user_conf: dict) -> tuple[int, dict]
 
     Args:
         task_id: 任务ID
-        conf: 配置字典
+        conf: 配置字典（支持旧格式和新格式）
         user_conf: 用户配置字典
 
     Returns:
         tuple[int, dict]: (score, details)
     """
-    # 0. Conf处理
-    merged_conf = _merge_conf(conf, user_conf)
+    # 0. Conf处理 - 向后兼容处理
+    try:
+        from configs import CompleteConfig
+        if isinstance(conf, CompleteConfig):
+            merged_conf = {**conf.to_legacy_dict(), **user_conf}
+        else:
+            merged_conf = _merge_conf(conf, user_conf)
+    except ImportError:
+        merged_conf = _merge_conf(conf, user_conf)
 
     # 1. 小图筛选
     small_image_filter_conf = merged_conf.get("small_image_filter_conf", {})
@@ -79,6 +86,7 @@ def _small_image_filter(task_id: str, conf: dict) -> tuple[bool, dict]:
 
 def _vertical_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
     """纵图拼接"""
+    # 传递完整的配置给VerticalStitch，以便访问所有配置参数
     stitcher = VerticalStitch(task_id, conf)
     return stitcher.process()
 
