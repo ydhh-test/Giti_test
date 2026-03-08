@@ -116,7 +116,13 @@ class VerticalStitch(LoggerMixin):
             # 获取目录路径
             task_dir = self._get_task_dir()
             input_dir = task_dir / filter_dir
-            output_dir = task_dir / f"{filter_dir.split('_')[0]}_vertical"
+
+            # 从配置中获取输出目录后缀
+            output_suffix = "_vertical"
+            vertical_stitch_conf = self.conf.get('vertical_stitch_conf', {})
+            if isinstance(vertical_stitch_conf, dict):
+                output_suffix = vertical_stitch_conf.get('output_dir_suffix', '_vertical')
+            output_dir = task_dir / f"{filter_dir.split('_')[0]}{output_suffix}"
 
             self.logger.debug(f"处理filter目录: {input_dir}")
 
@@ -139,8 +145,16 @@ class VerticalStitch(LoggerMixin):
 
             self.logger.debug(f"输出目录已创建: {output_dir}")
 
-            # 按文件名排序获取图片列表
-            image_files = sorted(input_dir.glob("*.png"), key=lambda x: x.name)
+            # 从配置中获取支持的图像扩展名
+            image_extensions = ['.png']
+            postprocessor_conf = self.conf.get('postprocessor_conf', {})
+            if isinstance(postprocessor_conf, dict):
+                image_extensions = postprocessor_conf.get('supported_image_extensions', ['.png'])
+
+            # 获取图片列表
+            image_files = []
+            for ext in image_extensions:
+                image_files.extend(sorted(input_dir.glob(f"*{ext}"), key=lambda x: x.name))
 
             self.logger.debug(f"找到 {len(image_files)} 个图片文件")
 

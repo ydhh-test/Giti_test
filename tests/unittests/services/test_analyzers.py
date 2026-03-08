@@ -9,6 +9,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from services.analyzers import detect_pattern_continuity
 from utils.io_utils import load_image, ImageType
 
+# 测试配置
+TEST_TASK_ID = "9f8d7b6a-5e4d-3c2b-1a09-876543210fed"
+TEST_OUTPUT_BASE = ".results"
+
 
 class TestPatternContinuity(unittest.TestCase):
     """测试花纹连续性检测功能"""
@@ -39,9 +43,10 @@ class TestPatternContinuity(unittest.TestCase):
         # 添加可视化参数，保存图片到指定位置
         score, details = detect_pattern_continuity(
             image, conf,
-            task_id='task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed',
+            task_id=TEST_TASK_ID,
             image_type='center_inf',
-            image_id='2'
+            image_id='2',
+            output_base_dir=TEST_OUTPUT_BASE
         )
         # 连续返回score为配置值
         assert score == 10
@@ -53,7 +58,7 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
         # 验证可视化保存路径
-        assert details['visualization'] == 'tests/datasets/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/detect_pattern_continuity/center_inf/2.png'
+        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/center_mid_results/detect_pattern_continuity_2.png'
         # 花纹连续
         assert details['is_continuous'] == True
 
@@ -83,9 +88,10 @@ class TestPatternContinuity(unittest.TestCase):
         # 添加可视化参数，保存图片到指定位置
         score, details = detect_pattern_continuity(
             image, conf,
-            task_id='task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed',
+            task_id=TEST_TASK_ID,
             image_type='side_inf',
-            image_id='0'
+            image_id='0',
+            output_base_dir=TEST_OUTPUT_BASE
         )
         # 连续返回score为配置值
         assert score == 10
@@ -97,7 +103,7 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
         # 验证可视化保存路径
-        assert details['visualization'] == 'tests/datasets/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/detect_pattern_continuity/side_inf/0.png'
+        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/side_mid_results/detect_pattern_continuity_0.png'
         # 花纹连续
         assert details['is_continuous'] == True
 
@@ -127,9 +133,10 @@ class TestPatternContinuity(unittest.TestCase):
         # 添加可视化参数，保存图片到指定位置
         score, details = detect_pattern_continuity(
             image, conf,
-            task_id='task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed',
+            task_id=TEST_TASK_ID,
             image_type='center_inf',
-            image_id='0'
+            image_id='0',
+            output_base_dir=TEST_OUTPUT_BASE
         )
         # 不连续返回score为0
         assert score == 0
@@ -141,7 +148,7 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
         # 验证可视化保存路径
-        assert details['visualization'] == 'tests/datasets/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/detect_pattern_continuity/center_inf/0.png'
+        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/center_mid_results/detect_pattern_continuity_0.png'
         # 花纹不连续
         assert details['is_continuous'] == False
 
@@ -171,9 +178,10 @@ class TestPatternContinuity(unittest.TestCase):
         # 添加可视化参数，保存图片到指定位置
         score, details = detect_pattern_continuity(
             image, conf,
-            task_id='task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed',
+            task_id=TEST_TASK_ID,
             image_type='center_inf',
-            image_id='1'
+            image_id='1',
+            output_base_dir=TEST_OUTPUT_BASE
         )
         # 不连续返回0
         assert score == 0
@@ -185,6 +193,6 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
         # 验证可视化保存路径
-        assert details['visualization'] == 'tests/datasets/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/detect_pattern_continuity/center_inf/1.png'
+        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/center_mid_results/detect_pattern_continuity_1.png'
         # 花纹不连续
         assert details['is_continuous'] == False

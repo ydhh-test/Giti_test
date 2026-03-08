@@ -44,9 +44,10 @@ def detect_pattern_continuity(
     - *args, **kwargs: 额外参数
         - method: 检测方法，'A'（纯像素操作）或'B'（OpenCV轮廓检测），默认'B'
         - visualize: 是否生成可视化，默认True
-        - task_id: 任务ID，用于保存可视化图片，格式如'task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed'
+        - task_id: 任务ID，用于保存可视化图片，格式如'9f8d7b6a-5e4d-3c2b-1a09-876543210fed'
         - image_type: 图片类型，如'center_inf'或'side_inf'，默认'center_inf'
         - image_id: 图片ID，如'0'、'1'等，默认'0'
+        - output_base_dir: 输出基础目录，默认'.results'
 
     Returns:
     - score: 评分（连续返回conf['score']，不连续返回0）
@@ -89,6 +90,7 @@ def detect_pattern_continuity(
         task_id = kwargs.get('task_id')
         image_type = kwargs.get('image_type', 'center_inf')
         image_id = kwargs.get('image_id', '0')
+        output_base_dir = kwargs.get('output_base_dir', '.results')
 
         # 提取边缘端点
         try:
@@ -145,10 +147,13 @@ def detect_pattern_continuity(
 
                 # 保存可视化图片
                 if task_id is not None:
-                    # 构造保存路径: tests/datasets/task_id_<task_id>/detect_pattern_continuity/<image_type>/<image_id>.png
-                    save_dir = Path(f"tests/datasets/{task_id}/detect_pattern_continuity/{image_type}")
+                    # 构造保存路径: {output_base_dir}/task_id_{task_id}/{base_type}_mid_results/detect_pattern_continuity_{image_id}.png
+                    # 去掉image_type中的'_inf'后缀，例如 center_inf -> center, side_inf -> side
+                    base_type = image_type.replace('_inf', '')
+                    output_dir_name = f"{base_type}_mid_results"
+                    save_dir = Path(f"{output_base_dir}/task_id_{task_id}/{output_dir_name}")
                     save_dir.mkdir(parents=True, exist_ok=True)
-                    save_path = save_dir / f"{image_id}.png"
+                    save_path = save_dir / f"detect_pattern_continuity_{image_id}.png"
 
                     # 保存图片
                     cv2.imwrite(str(save_path), vis_image)
@@ -540,7 +545,8 @@ def _visualize_detection(
             cv2.circle(vis, (center_x, 0), config.vis_line_width * 2, color, -1)
         else:
             # 粗线画矩形
-            cv2.rectangle(vis, (min_x, 0), (max_x, 3), color, config.vis_line_width)
+            rectangle_height = config.vis_rectangle_height
+            cv2.rectangle(vis, (min_x, 0), (max_x, rectangle_height), color, config.vis_line_width)
 
     # 绘制下边缘端点
     h = image.shape[0]
@@ -558,7 +564,8 @@ def _visualize_detection(
             cv2.circle(vis, (center_x, h - 1), config.vis_line_width * 2, color, -1)
         else:
             # 粗线画矩形
-            cv2.rectangle(vis, (min_x, h - 4), (max_x, h - 1), color, config.vis_line_width)
+            rectangle_bottom_offset = config.vis_rectangle_bottom_offset
+            cv2.rectangle(vis, (min_x, h - rectangle_bottom_offset), (max_x, h - 1), color, config.vis_line_width)
 
     # 绘制匹配连线
     for top_idx, bottom_idx in matches:
