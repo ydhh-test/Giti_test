@@ -6,8 +6,8 @@
 负责几何合理性分析，包括周期检测、海陆比等。
 """
 
-# Copyright © 2026 云端辉鸿. All rights reserved.
-# Author: 桂禹 <guiyu@cloudhuihong.com>
+# Copyright © 2026. All rights reserved.
+# Author: 桂禹
 # AI Assistant: ClaudeCode (Claude Sonnet 4)
 
 from services.analyzers.detect_pattern_continuity import detect_pattern_continuity as detect_pattern_continuity_impl

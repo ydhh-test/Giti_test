@@ -3,8 +3,8 @@
 """
 纵图拼接类测试
 
-# Copyright © 2026 云端辉鸿. All rights reserved.
-# Author: 桂禹 <guiyu@cloudhuihong.com>
+# Copyright © 2026. All rights reserved.
+# Author: 桂禹
 # AI Assistant: ClaudeCode (Claude Sonnet 4)
 """
 
