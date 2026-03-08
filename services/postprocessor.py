@@ -15,7 +15,7 @@
 # AI Assistant: ClaudeCode (Claude Sonnet 4)
 
 
-from services.postprocessor.vertical_stitch_module import VerticalStitch
+from algorithms.stitching.vertical_stitch import VerticalStitch
 
 
 def postprocessor(task_id: str, conf: dict, user_conf: dict) -> tuple[int, dict]:
