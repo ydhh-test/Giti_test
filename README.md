@@ -61,15 +61,20 @@ giti-tire-ai-pattern/
 ├── configs/                 # 配置模块
 │   ├── __init__.py
 │   ├── base_config.py      # 基础配置
+│   ├── complete_config.py  # 完整配置
+│   ├── module_config.py    # 模块配置
+│   ├── postprocessor_config.py  # 后处理配置
 │   ├── rules_config.py     # 规则配置
-│   └── postprocessor_config.py  # 后处理配置
+│   └── user_config.py      # 用户配置
 ├── services/               # 核心服务模块（服务层）
-│   ├── preprocessor.py     # 预处理服务
+│   ├── __init__.py
+│   ├── analyzers.py        # 分析器服务
 │   ├── inference.py        # 推理服务
 │   ├── postprocessor.py    # 后处理服务
-│   ├── analyzers.py        # 分析器服务
+│   ├── preprocessor.py     # 预处理服务
 │   └── scorer.py           # 评分服务
 ├── algorithms/             # 算法实现层
+│   ├── __init__.py
 │   ├── detection/          # 检测算法
 │   │   ├── __init__.py
 │   │   └── pattern_continuity.py  # 连续性检测算法
@@ -77,22 +82,27 @@ giti-tire-ai-pattern/
 │       ├── __init__.py
 │       └── vertical_stitch.py     # 纵图拼接算法
 ├── utils/                  # 工具模块
-│   ├── logger.py          # 日志系统
-│   ├── exceptions.py      # 异常处理
+│   ├── __init__.py
 │   ├── cv_utils.py        # 图像处理工具
-│   └── io_utils.py        # I/O工具
+│   ├── exceptions.py      # 异常处理
+│   ├── io_utils.py        # I/O工具
+│   └── logger.py          # 日志系统
 ├── tests/                  # 测试模块
-│   ├── unittests/         # 单元测试
-│   └── datasets/          # 测试数据集
+│   ├── datasets/          # 测试数据集
+│   └── unittests/         # 单元测试
+│       ├── algorithms/    # 算法测试
+│       └── services/      # 服务测试
 ├── docs/                   # 文档
-│   ├── development/       # 开发文档
-│   └── before_jobs/       # 前期工作文档
+│   ├── before_jobs/       # 前期工作文档
+│   └── development/       # 开发文档
 ├── plans/                  # 计划文档
 │   ├── executing/         # 执行中的计划
 │   └── writing/           # 编写中的计划
 ├── scripts/                # 脚本工具
-├── requirements.txt        # 依赖列表
-└── README.md              # 项目说明
+├── ARCHITECTURE.md         # 架构设计文档
+├── CONTRIBUTING.md         # 贡献指南
+├── README.md              # 项目说明
+└── requirements.txt        # 依赖列表
 ```
 
 ### 架构分层
