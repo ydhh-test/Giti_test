@@ -6,8 +6,8 @@
 检测灰度图中上下边缘的线条是否连续对齐，为后续的上下循环拼接服务。
 """
 
-# Copyright © 2026 云端辉鸿. All rights reserved.
-# Author: 桂禹 <guiyu@cloudhuihong.com>
+# Copyright © 2026. All rights reserved.
+# Author: 桂禹
 # AI Assistant: ClaudeCode (Claude Sonnet 4)
 
 import cv2

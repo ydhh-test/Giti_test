@@ -6,8 +6,8 @@
 提供预处理、推理、后处理等模块的配置参数。
 """
 
-# Copyright © 2026 云端辉鸿. All rights reserved.
-# Author: 桂禹 <guiyu@cloudhuihong.com>
+# Copyright © 2026. All rights reserved.
+# Author: 桂禹
 # AI Assistant: ClaudeCode (Claude Sonnet 4)
 
 from dataclasses import dataclass

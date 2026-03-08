@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢您对云端辉鸿轮胎AI模式识别项目的关注！
+感谢您对轮胎AI模式识别项目的关注！
 
 ## 贡献方式
 
@@ -153,10 +153,9 @@ A: 通过 GitHub Issues 提问或联系项目维护者。
 
 ## 技术支持
 
-- **项目维护者**：桂禹 <guiyu@cloudhuihong.com>
+- **项目维护者**：桂禹
 - **GitHub Issues**：https://github.com/your-org/giti-tire-ai-pattern/issues
 
 ---
 
 **最后更新**：2026-03-08
-**维护团队**：云端辉鸿技术团队

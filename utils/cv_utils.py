@@ -6,6 +6,6 @@
 提供基础图像操作封装，包括缩放、裁剪、颜色转换等。
 """
 
-# Copyright © 2026 云端辉鸿. All rights reserved.
-# Author: 桂禹 <guiyu@cloudhuihong.com>
+# Copyright © 2026. All rights reserved.
+# Author: 桂禹
 # AI Assistant: ClaudeCode (Claude Sonnet 4)
