@@ -63,17 +63,19 @@ giti-tire-ai-pattern/
 │   ├── base_config.py      # 基础配置
 │   ├── rules_config.py     # 规则配置
 │   └── postprocessor_config.py  # 后处理配置
-├── services/               # 核心服务模块
-│   ├── preprocessor.py     # 预处理模块
-│   ├── inference.py        # 推理模块
-│   ├── postprocessor.py    # 后处理模块
-│   ├── scorer.py           # 评分模块
-│   ├── analyzers/          # 分析器模块
+├── services/               # 核心服务模块（服务层）
+│   ├── preprocessor.py     # 预处理服务
+│   ├── inference.py        # 推理服务
+│   ├── postprocessor.py    # 后处理服务
+│   ├── analyzers.py        # 分析器服务
+│   └── scorer.py           # 评分服务
+├── algorithms/             # 算法实现层
+│   ├── detection/          # 检测算法
 │   │   ├── __init__.py
-│   │   └── detect_pattern_continuity.py  # 连续性检测
-│   └── postprocessor/      # 后处理子模块
+│   │   └── pattern_continuity.py  # 连续性检测算法
+│   └── stitching/          # 拼接算法
 │       ├── __init__.py
-│       └── vertical_stitch_module.py    # 纵图拼接
+│       └── vertical_stitch.py     # 纵图拼接算法
 ├── utils/                  # 工具模块
 │   ├── logger.py          # 日志系统
 │   ├── exceptions.py      # 异常处理
@@ -92,6 +94,19 @@ giti-tire-ai-pattern/
 ├── requirements.txt        # 依赖列表
 └── README.md              # 项目说明
 ```
+
+### 架构分层
+
+项目采用分层架构设计：
+
+- **服务层** (`services/`): 对外提供的服务接口，负责业务流程编排
+- **算法层** (`algorithms/`): 核心算法实现，按功能语义分组
+  - `detection/`: 检测类算法（如连续性检测）
+  - `stitching/`: 拼接类算法（如纵图拼接）
+- **工具层** (`utils/`): 通用工具函数
+- **配置层** (`configs/`): 配置管理
+
+**注意**: 用户代码应通过服务层接口调用，算法层为内部实现。
 
 ## 使用指南
 
@@ -178,7 +193,7 @@ print(f"详细信息: {details}")
 pytest tests/ -v
 
 # 运行特定测试
-pytest tests/unittests/services/analyzers/test_detect_pattern_continuity.py -v
+pytest tests/unittests/algorithms/detection/test_pattern_continuity.py -v
 
 # 生成覆盖率报告
 pytest tests/ --cov=services --cov=utils --cov-report=html

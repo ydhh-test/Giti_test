@@ -369,7 +369,7 @@ class TestPatternContinuity(unittest.TestCase):
         image = self._create_test_image_continuous()
 
         # 导入函数
-        from services.analyzers.detect_pattern_continuity import detect_pattern_continuity
+        from algorithms.detection.pattern_continuity import detect_pattern_continuity
 
         # 方法A
         score_a, details_a = detect_pattern_continuity(image, conf, method='A', visualize=False)
@@ -388,7 +388,7 @@ class TestPatternContinuity(unittest.TestCase):
         conf = self._get_default_conf()
         image = self._create_test_image_continuous()
 
-        from services.analyzers.detect_pattern_continuity import detect_pattern_continuity
+        from algorithms.detection.pattern_continuity import detect_pattern_continuity
         score, details = detect_pattern_continuity(image, conf, method='A')
 
         self.assertEqual(score, 10)
@@ -403,7 +403,7 @@ class TestPatternContinuity(unittest.TestCase):
         conf = self._get_default_conf()
         image = self._create_test_image_discontinuous()
 
-        from services.analyzers.detect_pattern_continuity import detect_pattern_continuity
+        from algorithms.detection.pattern_continuity import detect_pattern_continuity
         score, details = detect_pattern_continuity(image, conf, method='A')
 
         self.assertEqual(score, 0)
@@ -417,7 +417,7 @@ class TestPatternContinuity(unittest.TestCase):
         conf = self._get_default_conf()
         image = self._create_test_image_one_to_many()
 
-        from services.analyzers.detect_pattern_continuity import detect_pattern_continuity
+        from algorithms.detection.pattern_continuity import detect_pattern_continuity
         score, details = detect_pattern_continuity(image, conf, method='A')
 
         self.assertEqual(score, 10)
@@ -432,7 +432,7 @@ class TestPatternContinuity(unittest.TestCase):
         conf = self._get_default_conf()
         image = self._create_test_image_empty()
 
-        from services.analyzers.detect_pattern_continuity import detect_pattern_continuity
+        from algorithms.detection.pattern_continuity import detect_pattern_continuity
         score, details = detect_pattern_continuity(image, conf, method='A')
 
         self.assertEqual(score, 10)
@@ -446,7 +446,7 @@ class TestPatternContinuity(unittest.TestCase):
         conf = self._get_default_conf()
         image = self._create_test_image_continuous()
 
-        from services.analyzers.detect_pattern_continuity import detect_pattern_continuity
+        from algorithms.detection.pattern_continuity import detect_pattern_continuity
         score, details = detect_pattern_continuity(image, conf, method='A', visualize=True)
 
         # 检查可视化图像是否生成

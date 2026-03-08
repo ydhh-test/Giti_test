@@ -117,7 +117,7 @@ def function_name(param1: str, param2: int) -> bool:
 pytest tests/ -v
 
 # 运行特定测试
-pytest tests/unittests/services/test_analyzers.py -v
+pytest tests/unittests/algorithms/detection/test_pattern_continuity.py -v
 ```
 
 ## Pull Request 流程

@@ -10,7 +10,7 @@
 
 import unittest
 from pathlib import Path
-from services.postprocessor.vertical_stitch_module import VerticalStitch
+from algorithms.stitching.vertical_stitch import VerticalStitch
 
 
 class TestVerticalStitch(unittest.TestCase):

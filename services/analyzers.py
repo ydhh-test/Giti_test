@@ -10,7 +10,7 @@
 # Author: 桂禹
 # AI Assistant: ClaudeCode (Claude Sonnet 4)
 
-from services.analyzers.detect_pattern_continuity import detect_pattern_continuity as detect_pattern_continuity_impl
+from algorithms.detection.pattern_continuity import detect_pattern_continuity as detect_pattern_continuity_impl
 
 def detect_pattern_continuity(image, conf, *args, **kwargs):
     """

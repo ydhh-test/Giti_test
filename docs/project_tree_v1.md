@@ -12,6 +12,11 @@ giti-tire-ai-pattern/
 │   ├── postprocessor.py          # 后处理（后处理主流程）（拼RIB、对称性实现）
 │   ├── analyzers.py              # 几何合理性分析（周期检测、海陆比）
 │   └── scorer.py                 # 评分系统（业务/美感评分）
+├── algorithms/                   # 算法实现层
+│   ├── detection/                # 检测算法
+│   │   └── pattern_continuity.py
+│   └── stitching/                # 拼接算法
+│       └── vertical_stitch.py
 ├── utils/                        # 公共函数库：与业务无关的基础功能
 │   ├── __init__.py
 │   ├── io_utils.py               # 文件读写、文件夹遍历
