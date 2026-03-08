@@ -94,8 +94,7 @@ giti-tire-ai-pattern/
 │       └── services/      # 服务测试
 ├── docs/                   # 文档
 │   ├── before_jobs/       # 前期工作文档
-│   ├── development/       # 开发文档
-│   └── project_tree_v1.md # 项目结构文档
+│   └── development/       # 开发文档
 ├── plans/                  # 计划文档
 │   ├── executing/         # 执行中的计划
 │   └── writing/           # 编写中的计划
