@@ -17,6 +17,16 @@ from pathlib import Path
 from typing import Tuple, Dict, Any, List, Optional
 
 from configs.rules_config import PatternContinuityConfig
+from utils.logger import get_logger
+from utils.exceptions import (
+    PatternDetectionError,
+    ContinuityAnalysisError,
+    ImageDimensionError,
+    ImageSaveError
+)
+
+# 创建模块级日志记录器
+logger = get_logger("detect_pattern_continuity")
 
 
 def detect_pattern_continuity(
@@ -54,69 +64,115 @@ def detect_pattern_continuity(
     }
 
     注意：当visualize=True时，需要提供task_id、image_type和image_id参数来保存可视化图片。
+
+    Raises:
+        PatternDetectionError: 当图案检测失败时
+        ImageDimensionError: 当图像尺寸不符合要求时
     """
-    # 创建配置对象
-    config = PatternContinuityConfig.from_dict(conf)
+    try:
+        logger.debug("开始图案连续性检测")
 
-    # 获取额外参数
-    method = kwargs.get('method', 'B')
-    visualize = kwargs.get('visualize', True)
-    task_id = kwargs.get('task_id')
-    image_type = kwargs.get('image_type', 'center_inf')
-    image_id = kwargs.get('image_id', '0')
+        # 验证图像
+        if image is None:
+            raise PatternDetectionError("图像数据为None")
 
-    # 提取边缘端点
-    if method.upper() == 'A':
-        top_ends, bottom_ends = _detect_with_method_a(image, config)
-    elif method.upper() == 'B':
-        top_ends, bottom_ends = _detect_with_method_b(image, config)
-    else:
-        raise ValueError(f"Unknown method: {method}. Use 'A' or 'B'")
+        if len(image.shape) != 2:
+            raise ImageDimensionError("2D", image.shape[:2], "输入图像")
 
-    # 匹配端点
-    matches, unmatched_top, unmatched_bottom = _match_ends(top_ends, bottom_ends, config)
+        # 创建配置对象
+        config = PatternContinuityConfig.from_dict(conf)
+        logger.debug(f"配置加载完成，方法: {kwargs.get('method', 'B')}")
 
-    # 判定连续性
-    is_continuous = len(unmatched_bottom) == 0
+        # 获取额外参数
+        method = kwargs.get('method', 'B')
+        visualize = kwargs.get('visualize', True)
+        task_id = kwargs.get('task_id')
+        image_type = kwargs.get('image_type', 'center_inf')
+        image_id = kwargs.get('image_id', '0')
 
-    # 计算评分
-    score = config.score if is_continuous else 0
+        # 提取边缘端点
+        try:
+            if method.upper() == 'A':
+                logger.debug("使用方法A（纯像素操作）检测边缘")
+                top_ends, bottom_ends = _detect_with_method_a(image, config)
+            elif method.upper() == 'B':
+                logger.debug("使用方法B（OpenCV轮廓检测）检测边缘")
+                top_ends, bottom_ends = _detect_with_method_b(image, config)
+            else:
+                raise PatternDetectionError(f"未知检测方法: {method}，请使用'A'或'B'")
 
-    # 构建详细信息
-    details = {
-        'is_continuous': is_continuous,
-        'top_ends': top_ends,
-        'bottom_ends': bottom_ends,
-        'matches': matches,
-        'unmatched_top': unmatched_top,
-        'unmatched_bottom': unmatched_bottom,
-        'visualization': None
-    }
+            logger.debug(f"边缘端点提取完成: 上边缘{len(top_ends)}个，下边缘{len(bottom_ends)}个")
 
-    # 可视化
-    if visualize:
-        vis_image = _visualize_detection(
-            image, top_ends, bottom_ends, matches,
-            unmatched_top, unmatched_bottom, config
-        )
+        except Exception as e:
+            raise PatternDetectionError(f"边缘端点提取失败: {str(e)}")
 
-        # 保存可视化图片
-        if task_id is not None:
-            # 构造保存路径: tests/datasets/task_id_<task_id>/detect_pattern_continuity/<image_type>/<image_id>.png
-            save_dir = Path(f"tests/datasets/{task_id}/detect_pattern_continuity/{image_type}")
-            save_dir.mkdir(parents=True, exist_ok=True)
-            save_path = save_dir / f"{image_id}.png"
+        # 匹配端点
+        try:
+            matches, unmatched_top, unmatched_bottom = _match_ends(top_ends, bottom_ends, config)
+            logger.debug(
+                f"端点匹配完成: 匹配{len(matches)}对, "
+                f"上边缘未匹配{len(unmatched_top)}个, 下边缘未匹配{len(unmatched_bottom)}个"
+            )
+        except Exception as e:
+            raise ContinuityAnalysisError(f"端点匹配失败: {str(e)}")
 
-            # 保存图片
-            cv2.imwrite(str(save_path), vis_image)
-            details['visualization'] = str(save_path)
+        # 判定连续性
+        is_continuous = len(unmatched_bottom) == 0
+        logger.info(f"连续性判定结果: {'连续' if is_continuous else '不连续'}")
+
+        # 计算评分
+        score = config.score if is_continuous else 0
+        logger.info(f"评分: {score}")
+
+        # 构建详细信息
+        details = {
+            'is_continuous': is_continuous,
+            'top_ends': top_ends,
+            'bottom_ends': bottom_ends,
+            'matches': matches,
+            'unmatched_top': unmatched_top,
+            'unmatched_bottom': unmatched_bottom,
+            'visualization': None
+        }
+
+        # 可视化
+        if visualize:
+            try:
+                vis_image = _visualize_detection(
+                    image, top_ends, bottom_ends, matches,
+                    unmatched_top, unmatched_bottom, config
+                )
+
+                # 保存可视化图片
+                if task_id is not None:
+                    # 构造保存路径: tests/datasets/task_id_<task_id>/detect_pattern_continuity/<image_type>/<image_id>.png
+                    save_dir = Path(f"tests/datasets/{task_id}/detect_pattern_continuity/{image_type}")
+                    save_dir.mkdir(parents=True, exist_ok=True)
+                    save_path = save_dir / f"{image_id}.png"
+
+                    # 保存图片
+                    cv2.imwrite(str(save_path), vis_image)
+                    details['visualization'] = str(save_path)
+                    logger.debug(f"可视化图片已保存: {save_path}")
+                else:
+                    # 如果没有提供task_id，返回numpy数组（兼容旧版本）
+                    details['visualization'] = vis_image
+                    logger.debug("返回numpy数组的可视化结果")
+            except Exception as e:
+                logger.warning(f"可视化处理失败: {str(e)}，继续返回结果")
+                details['visualization'] = None
         else:
-            # 如果没有提供task_id，返回numpy数组（兼容旧版本）
-            details['visualization'] = vis_image
-    else:
-        details['visualization'] = None
+            details['visualization'] = None
 
-    return score, details
+        return score, details
+
+    except (PatternDetectionError, ImageDimensionError, ContinuityAnalysisError):
+        # 重新抛出我们的自定义异常
+        raise
+    except Exception as e:
+        # 捕获其他异常并转换为PatternDetectionError
+        logger.error(f"图案连续性检测时发生未知错误: {str(e)}")
+        raise PatternDetectionError(f"未知错误: {str(e)}")
 
 
 def get_adaptive_threshold(image: np.ndarray, config: PatternContinuityConfig) -> int:
@@ -129,16 +185,26 @@ def get_adaptive_threshold(image: np.ndarray, config: PatternContinuityConfig) -
 
     Returns:
     - threshold: 计算得到的阈值
+
+    Raises:
+        PatternDetectionError: 当阈值计算失败时
     """
-    if config.adaptive_method == 'otsu':
-        # 使用Otsu算法
-        threshold, _ = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        return int(threshold)
-    elif config.adaptive_method == 'adaptive':
-        # 使用中位数或平均值
-        return int(np.median(image))
-    else:
-        raise ValueError(f"Unknown adaptive_method: {config.adaptive_method}")
+    try:
+        if config.adaptive_method == 'otsu':
+            # 使用Otsu算法
+            threshold, _ = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            logger.debug(f"Otsu阈值: {threshold}")
+            return int(threshold)
+        elif config.adaptive_method == 'adaptive':
+            # 使用中位数或平均值
+            threshold = int(np.median(image))
+            logger.debug(f"自适应阈值(中位数): {threshold}")
+            return threshold
+        else:
+            raise PatternDetectionError(f"未知的自适应阈值方法: {config.adaptive_method}")
+
+    except Exception as e:
+        raise PatternDetectionError(f"自适应阈值计算失败: {str(e)}")
 
 
 def _detect_with_method_a(
@@ -155,22 +221,40 @@ def _detect_with_method_a(
     Returns:
     - top_ends: 上边缘端点列表 [(min_x, max_x, type), ...]
     - bottom_ends: 下边缘端点列表 [(min_x, max_x, type), ...]
+
+    Raises:
+        ImageDimensionError: 当图像高度不符合要求时
     """
-    # 计算阈值
-    if config.use_adaptive_threshold:
-        threshold = get_adaptive_threshold(image, config)
-    else:
-        threshold = config.threshold
+    try:
+        # 验证图像高度
+        if image.shape[0] < 2 * config.edge_height:
+            raise ImageDimensionError(
+                f"Height >= {2 * config.edge_height}",
+                image.shape[:2],
+                "方法A边缘检测"
+            )
 
-    # 提取上边缘端点
-    top_region = image[0:config.edge_height, :]
-    top_ends = _extract_ends_from_region(top_region, threshold, config, is_top=True)
+        # 计算阈值
+        if config.use_adaptive_threshold:
+            threshold = get_adaptive_threshold(image, config)
+        else:
+            threshold = config.threshold
+            logger.debug(f"使用固定阈值: {threshold}")
 
-    # 提取下边缘端点
-    bottom_region = image[-config.edge_height:, :]
-    bottom_ends = _extract_ends_from_region(bottom_region, threshold, config, is_top=False)
+        # 提取上边缘端点
+        top_region = image[0:config.edge_height, :]
+        top_ends = _extract_ends_from_region(top_region, threshold, config, is_top=True)
 
-    return top_ends, bottom_ends
+        # 提取下边缘端点
+        bottom_region = image[-config.edge_height:, :]
+        bottom_ends = _extract_ends_from_region(bottom_region, threshold, config, is_top=False)
+
+        return top_ends, bottom_ends
+
+    except ImageDimensionError:
+        raise
+    except Exception as e:
+        raise PatternDetectionError(f"方法A检测失败: {str(e)}")
 
 
 def _extract_ends_from_region(
@@ -245,25 +329,47 @@ def _detect_with_method_b(
     Returns:
     - top_ends: 上边缘端点列表 [(min_x, max_x, type), ...]
     - bottom_ends: 下边缘端点列表 [(min_x, max_x, type), ...]
+
+    Raises:
+        ImageDimensionError: 当图像高度不符合要求时
+        PatternDetectionError: 当轮廓检测失败时
     """
-    # 计算阈值
-    if config.use_adaptive_threshold:
-        threshold = get_adaptive_threshold(image, config)
-    else:
-        threshold = config.threshold
+    try:
+        # 验证图像高度
+        if image.shape[0] < 2 * config.edge_height:
+            raise ImageDimensionError(
+                f"Height >= {2 * config.edge_height}",
+                image.shape[:2],
+                "方法B边缘检测"
+            )
 
-    # 二值化
-    _, binary = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY_INV)
+        # 计算阈值
+        if config.use_adaptive_threshold:
+            threshold = get_adaptive_threshold(image, config)
+        else:
+            threshold = config.threshold
+            logger.debug(f"使用固定阈值: {threshold}")
 
-    # 提取上边缘端点
-    top_region = binary[0:config.edge_height, :]
-    top_ends = _extract_ends_from_contours(top_region, config)
+        # 二值化
+        try:
+            _, binary = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY_INV)
+        except Exception as e:
+            raise PatternDetectionError(f"二值化失败: {str(e)}")
 
-    # 提取下边缘端点
-    bottom_region = binary[-config.edge_height:, :]
-    bottom_ends = _extract_ends_from_contours(bottom_region, config)
+        # 提取上边缘端点
+        top_region = binary[0:config.edge_height, :]
+        top_ends = _extract_ends_from_contours(top_region, config)
 
-    return top_ends, bottom_ends
+        # 提取下边缘端点
+        bottom_region = binary[-config.edge_height:, :]
+        bottom_ends = _extract_ends_from_contours(bottom_region, config)
+
+        return top_ends, bottom_ends
+
+    except (ImageDimensionError, PatternDetectionError):
+        raise
+    except Exception as e:
+        raise PatternDetectionError(f"方法B检测失败: {str(e)}")
 
 
 def _extract_ends_from_contours(
