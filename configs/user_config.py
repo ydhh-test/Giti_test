@@ -6,10 +6,6 @@
 提供用户自定义的配置参数，包括可视化、调试、输出等选项。
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
-
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
 from pathlib import Path

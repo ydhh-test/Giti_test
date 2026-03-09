@@ -348,10 +348,6 @@ A: 最低配置：4核CPU，8GB内存。推荐配置：8核CPU，16GB内存，GP
 - **测试框架**：Pytest
 - **版本控制**：Git
 
-## 联系方式
-
-- **项目维护者**：桂禹
-- **AI助手**：ClaudeCode (Claude Sonnet 4)
 
 ## 许可证
 

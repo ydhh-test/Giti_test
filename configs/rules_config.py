@@ -6,10 +6,6 @@
 提供规则相关的配置参数。
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
-
 from dataclasses import dataclass, field
 from typing import Dict, Any, List
 

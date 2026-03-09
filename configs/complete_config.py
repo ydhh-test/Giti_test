@@ -6,10 +6,6 @@
 提供完整的配置系统，整合所有配置模块。
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
-
 from dataclasses import dataclass, asdict
 from typing import Dict, Any, List
 from pathlib import Path

@@ -7,10 +7,6 @@
 - 图片纵向拼接
 - 分辨率调整
 - 批量处理
-
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
 """
 
 from pathlib import Path
