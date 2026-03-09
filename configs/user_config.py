@@ -77,6 +77,23 @@ class UserConfig:
     # 处理超时时间（秒），0表示无超时
     timeout_seconds: int = 0
 
+    # ========== 轮胎尺寸参数 ==========
+    # 花纹有效宽度（像素）
+    tire_design_width: int = 700
+
+    # 轮胎总宽度（像素）
+    tire_total_width: int = 1200
+
+    # ========== 装饰边框参数 ==========
+    # 灰色透明度（0~1）
+    decoration_border_alpha: float = 0.5
+
+    # 装饰风格：'simple', 'gradient', 'pattern'等
+    decoration_style: str = 'simple'
+
+    # 灰色RGB值
+    decoration_gray_color: tuple[int, int, int] = (135, 135, 135)
+
     @classmethod
     def from_dict(cls, conf: Dict[str, Any]) -> 'UserConfig':
         """
@@ -116,6 +133,11 @@ class UserConfig:
             'enable_profiling': self.enable_profiling,
             'save_config_snapshot': self.save_config_snapshot,
             'timeout_seconds': self.timeout_seconds,
+            'tire_design_width': self.tire_design_width,
+            'tire_total_width': self.tire_total_width,
+            'decoration_border_alpha': self.decoration_border_alpha,
+            'decoration_style': self.decoration_style,
+            'decoration_gray_color': self.decoration_gray_color,
         }
 
     def get_output_directory(self, base_output_dir: Path) -> Path:
