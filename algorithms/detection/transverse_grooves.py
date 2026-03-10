@@ -128,34 +128,24 @@ def detect_transverse_grooves(
         logger.debug("rib_type=%s, groove_px=%d (%.1fmm @ %.1fpx/mm)",
                      rib_type, groove_px, min_w_mm, pixel_per_mm)
 
+
         # ── Step 1: 灰度转换 + 高斯模糊降噪 ─────────────────────────
         gray    = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gray, (3, 3), 0)
 
         # ── Step 2: 自适应二值化（暗色沟槽 → 白色前景）──────────────
+        # blockSize=31 提供更大的局部对比度窗口，更适合轮胎纹路图像
         binary = cv2.adaptiveThreshold(
             blurred, 255,
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
             cv2.THRESH_BINARY_INV,
-            blockSize=15, C=5,
+            blockSize=31, C=5,
         )
 
-        # ── Step 3: 水平形态学开运算提取横向带状区域 ─────────────────
-        # X 方向宽度：强制水平延伸；最少 3× groove_px，上限图像宽度的 2/3
-        horiz_px = min(img_w * 2 // 3, max(groove_px * 3, 24))
-        # Y 方向高度：groove_px 确保只保留厚度 ≥ 横沟最小宽度的区域
-        se = cv2.getStructuringElement(cv2.MORPH_RECT, (horiz_px, groove_px))
-        groove_mask = cv2.morphologyEx(binary, cv2.MORPH_OPEN, se)
-
-        # 轻微垂直膨胀，将同一横沟的相邻行合并为完整连通域
-        groove_mask = cv2.dilate(
-            groove_mask,
-            cv2.getStructuringElement(cv2.MORPH_RECT, (1, 3)),
-        )
-
-        # ── Step 4: 连通域分析统计横沟数量与位置 ─────────────────────
-        groove_positions, groove_count = _analyze_grooves(
-            groove_mask, groove_px, img_w
+        # ── Step 3: 水平投影分析识别横沟带状区域 ─────────────────
+        # 逐行统计前景像素密度，对倾斜横沟比形态学开运算更鲁棒
+        groove_positions, groove_count, groove_mask = _analyze_grooves(
+            binary, groove_px, img_w
         )
         logger.debug("横沟数量=%d, 位置=%s", groove_count, groove_positions)
 
@@ -202,33 +192,60 @@ def detect_transverse_grooves(
 # ============================================================
 
 def _analyze_grooves(
-    groove_mask: np.ndarray,
+    binary: np.ndarray,
     groove_px: int,
     img_w: int,
-) -> Tuple[List[float], int]:
+) -> Tuple[List[float], int, np.ndarray]:
     """
-    对横沟掩码做连通域分析，过滤掉宽高比不合理的噪声，
-    返回各横沟的中心 Y 坐标列表（升序）和数量。
+    通过水平投影识别横向带状区域（横沟）。
 
-    条件：
-    - 连通域宽度 > 高度（横向延伸）
-    - 面积 ≥ groove_px × img_w // 4（排除极小噪声）
+    逐行统计前景像素密度，将连续的高密度行段聚合为一条横沟。
+    对倾斜横沟比形态学开运算更鲁棒：
+    不要求前景像素形成实心矩形块。
+
+    Parameters
+    ----------
+    binary : np.ndarray
+        自适应二值化图像（暗色沟槽 = 白色前景）。
+    groove_px : int
+        横沟最小宽度（像素）。
+    img_w : int
+        图像宽度（像素）。
+
+    Returns
+    -------
+    (positions, count, groove_mask)
+        positions   : list[float]   各横沟中心 Y 坐标（升序）
+        count       : int            横沟数量
+        groove_mask : np.ndarray    横沟区域掌码
     """
-    num_labels, _, stats, centroids = cv2.connectedComponentsWithStats(
-        groove_mask, connectivity=8
-    )
-    min_area = groove_px * (img_w // 4)
-    positions: List[float] = []
+    # 逐行统计前景像素数
+    row_sums = (binary > 0).sum(axis=1)
+    # 每行至少需占图像宽度 1/4 的前景像素才算可能的横沟行
+    min_px_per_row = max(groove_px, img_w // 4)
 
-    for i in range(1, num_labels):   # 0 为背景
-        w    = stats[i, cv2.CC_STAT_WIDTH]
-        h    = stats[i, cv2.CC_STAT_HEIGHT]
-        area = stats[i, cv2.CC_STAT_AREA]
-        if w > h and area >= min_area:
-            positions.append(float(centroids[i][1]))   # Y 坐标
+    hot = np.where(row_sums >= min_px_per_row)[0]
 
-    positions.sort()
-    return positions, len(positions)
+    # 合并连续行（允许最多 3 行空白，应对斜向横沟像素的锗齿跳变）
+    groups: List[List[int]] = []
+    for r in hot.tolist():
+        if groups and r - groups[-1][-1] <= 3:
+            groups[-1].append(r)
+        else:
+            groups.append([r])
+
+    # 按最小纵向厚度过滤（≥ groove_px / 5，最低 3px）
+    min_height = max(3, groove_px // 5)
+    valid_groups = [g for g in groups if len(g) >= min_height]
+
+    # 重建 groove_mask（采用各横沟所在行的原始二值像素）
+    groove_mask = np.zeros_like(binary)
+    for g in valid_groups:
+        r_start, r_end = min(g), max(g) + 1
+        groove_mask[r_start:r_end, :] = binary[r_start:r_end, :]
+
+    positions = sorted(float(np.mean(g)) for g in valid_groups)
+    return positions, len(positions), groove_mask
 
 
 def _skeletonize(binary: np.ndarray) -> np.ndarray:
@@ -268,51 +285,103 @@ def _count_intersections(
     groove_mask: np.ndarray,
 ) -> int:
     """
-    统计横沟与纵向线条的交叉点数量。
+    统计横沟与纵向线条（细纵沟/钢片）的交叉点数量。
 
-    流程：
-    1. 对完整二值图做骨架化提取，获取单像素宽的线条网络。
-    2. 用 8 邻域计数核统计每个骨架像素的邻居数。
-    3. 邻居数 ≥ 3 的骨架像素为分叉点（T/Y/X 型交叉）。
-    4. 将分叉点限制在横沟区域（含少量向外膨胀以容忍骨架偏移）。
-    5. 对邻近分叉点团块做膨胀合并，再用连通域计数得到交叉点个数。
+    方法：
+    1. 在横沟行以外，用垂直投影找到各纵向线的 X 坐标聚簇。
+    2. 在横沟行内，对每个纵向线 X 范围，检查是否存在前景像素。
+       存在即为一次"穿过"，计入交叉点。
+    3. 遍历每条横沟的行范围 × 每个纵向线 X 聚簇 = 交叉点总数。
 
     Parameters
     ----------
     binary : np.ndarray
         全特征二值图（暗色沟槽 = 白色前景）。
     groove_mask : np.ndarray
-        横沟掩码。
+        横沟掩码（_analyze_grooves 输出）。
 
     Returns
     -------
     int
         交叉点数量。
     """
-    skeleton = _skeletonize(binary)
-    skel_u8  = (skeleton > 0).astype(np.uint8)
+    img_h, img_w = binary.shape
 
-    # 8 邻域邻居计数（不含自身）
-    nbr_kernel   = np.ones((3, 3), dtype=np.float32)
-    nbr_kernel[1, 1] = 0.0
-    nbr_count    = cv2.filter2D(skel_u8.astype(np.float32), -1, nbr_kernel)
+    # ── Step A：在横沟行以外找纵向线的 X 聚簇 ───────────────────
+    # 横沟行：groove_mask 中有前景的行
+    gm_row_active = groove_mask.sum(axis=1) > 0    # bool array, shape (H,)
+    outside_rows  = binary[~gm_row_active, :]       # 横沟以外的行
 
-    # 分叉点：骨架像素 且 8 邻域中骨架数 ≥ 3
-    junction_map = (skel_u8 > 0) & (nbr_count >= 3)
-
-    # 限定在横沟区域内（稍微膨胀以容忍骨架单像素偏移）
-    groove_region = cv2.dilate(groove_mask, np.ones((7, 7), np.uint8)) > 0
-    in_groove     = junction_map & groove_region
-
-    if not np.any(in_groove):
+    if outside_rows.shape[0] == 0:
         return 0
 
-    # 膨胀合并相邻分叉点 → 每个真实交叉点对应一个连通域
-    junc_u8   = (in_groove * 255).astype(np.uint8)
-    junc_u8   = cv2.dilate(junc_u8, np.ones((5, 5), np.uint8))
-    n_labels, _ = cv2.connectedComponents(junc_u8, connectivity=8)
+    # 屏蔽最右边界列（裁剪伪影），保留最左列（可能是真实纵向线）
+    outside_rows = outside_rows.copy()
+    outside_rows[:, img_w - 1] = 0
 
-    return max(0, n_labels - 1)   # 减去背景标签
+    col_sums = (outside_rows > 0).sum(axis=0).astype(np.float32)   # shape (W,)
+
+    # 列密度阈值：取横沟外行数的 5%（至少 2px），识别有明显信号的列
+    min_col_px = max(2, outside_rows.shape[0] * 5 // 100)
+    hot_cols = np.where(col_sums >= min_col_px)[0]
+
+    if len(hot_cols) == 0:
+        return 0
+
+    # 将相邻的热列合并为纵向线 X 聚簇（允许 5px 间隔）
+    vert_clusters: List[Tuple[int, int]] = []    # (x_start, x_end)
+    cluster_start = int(hot_cols[0])
+    cluster_end   = int(hot_cols[0])
+    for c in hot_cols[1:]:
+        c = int(c)
+        if c - cluster_end <= 5:
+            cluster_end = c
+        else:
+            vert_clusters.append((cluster_start, cluster_end))
+            cluster_start = c
+            cluster_end   = c
+    vert_clusters.append((cluster_start, cluster_end))
+
+    # 排除触及图像左右边缘的聚簇（边缘列 = 裁剪伪影，非真实纵向线）
+    # xs==0 → 聚簇紧贴左边缘；xe==img_w-1 → 聚簇紧贴右边缘
+    vert_clusters = [
+        (xs, xe) for xs, xe in vert_clusters
+        if xs > 0 and xe < img_w - 1
+    ]
+
+    if not vert_clusters:
+        return 0
+
+    # ── Step B：识别每条横沟的行范围 ────────────────────────────
+    # 从 groove_mask 中按连续行段提取
+    groove_row_idx = np.where(gm_row_active)[0]
+    if len(groove_row_idx) == 0:
+        return 0
+
+    groove_row_groups: List[Tuple[int, int]] = []
+    g_start = int(groove_row_idx[0])
+    g_end   = int(groove_row_idx[0])
+    for r in groove_row_idx[1:]:
+        r = int(r)
+        if r - g_end <= 2:
+            g_end = r
+        else:
+            groove_row_groups.append((g_start, g_end))
+            g_start = r
+            g_end   = r
+    groove_row_groups.append((g_start, g_end))
+
+    # ── Step C：统计纵向线 × 横沟行范围的交叉数 ─────────────────
+    intersections = 0
+    for g_r0, g_r1 in groove_row_groups:
+        groove_rows_bin = binary[g_r0:g_r1 + 1, :]
+        for xs, xe in vert_clusters:
+            # 检查纵向线 X 范围在该横沟行段内是否有前景像素
+            region = groove_rows_bin[:, xs:xe + 1]
+            if (region > 0).any():
+                intersections += 1
+
+    return intersections
 
 
 def _compute_scores(
