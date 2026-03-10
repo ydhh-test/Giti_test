@@ -3,12 +3,19 @@
 包含RIB拼接、对称模式等配置
 """
 
-# 直接使用 Python 字典定义配置
+from pathlib import Path
+
+# 项目根目录（configs 的上一级）
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# 直接使用 Python 字典定义配置（路径相对项目根，便于任意目录克隆后使用）
+# 测试数据目录: tests/datasets/split/center 和 tests/datasets/split/side-de-gray
+# 运行输出目录: .results/data/whole_img
 CONFIG = {
     "paths": {
-        "center_dir": r"D:\云端辉宏\佳通轮胎\后处理\giti-tire-ai-pattern\.results\split\center",
-        "side_dir": r"D:\云端辉宏\佳通轮胎\后处理\giti-tire-ai-pattern\.results\split\side-de-gray",
-        "output_dir": r"D:\云端辉宏\佳通轮胎\后处理\giti-tire-ai-pattern\.results\data\whole_img"
+        "center_dir": str(_PROJECT_ROOT / "tests" / "datasets" / "split" / "center"),
+        "side_dir": str(_PROJECT_ROOT / "tests" / "datasets" / "split" / "side-de-gray"),
+        "output_dir": str(_PROJECT_ROOT / ".results" / "data" / "whole_img")
     },
     "rib": {"count": 5},
     "image_limits": {},
