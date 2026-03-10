@@ -1,10 +1,9 @@
 import sys
-import os
 import unittest
 from pathlib import Path
 
 # 添加项目根目录到Python路径
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from services.analyzers import detect_pattern_continuity
 from utils.io_utils import load_image, ImageType
@@ -57,8 +56,9 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'matches' in details
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
-        # 验证可视化保存路径
-        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/center_mid_results/detect_pattern_continuity_2.png'
+        # 验证可视化保存路径（使用as_posix()确保跨平台兼容）
+        expected_path = Path('.results').joinpath('task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed', 'center_mid_results', 'detect_pattern_continuity_2.png')
+        assert details['visualization'] == expected_path.as_posix()
         # 花纹连续
         assert details['is_continuous'] == True
 
@@ -102,8 +102,9 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'matches' in details
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
-        # 验证可视化保存路径
-        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/side_mid_results/detect_pattern_continuity_0.png'
+        # 验证可视化保存路径（使用as_posix()确保跨平台兼容）
+        expected_path = Path('.results').joinpath('task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed', 'side_mid_results', 'detect_pattern_continuity_0.png')
+        assert details['visualization'] == expected_path.as_posix()
         # 花纹连续
         assert details['is_continuous'] == True
 
@@ -147,8 +148,9 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'matches' in details
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
-        # 验证可视化保存路径
-        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/center_mid_results/detect_pattern_continuity_0.png'
+        # 验证可视化保存路径（使用as_posix()确保跨平台兼容）
+        expected_path = Path('.results').joinpath('task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed', 'center_mid_results', 'detect_pattern_continuity_0.png')
+        assert details['visualization'] == expected_path.as_posix()
         # 花纹不连续
         assert details['is_continuous'] == False
 
@@ -192,7 +194,8 @@ class TestPatternContinuity(unittest.TestCase):
         assert 'matches' in details
         assert 'unmatched_top' in details
         assert 'unmatched_bottom' in details
-        # 验证可视化保存路径
-        assert details['visualization'] == '.results/task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed/center_mid_results/detect_pattern_continuity_1.png'
+        # 验证可视化保存路径（使用as_posix()确保跨平台兼容）
+        expected_path = Path('.results').joinpath('task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed', 'center_mid_results', 'detect_pattern_continuity_1.png')
+        assert details['visualization'] == expected_path.as_posix()
         # 花纹不连续
         assert details['is_continuous'] == False

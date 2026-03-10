@@ -32,8 +32,8 @@ class TestVerticalStitch(unittest.TestCase):
 
     def _setup_test_data(self):
         """复制测试数据到 .results 目录"""
-        source_dir = Path(self.source_base_path) / f"task_id_{self.source_task_id}"
-        target_dir = Path(self.base_path) / f"task_id_{self.task_id}"
+        source_dir = Path(self.source_base_path).joinpath(f"task_id_{self.source_task_id}")
+        target_dir = Path(self.base_path).joinpath(f"task_id_{self.task_id}")
 
         # 创建目标目录
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -94,7 +94,7 @@ class TestVerticalStitch(unittest.TestCase):
                         "不应该有失败的图片")
 
         # 验证输出目录存在
-        output_dir = Path(self.base_path) / f"task_id_{self.task_id}" / "center_combine"
+        output_dir = Path(self.base_path).joinpath(f"task_id_{self.task_id}", "center_combine")
         self.assertTrue(output_dir.exists(),
                        f"输出目录 {output_dir} 应该存在")
 
@@ -151,8 +151,8 @@ class TestVerticalStitch(unittest.TestCase):
             self.assertIn(filter_dir, details)
 
         # 验证输出目录
-        center_output = Path(self.base_path) / f"task_id_{self.task_id}" / "center_combine"
-        side_output = Path(self.base_path) / f"task_id_{self.task_id}" / "side_combine"
+        center_output = Path(self.base_path).joinpath(f"task_id_{self.task_id}", "center_combine")
+        side_output = Path(self.base_path).joinpath(f"task_id_{self.task_id}", "side_combine")
 
         self.assertTrue(center_output.exists(), "center_combine 目录应该存在")
         self.assertTrue(side_output.exists(), "side_combine 目录应该存在")
@@ -222,7 +222,7 @@ class TestVerticalStitch(unittest.TestCase):
         self.assertTrue(success, "处理应该成功")
 
         # 验证输出文件
-        output_dir = Path(self.base_path) / f"task_id_{self.task_id}" / "center_combine"
+        output_dir = Path(self.base_path).joinpath(f"task_id_{self.task_id}", "center_combine")
         self.assertTrue(output_dir.exists())
 
         for input_path in details["center_filter"]["success"]:

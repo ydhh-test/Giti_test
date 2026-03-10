@@ -44,8 +44,6 @@ def load_image(image_path, image_type_enum):
         ValueError: 当image_type_enum不支持时
     """
     try:
-        logger.debug(f"开始加载图片: {image_path}")
-
         # 检查图片类型是否支持
         if image_type_enum not in ImageType:
             raise ValueError(f"不支持的图片类型: {image_type_enum}. 当前支持的类型: {[t.value for t in ImageType]}")
@@ -63,17 +61,19 @@ def load_image(image_path, image_type_enum):
         else:
             raise TypeError(f"image_path参数类型错误，期望Path或str，实际得到: {type(image_path)}")
 
+        logger.debug(f"开始加载图片: {file_path.as_posix()}")
+
         # 检查文件是否存在
         if not file_path.exists():
-            raise ImageLoadError(str(file_path), "文件不存在")
+            raise ImageLoadError(file_path.as_posix(), "文件不存在")
 
         # 读取图片为灰度图
         image = cv2.imread(str(file_path), cv2.IMREAD_GRAYSCALE)
 
         if image is None:
-            raise ImageLoadError(str(file_path), "OpenCV读取失败")
+            raise ImageLoadError(file_path.as_posix(), "OpenCV读取失败")
 
-        logger.debug(f"成功加载图片: {file_path}, 尺寸: {image.shape}")
+        logger.debug(f"成功加载图片: {file_path.as_posix()}, 尺寸: {image.shape}")
         return image
 
     except ImageLoadError:
@@ -81,8 +81,9 @@ def load_image(image_path, image_type_enum):
         raise
     except Exception as e:
         # 捕获其他异常并转换为ImageLoadError
-        logger.error(f"加载图片时发生未知错误: {image_path}, 错误: {str(e)}")
-        raise ImageLoadError(str(image_path), f"未知错误: {str(e)}")
+        path_str = file_path.as_posix() if 'file_path' in locals() else str(image_path)
+        logger.error(f"加载图片时发生未知错误: {path_str}, 错误: {str(e)}")
+        raise ImageLoadError(path_str, f"未知错误: {str(e)}")
 
 
 def save_image(image, save_path, image_type_enum=ImageType.PNG):
@@ -99,8 +100,6 @@ def save_image(image, save_path, image_type_enum=ImageType.PNG):
         ValueError: 当image_type_enum不支持时
     """
     try:
-        logger.debug(f"开始保存图片: {save_path}")
-
         # 检查图片类型是否支持
         if image_type_enum not in ImageType:
             raise ValueError(f"不支持的图片类型: {image_type_enum}. 当前支持的类型: {[t.value for t in ImageType]}")
@@ -118,20 +117,22 @@ def save_image(image, save_path, image_type_enum=ImageType.PNG):
         else:
             raise TypeError(f"save_path参数类型错误，期望Path或str，实际得到: {type(save_path)}")
 
+        logger.debug(f"开始保存图片: {file_path.as_posix()}")
+
         # 确保父目录存在
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 检查图像数据是否有效
         if image is None:
-            raise ImageSaveError(str(file_path), "图像数据为None")
+            raise ImageSaveError(file_path.as_posix(), "图像数据为None")
 
         # 保存图片
         success = cv2.imwrite(str(file_path), image)
 
         if not success:
-            raise ImageSaveError(str(file_path), "OpenCV保存失败")
+            raise ImageSaveError(file_path.as_posix(), "OpenCV保存失败")
 
-        logger.debug(f"成功保存图片: {file_path}, 尺寸: {image.shape}")
+        logger.debug(f"成功保存图片: {file_path.as_posix()}, 尺寸: {image.shape}")
         return True
 
     except ImageSaveError:
@@ -139,5 +140,6 @@ def save_image(image, save_path, image_type_enum=ImageType.PNG):
         raise
     except Exception as e:
         # 捕获其他异常并转换为ImageSaveError
-        logger.error(f"保存图片时发生未知错误: {save_path}, 错误: {str(e)}")
-        raise ImageSaveError(str(save_path), f"未知错误: {str(e)}")
+        path_str = file_path.as_posix() if 'file_path' in locals() else str(save_path)
+        logger.error(f"保存图片时发生未知错误: {path_str}, 错误: {str(e)}")
+        raise ImageSaveError(path_str, f"未知错误: {str(e)}")

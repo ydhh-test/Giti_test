@@ -126,7 +126,7 @@ def _add_decoration_borders(task_id: str, conf: dict, merged_conf: dict) -> tupl
         return False, {"error": "tire_design_width not configured"}
 
     # 2. 确定输入输出路径
-    base_path = Path(f".results/{task_id}")
+    base_path = Path(".results") / task_id
     combine_dir = base_path / "combine"
     rst_dir = base_path / "rst"
     rst_dir.mkdir(parents=True, exist_ok=True)

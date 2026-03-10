@@ -7,7 +7,6 @@
 """
 
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -46,11 +45,12 @@ def setup_logger(
     # 文件处理器
     if log_file:
         # 确保日志目录存在
-        log_dir = os.path.dirname(log_file)
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
+        log_path = Path(log_file)
+        log_dir = log_path.parent
+        if log_dir != Path('.') and not log_dir.exists():
+            log_dir.mkdir(parents=True, exist_ok=True)
 
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler = logging.FileHandler(str(log_path), encoding='utf-8')
         file_handler.setLevel(getattr(logging, level.upper()))
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
