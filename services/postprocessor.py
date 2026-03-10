@@ -54,13 +54,19 @@ def postprocessor(task_id: str, conf: dict, user_conf: dict) -> tuple[int, dict]
     if not flag:
         return 0, {**details, "failed_stage": "horizontal_stitch"}
 
-    # 4. 统计总分
+    # 4. 装饰边框
+    decoration_conf = merged_conf.get("decoration_conf", {})
+    flag, details = _add_decoration_borders(task_id, decoration_conf, merged_conf)
+    if not flag:
+        return 0, {**details, "failed_stage": "decoration_borders"}
+
+    # 5. 统计总分
     calculate_total_score_conf = merged_conf.get("calculate_total_score_conf", {})
     flag, details = _calculate_total_score(task_id, calculate_total_score_conf)
     if not flag:
         return 0, {**details, "failed_stage": "calculate_total_score"}
 
-    # TODO: 5. 整理输出 (暂不实现)
+    # TODO: 6. 整理输出 (暂不实现)
 
     # 当前不实装，从 conf 中获取总分
     score = 0
@@ -97,3 +103,63 @@ def _calculate_total_score(task_id: str, conf: dict) -> tuple[bool, dict]:
     """统计总分"""
     # TODO: 实现统计总分逻辑
     return True, {}
+
+
+def _add_decoration_borders(task_id: str, conf: dict, merged_conf: dict) -> tuple[bool, dict]:
+    """
+    添加装饰边框
+
+    Args:
+        task_id: 任务ID
+        conf: 装饰边框配置
+        merged_conf: 完整配置（包含用户配置）
+
+    Returns:
+        tuple[bool, dict]: (是否成功, 详情字典)
+    """
+    from utils.cv_utils import add_gray_borders
+    from pathlib import Path
+    import cv2
+
+    # 1. 检查必需配置
+    if 'tire_design_width' not in merged_conf:
+        return False, {"error": "tire_design_width not configured"}
+
+    # 2. 确定输入输出路径
+    base_path = Path(f".results/{task_id}")
+    combine_dir = base_path / "combine"
+    rst_dir = base_path / "rst"
+    rst_dir.mkdir(parents=True, exist_ok=True)
+
+    # 3. 检查输入目录
+    if not combine_dir.exists():
+        return False, {"error": f"combine directory not found: {combine_dir}"}
+
+    # 4. 处理所有拼接完成的大图
+    processed_files = []
+    decoration_style = merged_conf.get('decoration_style', 'simple')
+
+    for img_path in combine_dir.glob("*.png"):
+        try:
+            # 根据装饰风格选择处理方式
+            if decoration_style == 'simple':
+                # 调用add_gray_borders，传入conf
+                result = add_gray_borders(str(img_path), merged_conf)
+            else:
+                # 未来可以扩展其他风格
+                return False, {"error": f"Unsupported decoration_style: {decoration_style}"}
+
+            # 保存结果
+            output_path = rst_dir / img_path.name
+            cv2.imwrite(str(output_path), result)
+            processed_files.append(str(output_path))
+
+        except Exception as e:
+            return False, {"error": f"Failed to process {img_path}: {str(e)}"}
+
+    return True, {
+        "processed_files": processed_files,
+        "decoration_style": decoration_style,
+        "tdw": merged_conf.get('tire_design_width'),
+        "alpha": merged_conf.get('decoration_border_alpha', 0.5)
+    }
