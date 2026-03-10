@@ -120,18 +120,18 @@ class VerticalStitch(LoggerMixin):
                 output_suffix = vertical_stitch_conf.get('output_dir_suffix', '_vertical')
             output_dir = task_dir / f"{filter_dir.split('_')[0]}{output_suffix}"
 
-            self.logger.debug(f"处理filter目录: {input_dir}")
+            self.logger.debug(f"处理filter目录: {input_dir.as_posix()}")
 
             # 检查输入目录是否存在
             if not input_dir.exists():
-                self.logger.warning(f"输入目录不存在，跳过: {input_dir}")
-                result["skipped"].append(str(input_dir))
+                self.logger.warning(f"输入目录不存在，跳过: {input_dir.as_posix()}")
+                result["skipped"].append(input_dir.as_posix())
                 return result
 
             # 检查是否为空目录
             if not any(input_dir.iterdir()):
-                self.logger.warning(f"输入目录为空，跳过: {input_dir}")
-                result["skipped"].append(str(input_dir))
+                self.logger.warning(f"输入目录为空，跳过: {input_dir.as_posix()}")
+                result["skipped"].append(input_dir.as_posix())
                 return result
 
             # 清空并重建输出目录
@@ -139,7 +139,7 @@ class VerticalStitch(LoggerMixin):
                 shutil.rmtree(output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            self.logger.debug(f"输出目录已创建: {output_dir}")
+            self.logger.debug(f"输出目录已创建: {output_dir.as_posix()}")
 
             # 从配置中获取支持的图像扩展名
             image_extensions = ['.png']
@@ -164,14 +164,14 @@ class VerticalStitch(LoggerMixin):
                         resolution
                     )
                     if success:
-                        result["success"].append(str(image_path))
-                        self.logger.debug(f"成功处理图片: {image_path}")
+                        result["success"].append(image_path.as_posix())
+                        self.logger.debug(f"成功处理图片: {image_path.as_posix()}")
                     else:
-                        result["failed"].append(str(image_path))
-                        self.logger.error(f"处理图片失败: {image_path}")
+                        result["failed"].append(image_path.as_posix())
+                        self.logger.error(f"处理图片失败: {image_path.as_posix()}")
                 except Exception as e:
-                    result["failed"].append(str(image_path))
-                    self.logger.error(f"处理图片时发生错误 {image_path}: {str(e)}")
+                    result["failed"].append(image_path.as_posix())
+                    self.logger.error(f"处理图片时发生错误 {image_path.as_posix()}: {str(e)}")
 
         except Exception as e:
             self.logger.error(f"处理filter目录 {filter_dir} 时发生错误: {str(e)}")
@@ -205,7 +205,7 @@ class VerticalStitch(LoggerMixin):
         """
         try:
             self.logger.debug(
-                f"开始处理图片: {input_path}, "
+                f"开始处理图片: {input_path.as_posix()}, "
                 f"stitch_count={stitch_count}, target_size={target_size}"
             )
 
@@ -215,7 +215,7 @@ class VerticalStitch(LoggerMixin):
                 img_width, img_height = img.size
                 self.logger.debug(f"原始图片尺寸: {img_width}x{img_height}")
             except Exception as e:
-                raise ImageLoadError(str(input_path), f"PIL打开失败: {str(e)}")
+                raise ImageLoadError(input_path.as_posix(), f"PIL打开失败: {str(e)}")
 
             # 创建拼接后的图片画布
             try:
@@ -242,9 +242,9 @@ class VerticalStitch(LoggerMixin):
             # 保存图片
             try:
                 resized.save(output_path, "PNG")
-                self.logger.debug(f"图片保存成功: {output_path}")
+                self.logger.debug(f"图片保存成功: {output_path.as_posix()}")
             except Exception as e:
-                raise ImageSaveError(str(output_path), f"PIL保存失败: {str(e)}")
+                raise ImageSaveError(output_path.as_posix(), f"PIL保存失败: {str(e)}")
 
             return True
 
@@ -253,7 +253,7 @@ class VerticalStitch(LoggerMixin):
             raise
         except Exception as e:
             # 捕获其他异常并转换为StitchingError
-            self.logger.error(f"处理图片时发生未知错误: {input_path}, 错误: {str(e)}")
+            self.logger.error(f"处理图片时发生未知错误: {input_path.as_posix()}, 错误: {str(e)}")
             raise StitchingError(f"未知错误: {str(e)}")
 
     def _get_task_dir(self) -> Path:
