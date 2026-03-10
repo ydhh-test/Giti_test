@@ -8,10 +8,6 @@
 2. TestPatternContinuity: 依赖numpy和opencv的完整测试
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
-
 import unittest
 from itertools import product
 

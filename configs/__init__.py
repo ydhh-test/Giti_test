@@ -6,10 +6,6 @@
 提供所有配置类的统一导入接口。
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
-
 from configs.base_config import SystemConfig
 from configs.module_config import PreprocessorConfig, InferenceConfig, PostprocessorConfig
 from configs.rules_config import (

@@ -2,10 +2,6 @@
 
 """
 纵图拼接类测试
-
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
 """
 
 import unittest

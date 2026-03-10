@@ -6,10 +6,6 @@
 负责几何合理性分析，包括周期检测、海陆比等。
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
-
 from algorithms.detection.pattern_continuity import detect_pattern_continuity as detect_pattern_continuity_impl
 
 def detect_pattern_continuity(image, conf, *args, **kwargs):

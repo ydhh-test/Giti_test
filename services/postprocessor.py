@@ -10,10 +10,6 @@
 4，输出整理阶段
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
-
 
 from algorithms.stitching.vertical_stitch import VerticalStitch
 

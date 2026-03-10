@@ -4,9 +4,6 @@
 cv_utils模块单元测试
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
 
 import pytest
 import numpy as np

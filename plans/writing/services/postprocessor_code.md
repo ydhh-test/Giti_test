@@ -31,10 +31,6 @@ def postprocessor(task_id: str, conf: dict, user_conf: dict) -> tuple[int, dict]
 4，输出整理阶段
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
-
 
 def postprocessor(task_id: str, conf: dict, user_conf: dict) -> tuple[int, dict]:
     # 0. Conf处理

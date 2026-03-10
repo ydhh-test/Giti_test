@@ -6,10 +6,6 @@ IO工具模块
 提供文件读写、文件夹遍历等功能。
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
-
 import cv2
 import warnings
 from pathlib import Path

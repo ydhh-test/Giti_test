@@ -6,10 +6,6 @@
 提供标准化的日志系统。
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4)
-
 import logging
 import os
 from datetime import datetime

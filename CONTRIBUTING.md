@@ -153,7 +153,6 @@ A: 通过 GitHub Issues 提问或联系项目维护者。
 
 ## 技术支持
 
-- **项目维护者**：桂禹
 - **GitHub Issues**：https://github.com/your-org/giti-tire-ai-pattern/issues
 
 ---
