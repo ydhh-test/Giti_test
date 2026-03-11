@@ -133,6 +133,14 @@ def postprocessor(task_id: str, user_conf: Union[dict, str]) -> tuple[bool, dict
     try:
         user_conf_dict = _load_user_conf(user_conf)
         merged_conf = _merge_conf_from_complete_config(task_id, user_conf_dict)
+
+        # 注入 decoration_conf 参数
+        decoration_conf = merged_conf.get("decoration_conf", {})
+        decoration_conf["tire_design_width"] = merged_conf.get("tire_design_width")
+        decoration_conf["decoration_border_alpha"] = merged_conf.get("decoration_border_alpha")
+        decoration_conf["decoration_gray_color"] = merged_conf.get("decoration_gray_color")
+        decoration_conf["decoration_style"] = merged_conf.get("decoration_style")
+        merged_conf["decoration_conf"] = decoration_conf
     except Exception as e:
         return _create_error_response(task_id, str(e), "conf_processing")
 
@@ -168,7 +176,7 @@ def postprocessor(task_id: str, user_conf: Union[dict, str]) -> tuple[bool, dict
 
     # Stage 7: 装饰边框
     decoration_conf = merged_conf.get("decoration_conf", {})
-    flag, details = _add_decoration_borders(task_id, decoration_conf, merged_conf)
+    flag, details = _add_decoration_borders(task_id, decoration_conf)
     if not flag:
         return False, {**details, "failed_stage": "decoration_borders", "task_id": task_id}
 
@@ -466,74 +474,53 @@ def _standard_input(task_id: str, conf: dict, details: dict) -> tuple[bool, dict
 # Step 4: 适配现有 _add_decoration_borders 函数
 # ==========================================
 
-def _add_decoration_borders(task_id: str, conf: dict, merged_conf: dict) -> tuple[bool, dict]:
+def _add_decoration_borders(task_id: str, decoration_conf: dict) -> tuple[bool, dict]:
     """
-    添加装饰边框
+    添加装饰边框 - 调用 rule19 中间层
 
     Args:
         task_id: 任务 ID
-        conf: 装饰边框配置
-        merged_conf: 完整配置（包含用户配置）
+        decoration_conf: 装饰边框配置 (已注入 tire_design_width 等参数)
 
     Returns:
         tuple[bool, dict]: (是否成功，详情字典)
     """
-    from utils.cv_utils import add_gray_borders
-    import cv2
+    from rules.rule19 import process_decoration_borders
 
-    # 1. 检查必需配置
-    if 'tire_design_width' not in merged_conf:
-        return False, {"err_msg": "tire_design_width not configured", "task_id": task_id}
+    # 调用 rule19 中间层
+    flag, details = process_decoration_borders(task_id, decoration_conf)
 
-    # 2. 确定输入输出路径
-    base_path = Path(".results") / task_id
-    combine_dir = base_path / "combine"
-    rst_dir = base_path / "rst"
-    rst_dir.mkdir(parents=True, exist_ok=True)
-
-    # 3. 检查输入目录
-    if not combine_dir.exists():
-        return False, {"err_msg": f"combine directory not found: {combine_dir}", "task_id": task_id}
-
-    # 4. 处理所有拼接完成的大图
-    processed_files = []
-    decoration_style = merged_conf.get('decoration_style', 'simple')
-
-    for img_path in combine_dir.glob("*.png"):
-        try:
-            # 根据装饰风格选择处理方式
-            if decoration_style == 'simple':
-                # 调用 add_gray_borders，传入 conf
-                result = add_gray_borders(str(img_path), merged_conf)
-            else:
-                # 未来可以扩展其他风格
-                return False, {"err_msg": f"Unsupported decoration_style: {decoration_style}", "task_id": task_id}
-
-            # 保存结果
-            output_path = rst_dir / img_path.name
-            cv2.imwrite(str(output_path), result)
-            processed_files.append(str(output_path))
-
-        except Exception as e:
-            return False, {"err_msg": f"Failed to process {img_path}: {str(e)}", "task_id": task_id}
-
-    # 构建符合新返回格式的 details
-    image_gen_number = len(processed_files)
-    details = {
-        "image_gen_number": image_gen_number,
-        "processed_files": processed_files,
-        "decoration_style": decoration_style,
-        "tdw": merged_conf.get('tire_design_width'),
-        "alpha": merged_conf.get('decoration_border_alpha', 0.5)
-    }
-
-    # 为每张图片添加信息（按文件名字母序）
-    sorted_files = sorted(processed_files)
-    for idx, file_path in enumerate(sorted_files):
-        details[str(idx)] = {
-            "image_score": 0.0,  # 待后续阶段填充
-            "image_path": file_path,
-            "image_score_details": None
+    if not flag:
+        return False, {
+            "err_msg": details.get("err_msg", "装饰边框处理失败"),
+            "task_id": task_id
         }
 
-    return True, details
+    # 将 rule19 返回格式转换为 postprocessor 需要的格式
+    output_dir = decoration_conf.get("output_dir", "combine")
+    images_dict = details.get("directories", {}).get(output_dir, {}).get("images", {})
+
+    # 构建符合 postprocessor 格式的 details
+    image_gen_number = len([img for img in images_dict.values() if img.get("status") == "success"])
+
+    converted_details = {
+        "image_gen_number": image_gen_number,
+        "decoration_style": decoration_conf.get("decoration_style", "simple"),
+        "tdw": decoration_conf.get("tire_design_width"),
+        "alpha": decoration_conf.get("decoration_border_alpha", 0.5)
+    }
+
+    # 按文件名字母序添加每张图片信息
+    sorted_images = sorted(
+        [(name, img) for name, img in images_dict.items() if img.get("status") == "success"],
+        key=lambda x: x[0]
+    )
+
+    for idx, (image_name, image_data) in enumerate(sorted_images):
+        converted_details[str(idx)] = {
+            "image_score": 0.0,  # 暂时填 0.0，留给后续阶段填充
+            "image_path": image_data.get("output_path", ""),
+            "image_score_details": None  # 暂时填 None，留给后续阶段填充
+        }
+
+    return True, converted_details

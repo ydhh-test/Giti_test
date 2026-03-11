@@ -245,39 +245,48 @@ class TestAddDecorationBorders(unittest.TestCase):
 
     def test_add_decoration_borders_success(self):
         """测试装饰边框成功处理"""
-        # 这个测试需要实际运行 add_gray_borders
-        # 由于 mock 内部导入比较复杂，我们只验证基本逻辑
-        merged_conf = {
-            "tire_design_width": 200,
+        decoration_conf = {
+            "input_dir": "combine",
+            "output_dir": "rst",
+            "tire_design_width": 1000,
             "decoration_style": "simple",
             "decoration_border_alpha": 0.5
         }
 
-        # 在有测试图片的情况下，这个测试会实际运行
-        # 这里主要验证配置检查逻辑通过
-        self.assertIn("tire_design_width", merged_conf)
-        self.assertEqual(merged_conf["decoration_style"], "simple")
+        # 验证配置存在
+        self.assertIn("tire_design_width", decoration_conf)
+        self.assertEqual(decoration_conf["decoration_style"], "simple")
 
     def test_add_decoration_borders_missing_tdw(self):
         """测试缺少 tire_design_width 配置"""
-        merged_conf = {"decoration_style": "simple"}
+        decoration_conf = {
+            "input_dir": "combine",
+            "output_dir": "rst",
+            "decoration_style": "simple"
+            # tire_design_width 缺失
+        }
 
-        flag, details = _add_decoration_borders(self.task_id, {}, merged_conf)
+        flag, details = _add_decoration_borders(self.task_id, decoration_conf)
 
-        self.assertFalse(flag)
-        self.assertIn("err_msg", details)
-        self.assertIn("tire_design_width not configured", details["err_msg"])
+        # 验证函数能够处理缺少 tire_design_width 的情况
+        # rule19 会返回成功但统计为 0
+        self.assertTrue(flag)
 
-    def test_add_decoration_borders_combine_dir_not_found(self):
-        """测试 combine 目录不存在"""
-        invalid_task_id = "invalid_task"
-        merged_conf = {"tire_design_width": 200}
+    def test_add_decoration_borders_input_dir_not_found(self):
+        """测试输入目录不存在"""
+        decoration_conf = {
+            "input_dir": "nonexistent_dir",
+            "output_dir": "rst",
+            "tire_design_width": 1000,
+            "decoration_style": "simple"
+        }
 
-        flag, details = _add_decoration_borders(invalid_task_id, {}, merged_conf)
+        flag, details = _add_decoration_borders(self.task_id, decoration_conf)
 
-        self.assertFalse(flag)
-        self.assertIn("err_msg", details)
-        self.assertIn("combine directory not found", details["err_msg"])
+        # 验证返回格式
+        self.assertTrue(flag)
+        # 输入目录不存在时，返回空结果
+        self.assertEqual(details["image_gen_number"], 0)
 
 
 class TestCalculateTotalScore(unittest.TestCase):

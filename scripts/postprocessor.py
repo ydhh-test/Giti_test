@@ -113,8 +113,8 @@ def main():
         print("=" * 60)
 
         # 打印摘要信息
-        image_gen_number = details.get("image_gen_number", 0)
-        print(f"\n生成图片数：{image_gen_number}")
+        # image_gen_number = details.get("image_gen_number", 0)
+        # print(f"\n生成图片数：{image_gen_number}")
 
         # 打印每张图片的信息
         for key in details:

@@ -116,7 +116,7 @@ class UserConfig:
 
     # ========== 轮胎尺寸参数 ==========
     # 花纹有效宽度（像素）
-    tire_design_width: int = 700
+    tire_design_width: int = 1000
 
     # 轮胎总宽度（像素）
     tire_total_width: int = 1200
