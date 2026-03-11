@@ -6,8 +6,9 @@
 提供后处理相关的配置参数，支持 9 阶段处理流程。
 
 部署说明：
-- .results 目录位于项目根目录下
+- 所有路径均位于 .results 目录下（项目根目录的子目录）
 - 使用 Path 确保路径分隔符跨平台兼容（Windows: \, Linux/macOS: /）
+- 测试数据由测试准备函数从 tests/datasets 拷贝到 .results
 """
 
 from pathlib import Path
@@ -17,9 +18,6 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # 结果目录（位于项目根目录下）
 _RESULTS_DIR = _PROJECT_ROOT / ".results"
-
-# 测试数据集目录
-_TEST_DATASETS_DIR = _PROJECT_ROOT / "tests" / "datasets"
 
 
 # ==========================================
@@ -47,7 +45,7 @@ SMALL_IMAGE_SCORE_CONFIG = {
 # ==========================================
 VERTICAL_STITCH_CONFIG = {
     "rib_count": 4,  # RIB 数量
-    "input_dir": str(_TEST_DATASETS_DIR / "vertical_stitch"),  # 测试数据目录
+    "input_dir": str(_RESULTS_DIR / "data" / "vertical_stitch"),  # 输入目录
     "output_dir": str(_RESULTS_DIR / "data" / "vertical_stitched"),
     "blend_width": 10,  # 边缘融合宽度 (像素)
 }
@@ -59,8 +57,8 @@ VERTICAL_STITCH_CONFIG = {
 HORIZONTAL_STITCH_CONFIG = {
     "rib_count": 5,  # RIB 数量：4 或 5
     "symmetry_type": "rotate180",  # 对称类型：asymmetric, rotate180, mirror, mirror_shifted, all_symmetry, both, random
-    "center_dir": str(_TEST_DATASETS_DIR / "horizontal_stitch" / "center"),  # 测试数据目录
-    "side_dir": str(_TEST_DATASETS_DIR / "horizontal_stitch" / "side-de-gray"),  # 测试数据目录
+    "center_dir": str(_RESULTS_DIR / "data" / "horizontal_stitch" / "center"),  # center RIB 输入目录
+    "side_dir": str(_RESULTS_DIR / "data" / "horizontal_stitch" / "side-de-gray"),  # side RIB 输入目录
     "output_dir": str(_RESULTS_DIR / "data" / "horizontal_stitched"),
     "max_per_mode": 10,  # 每种模式最大生成数
     "history_file": str(_RESULTS_DIR / "data" / "history_counts.json"),  # 历史计数文件

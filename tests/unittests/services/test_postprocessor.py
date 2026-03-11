@@ -4,6 +4,11 @@
 后处理模块单元测试
 
 测试 postprocessor.py 中的 9 阶段处理流程。
+
+测试数据准备说明：
+- 测试数据存储在 tests/datasets 目录
+- 测试准备函数负责将必要数据拷贝到 .results 目录
+- 功能函数对 .results 目录进行操作
 """
 
 import sys
@@ -31,6 +36,60 @@ from services.postprocessor import (
     _calculate_total_score,
     _standard_input,
 )
+
+# ==========================================
+# 测试数据准备工具函数
+# ==========================================
+
+# 项目根目录和测试数据目录
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_TEST_DATASETS_DIR = _PROJECT_ROOT / "tests" / "datasets"
+_RESULTS_DIR = _PROJECT_ROOT / ".results"
+
+
+def prepare_horizontal_stitch_data(task_id: str) -> Path:
+    """
+    准备横图拼接测试数据
+
+    将 tests/datasets/horizontal_stitch 下的数据拷贝到 .results/{task_id}/data/horizontal_stitch
+
+    Args:
+        task_id: 任务 ID
+
+    Returns:
+        Path: 拷贝后的数据目录路径
+    """
+    src_dir = _TEST_DATASETS_DIR / "horizontal_stitch"
+    dest_dir = _RESULTS_DIR / task_id / "data" / "horizontal_stitch"
+
+    if not src_dir.exists():
+        raise FileNotFoundError(f"Test data directory not found: {src_dir}")
+
+    # 清理并创建目标目录
+    if dest_dir.exists():
+        shutil.rmtree(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    # 拷贝 center 和 side-de-gray 目录
+    for subdir in ["center", "side-de-gray"]:
+        src_subdir = src_dir / subdir
+        dest_subdir = dest_dir / subdir
+        if src_subdir.exists():
+            shutil.copytree(src_subdir, dest_subdir)
+
+    return dest_dir
+
+
+def cleanup_task_data(task_id: str):
+    """
+    清理任务测试数据
+
+    Args:
+        task_id: 任务 ID
+    """
+    task_dir = _RESULTS_DIR / task_id
+    if task_dir.exists():
+        shutil.rmtree(task_dir)
 
 
 class TestLoadUserConf(unittest.TestCase):
@@ -164,11 +223,13 @@ class TestAddDecorationBorders(unittest.TestCase):
     def setUp(self):
         """设置测试环境"""
         self.task_id = "test_decoration_task"
-        self.base_path = Path("/tmp/test_decoration") / self.task_id
+        self.base_path = _RESULTS_DIR / self.task_id
         self.combine_dir = self.base_path / "combine"
         self.rst_dir = self.base_path / "rst"
 
-        # 创建测试目录
+        # 清理并创建测试目录
+        if self.base_path.exists():
+            shutil.rmtree(self.base_path)
         self.combine_dir.mkdir(parents=True, exist_ok=True)
 
         # 创建测试图片
@@ -180,9 +241,7 @@ class TestAddDecorationBorders(unittest.TestCase):
 
     def tearDown(self):
         """清理测试环境"""
-        base_dir = Path("/tmp/test_decoration")
-        if base_dir.exists():
-            shutil.rmtree(base_dir)
+        cleanup_task_data(self.task_id)
 
     def test_add_decoration_borders_success(self):
         """测试装饰边框成功处理"""
@@ -227,8 +286,12 @@ class TestCalculateTotalScore(unittest.TestCase):
     def setUp(self):
         """设置测试环境"""
         self.task_id = "test_score_task"
-        self.base_path = Path("/tmp/test_score") / self.task_id
+        self.base_path = _RESULTS_DIR / self.task_id
         self.rst_dir = self.base_path / "rst"
+
+        # 清理并创建测试目录
+        if self.base_path.exists():
+            shutil.rmtree(self.base_path)
         self.rst_dir.mkdir(parents=True, exist_ok=True)
 
         # 创建测试图片
@@ -240,9 +303,7 @@ class TestCalculateTotalScore(unittest.TestCase):
 
     def tearDown(self):
         """清理测试环境"""
-        base_dir = Path("/tmp/test_score")
-        if base_dir.exists():
-            shutil.rmtree(base_dir)
+        cleanup_task_data(self.task_id)
 
     def test_calculate_total_score_rst_dir_not_found(self):
         """测试 rst 目录不存在"""
@@ -263,25 +324,23 @@ class TestCalculateTotalScore(unittest.TestCase):
     def test_calculate_total_score_no_images(self):
         """测试 rst 目录中没有图片"""
         empty_task_id = "empty_task"
-        empty_rst_dir = Path("/tmp/test_score_empty") / empty_task_id / "rst"
+        empty_base_path = _RESULTS_DIR / empty_task_id
+        empty_rst_dir = empty_base_path / "rst"
+
+        # 清理并创建空目录
+        if empty_base_path.exists():
+            shutil.rmtree(empty_base_path)
         empty_rst_dir.mkdir(parents=True, exist_ok=True)
 
-        conf = {}
-
-        with patch('services.postprocessor.Path') as mock_path:
-            mock_base_path = MagicMock()
-            mock_base_path.exists.return_value = True
-            mock_base_path.glob.return_value = []
-            mock_path.return_value = mock_base_path
-            mock_path.side_effect = lambda x: mock_base_path if x == Path(".results") / empty_task_id / "rst" else Path(x)
-
-            # 由于 mock 复杂，直接测试真实场景
-            pass
-
         try:
-            shutil.rmtree(Path("/tmp/test_score_empty"))
-        except:
-            pass
+            conf = {}
+            flag, details = _calculate_total_score(empty_task_id, conf)
+
+            self.assertFalse(flag)
+            self.assertIn("err_msg", details)
+            self.assertIn("No images found", details["err_msg"])
+        finally:
+            cleanup_task_data(empty_task_id)
 
 
 class TestPostprocessorIntegration(unittest.TestCase):
@@ -290,13 +349,12 @@ class TestPostprocessorIntegration(unittest.TestCase):
     def setUp(self):
         """设置测试环境"""
         self.task_id = "integration_test_task"
-        self.test_dir = Path("/tmp/test_postprocessor_integration")
-        self.test_dir.mkdir(exist_ok=True)
+        self.test_dir = _RESULTS_DIR / self.task_id
+        self.test_dir.mkdir(parents=True, exist_ok=True)
 
     def tearDown(self):
         """清理测试环境"""
-        if self.test_dir.exists():
-            shutil.rmtree(self.test_dir)
+        cleanup_task_data(self.task_id)
 
     @patch('services.postprocessor._small_image_filter', return_value=(True, {"image_gen_number": 0}))
     @patch('services.postprocessor._small_image_score', return_value=(True, {"image_gen_number": 0}))
