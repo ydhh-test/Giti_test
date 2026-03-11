@@ -3,107 +3,269 @@
 """
 后处理模块
 
-后处理主逻辑包括：
-1，小图筛选阶段
-2，拼图阶段
-3，大图打分阶段
-4，输出整理阶段
+后处理主逻辑包括 9 个阶段：
+1. Conf 处理
+2. 小图筛选
+3. 小图打分
+4. 纵图拼接
+5. 横图拼接
+6. 横图打分
+7. 装饰边框
+8. 统计总分
+9. 整理输出
 """
 
+import json
+from pathlib import Path
+from typing import Union
 
 from algorithms.stitching.vertical_stitch import VerticalStitch
 
 
-def postprocessor(task_id: str, conf: dict, user_conf: dict) -> tuple[int, dict]:
+# ==========================================
+# Step 1: 配置处理模块内部函数
+# ==========================================
+
+def _load_user_conf(user_conf: Union[dict, str]) -> dict:
     """
-    后处理入口函数
+    加载用户配置
 
     Args:
-        task_id: 任务ID
-        conf: 配置字典（支持旧格式和新格式）
+        user_conf: 用户配置，可以是 dict 或 JSON 文件路径
+
+    Returns:
+        dict: 解析后的配置字典
+
+    Raises:
+        TypeError: 如果 user_conf 类型不是 dict 或 str
+        json.JSONDecodeError: 如果 JSON 解析失败
+        FileNotFoundError: 如果 JSON 文件不存在
+    """
+    if isinstance(user_conf, dict):
+        return user_conf
+    elif isinstance(user_conf, str):
+        # 作为 JSON 文件路径处理
+        json_path = Path(user_conf)
+        if not json_path.exists():
+            raise FileNotFoundError(f"JSON config file not found: {user_conf}")
+        with open(json_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    else:
+        raise TypeError(
+            f"user_conf must be dict or str, got {type(user_conf).__name__}"
+        )
+
+
+def _merge_conf_from_complete_config(task_id: str, user_conf: dict) -> dict:
+    """
+    从 CompleteConfig 实例化合并配置
+
+    Args:
+        task_id: 任务 ID（用于日志或错误信息）
         user_conf: 用户配置字典
 
     Returns:
-        tuple[int, dict]: (score, details)
+        dict: 合并后的配置字典
     """
-    # 0. Conf处理 - 向后兼容处理
-    try:
-        from configs import CompleteConfig
-        if isinstance(conf, CompleteConfig):
-            merged_conf = {**conf.to_legacy_dict(), **user_conf}
-        else:
-            merged_conf = _merge_conf(conf, user_conf)
-    except ImportError:
-        merged_conf = _merge_conf(conf, user_conf)
+    from configs import CompleteConfig
 
-    # 1. 小图筛选
+    # 实例化 CompleteConfig 获取基础配置
+    complete_config = CompleteConfig()
+    base_conf = complete_config.to_legacy_dict()
+
+    # 用用户配置覆盖同名项
+    merged_conf = {**base_conf, **user_conf}
+
+    return merged_conf
+
+
+def _create_error_response(task_id: str, err_msg: str, failed_stage: str) -> tuple[bool, dict]:
+    """
+    创建错误响应
+
+    Args:
+        task_id: 任务 ID
+        err_msg: 错误信息
+        failed_stage: 失败的阶段名称
+
+    Returns:
+        tuple[bool, dict]: (False, 错误详情字典)
+    """
+    return False, {
+        "err_msg": err_msg,
+        "failed_stage": failed_stage,
+        "task_id": task_id
+    }
+
+
+# ==========================================
+# Step 2: 主入口函数
+# ==========================================
+
+def postprocessor(task_id: str, user_conf: Union[dict, str]) -> tuple[bool, dict]:
+    """
+    后处理入口函数 - 新版本
+
+    Args:
+        task_id: 任务唯一标识
+        user_conf: 用户配置（dict 或 JSON 文件路径）
+
+    Returns:
+        tuple[bool, dict]:
+            成功时：(True, {image_gen_number, "0": {image_score, image_path, image_score_details}, ...})
+            失败时：(False, {err_msg, failed_stage, task_id})
+    """
+    # Stage 1: Conf 处理
+    try:
+        user_conf_dict = _load_user_conf(user_conf)
+        merged_conf = _merge_conf_from_complete_config(task_id, user_conf_dict)
+    except Exception as e:
+        return _create_error_response(task_id, str(e), "conf_processing")
+
+    # Stage 2: 小图筛选
     small_image_filter_conf = merged_conf.get("small_image_filter_conf", {})
     flag, details = _small_image_filter(task_id, small_image_filter_conf)
     if not flag:
-        return 0, {**details, "failed_stage": "small_image_filter"}
+        return False, {**details, "failed_stage": "small_image_filter", "task_id": task_id}
 
-    # 2. 纵图拼接
+    # Stage 3: 小图打分
+    small_image_score_conf = merged_conf.get("small_image_score_conf", {})
+    flag, details = _small_image_score(task_id, small_image_score_conf)
+    if not flag:
+        return False, {**details, "failed_stage": "small_image_score", "task_id": task_id}
+
+    # Stage 4: 纵图拼接
     vertical_stitch_conf = merged_conf.get("vertical_stitch_conf", {})
     flag, details = _vertical_stitch(task_id, vertical_stitch_conf)
     if not flag:
-        return 0, {**details, "failed_stage": "vertical_stitch"}
+        return False, {**details, "failed_stage": "vertical_stitch", "task_id": task_id}
 
-    # 3. 横图拼接
+    # Stage 5: 横图拼接
     horizontal_stitch_conf = merged_conf.get("horizontal_stitch_conf", {})
     flag, details = _horizontal_stitch(task_id, horizontal_stitch_conf)
     if not flag:
-        return 0, {**details, "failed_stage": "horizontal_stitch"}
+        return False, {**details, "failed_stage": "horizontal_stitch", "task_id": task_id}
 
-    # 4. 装饰边框
+    # Stage 6: 横图打分
+    horizontal_image_score_conf = merged_conf.get("horizontal_image_score_conf", {})
+    flag, details = _horizontal_image_score(task_id, horizontal_image_score_conf)
+    if not flag:
+        return False, {**details, "failed_stage": "horizontal_image_score", "task_id": task_id}
+
+    # Stage 7: 装饰边框
     decoration_conf = merged_conf.get("decoration_conf", {})
     flag, details = _add_decoration_borders(task_id, decoration_conf, merged_conf)
     if not flag:
-        return 0, {**details, "failed_stage": "decoration_borders"}
+        return False, {**details, "failed_stage": "decoration_borders", "task_id": task_id}
 
-    # 5. 统计总分
+    # Stage 8: 统计总分
     calculate_total_score_conf = merged_conf.get("calculate_total_score_conf", {})
     flag, details = _calculate_total_score(task_id, calculate_total_score_conf)
     if not flag:
-        return 0, {**details, "failed_stage": "calculate_total_score"}
+        return False, {**details, "failed_stage": "calculate_total_score", "task_id": task_id}
 
-    # TODO: 6. 整理输出 (暂不实现)
+    # Stage 9: 整理输出
+    standard_input_conf = merged_conf.get("standard_input_conf", {})
+    flag, details = _standard_input(task_id, standard_input_conf, details)
+    if not flag:
+        return False, {**details, "failed_stage": "standard_input", "task_id": task_id}
 
-    # 当前不实装，从 conf 中获取总分
-    score = 0
-    return score, details
+    return True, details
 
 
-def _merge_conf(conf: dict, user_conf: dict) -> dict:
-    """合并配置"""
-    merged = conf.copy()
-    merged.update(user_conf)
-    return merged
-
+# ==========================================
+# Step 3: 9 个阶段的内部函数
+# ==========================================
 
 def _small_image_filter(task_id: str, conf: dict) -> tuple[bool, dict]:
-    """小图筛选"""
+    """
+    小图筛选阶段
+
+    Args:
+        task_id: 任务 ID
+        conf: 小图筛选配置
+
+    Returns:
+        tuple[bool, dict]: (是否成功，详情字典)
+    """
     # TODO: 实现小图筛选逻辑
-    return True, {}
+    return True, {"image_gen_number": 0, "task_id": task_id}
+
+
+def _small_image_score(task_id: str, conf: dict) -> tuple[bool, dict]:
+    """
+    小图打分阶段
+
+    Args:
+        task_id: 任务 ID
+        conf: 小图打分配置
+
+    Returns:
+        tuple[bool, dict]: (是否成功，详情字典)
+    """
+    # TODO: 实现小图打分逻辑
+    return True, {"image_gen_number": 0, "task_id": task_id}
 
 
 def _vertical_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
-    """纵图拼接"""
-    # 传递完整的配置给VerticalStitch，以便访问所有配置参数
+    """
+    纵图拼接阶段
+
+    Args:
+        task_id: 任务 ID
+        conf: 纵图拼接配置
+
+    Returns:
+        tuple[bool, dict]: (是否成功，详情字典)
+    """
+    # 传递完整的配置给 VerticalStitch，以便访问所有配置参数
     stitcher = VerticalStitch(task_id, conf)
     return stitcher.process()
 
 
 def _horizontal_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
-    """横图拼接"""
+    """
+    横图拼接阶段
+
+    Args:
+        task_id: 任务 ID
+        conf: 横图拼接配置
+
+    Returns:
+        tuple[bool, dict]: (是否成功，详情字典)
+    """
     from algorithms.stitching.horizontal_stitch import HorizontalStitch
     stitcher = HorizontalStitch(task_id, conf)
     return stitcher.process()
 
 
+def _horizontal_image_score(task_id: str, conf: dict) -> tuple[bool, dict]:
+    """
+    横图打分阶段
+
+    Args:
+        task_id: 任务 ID
+        conf: 横图打分配置
+
+    Returns:
+        tuple[bool, dict]: (是否成功，详情字典)
+    """
+    # TODO: 实现横图打分逻辑
+    return True, {"image_gen_number": 0, "task_id": task_id}
+
+
 def _calculate_total_score(task_id: str, conf: dict) -> tuple[bool, dict]:
-    """统计总分"""
+    """
+    统计总分阶段
+
+    Args:
+        task_id: 任务 ID
+        conf: 评分配置
+
+    Returns:
+        tuple[bool, dict]: (是否成功，详情字典)
+    """
     from rules.scoring.land_sea_ratio import compute_land_sea_ratio
-    from pathlib import Path
     import cv2
 
     # 1. 确定图片路径
@@ -112,18 +274,18 @@ def _calculate_total_score(task_id: str, conf: dict) -> tuple[bool, dict]:
         # 默认使用装饰边框后的图片
         base_path = Path(".results") / task_id / "rst"
         if not base_path.exists():
-            return False, {"error": f"rst directory not found: {base_path}"}
+            return False, {"err_msg": f"rst directory not found: {base_path}", "task_id": task_id}
 
         # 获取第一个图片文件
         image_files = list(base_path.glob("*.png"))
         if not image_files:
-            return False, {"error": "No images found in rst directory"}
+            return False, {"err_msg": "No images found in rst directory", "task_id": task_id}
         image_path = str(image_files[0])
 
     # 2. 读取图片
     img = cv2.imread(image_path)
     if img is None:
-        return False, {"error": f"Failed to read image: {image_path}"}
+        return False, {"err_msg": f"Failed to read image: {image_path}", "task_id": task_id}
 
     # 3. 计算海陆比评分
     land_sea_conf = conf.get('land_sea_ratio', {})
@@ -144,25 +306,45 @@ def _calculate_total_score(task_id: str, conf: dict) -> tuple[bool, dict]:
     return True, details
 
 
+def _standard_input(task_id: str, conf: dict, details: dict) -> tuple[bool, dict]:
+    """
+    整理输出阶段
+
+    Args:
+        task_id: 任务 ID
+        conf: 整理输出配置
+        details: 前序阶段传递的详情字典
+
+    Returns:
+        tuple[bool, dict]: (是否成功，详情字典)
+    """
+    # TODO: 实现整理输出逻辑
+    # 按得分排序（高分优先，同分按文件名字母序）
+    return True, details
+
+
+# ==========================================
+# Step 4: 适配现有 _add_decoration_borders 函数
+# ==========================================
+
 def _add_decoration_borders(task_id: str, conf: dict, merged_conf: dict) -> tuple[bool, dict]:
     """
     添加装饰边框
 
     Args:
-        task_id: 任务ID
+        task_id: 任务 ID
         conf: 装饰边框配置
         merged_conf: 完整配置（包含用户配置）
 
     Returns:
-        tuple[bool, dict]: (是否成功, 详情字典)
+        tuple[bool, dict]: (是否成功，详情字典)
     """
     from utils.cv_utils import add_gray_borders
-    from pathlib import Path
     import cv2
 
     # 1. 检查必需配置
     if 'tire_design_width' not in merged_conf:
-        return False, {"error": "tire_design_width not configured"}
+        return False, {"err_msg": "tire_design_width not configured", "task_id": task_id}
 
     # 2. 确定输入输出路径
     base_path = Path(".results") / task_id
@@ -172,7 +354,7 @@ def _add_decoration_borders(task_id: str, conf: dict, merged_conf: dict) -> tupl
 
     # 3. 检查输入目录
     if not combine_dir.exists():
-        return False, {"error": f"combine directory not found: {combine_dir}"}
+        return False, {"err_msg": f"combine directory not found: {combine_dir}", "task_id": task_id}
 
     # 4. 处理所有拼接完成的大图
     processed_files = []
@@ -182,11 +364,11 @@ def _add_decoration_borders(task_id: str, conf: dict, merged_conf: dict) -> tupl
         try:
             # 根据装饰风格选择处理方式
             if decoration_style == 'simple':
-                # 调用add_gray_borders，传入conf
+                # 调用 add_gray_borders，传入 conf
                 result = add_gray_borders(str(img_path), merged_conf)
             else:
                 # 未来可以扩展其他风格
-                return False, {"error": f"Unsupported decoration_style: {decoration_style}"}
+                return False, {"err_msg": f"Unsupported decoration_style: {decoration_style}", "task_id": task_id}
 
             # 保存结果
             output_path = rst_dir / img_path.name
@@ -194,11 +376,25 @@ def _add_decoration_borders(task_id: str, conf: dict, merged_conf: dict) -> tupl
             processed_files.append(str(output_path))
 
         except Exception as e:
-            return False, {"error": f"Failed to process {img_path}: {str(e)}"}
+            return False, {"err_msg": f"Failed to process {img_path}: {str(e)}", "task_id": task_id}
 
-    return True, {
+    # 构建符合新返回格式的 details
+    image_gen_number = len(processed_files)
+    details = {
+        "image_gen_number": image_gen_number,
         "processed_files": processed_files,
         "decoration_style": decoration_style,
         "tdw": merged_conf.get('tire_design_width'),
         "alpha": merged_conf.get('decoration_border_alpha', 0.5)
     }
+
+    # 为每张图片添加信息（按文件名字母序）
+    sorted_files = sorted(processed_files)
+    for idx, file_path in enumerate(sorted_files):
+        details[str(idx)] = {
+            "image_score": 0.0,  # 待后续阶段填充
+            "image_path": file_path,
+            "image_score_details": None
+        }
+
+    return True, details
