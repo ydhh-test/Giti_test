@@ -758,6 +758,6 @@ def tire_image_preprocessing_pipeline(workspace_dir):
 if __name__ == "__main__":
     # 测试运行示例
     import sys
-    #定义一个工作目录，workspace/input下包含了输入的图片
+    #定义一个工作目录，workspace/images下包含了输入的图片
     workspace = r"./tests/datasets"   
     #tire_image_preprocessing_pipeline(workspace)
