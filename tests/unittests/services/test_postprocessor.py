@@ -314,42 +314,44 @@ class TestCalculateTotalScore(unittest.TestCase):
         """清理测试环境"""
         cleanup_task_data(self.task_id)
 
-    def test_calculate_total_score_rst_dir_not_found(self):
-        """测试 rst 目录不存在"""
-        invalid_task_id = "invalid_task"
-        conf = {}
+    # TODO 函数作用以变更，将在下个merge中删除以下测试
+    # def test_calculate_total_score_rst_dir_not_found(self):
+    #     """测试 rst 目录不存在"""
+    #     invalid_task_id = "invalid_task"
+    #     conf = {}
 
-        flag, details = _calculate_total_score(invalid_task_id, conf)
+    #     flag, details = _calculate_total_score(invalid_task_id, conf)
 
-        self.assertFalse(flag)
-        self.assertIn("err_msg", details)
-        # 错误消息可能包含 "rst directory not found" 或 "No images found"
-        self.assertTrue(
-            "rst directory not found" in details["err_msg"] or
-            "No images found" in details["err_msg"],
-            f"Unexpected error message: {details['err_msg']}"
-        )
+    #     self.assertFalse(flag)
+    #     self.assertIn("err_msg", details)
+    #     # 错误消息可能包含 "rst directory not found" 或 "No images found"
+    #     self.assertTrue(
+    #         "rst directory not found" in details["err_msg"] or
+    #         "No images found" in details["err_msg"],
+    #         f"Unexpected error message: {details['err_msg']}"
+    #     )
 
-    def test_calculate_total_score_no_images(self):
-        """测试 rst 目录中没有图片"""
-        empty_task_id = "empty_task"
-        empty_base_path = _RESULTS_DIR / empty_task_id
-        empty_rst_dir = empty_base_path / "rst"
+    # TODO 函数作用以变更，将在下个merge中删除以下测试
+    # def test_calculate_total_score_no_images(self):
+    #     """测试 rst 目录中没有图片"""
+    #     empty_task_id = "empty_task"
+    #     empty_base_path = _RESULTS_DIR / empty_task_id
+    #     empty_rst_dir = empty_base_path / "rst"
 
-        # 清理并创建空目录
-        if empty_base_path.exists():
-            shutil.rmtree(empty_base_path)
-        empty_rst_dir.mkdir(parents=True, exist_ok=True)
+    #     # 清理并创建空目录
+    #     if empty_base_path.exists():
+    #         shutil.rmtree(empty_base_path)
+    #     empty_rst_dir.mkdir(parents=True, exist_ok=True)
 
-        try:
-            conf = {}
-            flag, details = _calculate_total_score(empty_task_id, conf)
+    #     try:
+    #         conf = {}
+    #         flag, details = _calculate_total_score(empty_task_id, conf)
 
-            self.assertFalse(flag)
-            self.assertIn("err_msg", details)
-            self.assertIn("No images found", details["err_msg"])
-        finally:
-            cleanup_task_data(empty_task_id)
+    #         self.assertFalse(flag)
+    #         self.assertIn("err_msg", details)
+    #         self.assertIn("No images found", details["err_msg"])
+    #     finally:
+    #         cleanup_task_data(empty_task_id)
 
 
 class TestPostprocessorIntegration(unittest.TestCase):
