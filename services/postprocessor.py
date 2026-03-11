@@ -408,8 +408,25 @@ def _horizontal_image_score(task_id: str, conf: dict) -> tuple[bool, dict]:
     Returns:
         tuple[bool, dict]: (是否成功，详情字典)
     """
-    # TODO: 实现横图打分逻辑
-    return True, {"image_gen_number": 0, "task_id": task_id}
+    from rules.rule13 import process_horizontal_image_score
+
+    # 调用 rule13 中间层
+    flag, details = process_horizontal_image_score(task_id, conf)
+
+    if not flag:
+        return False, {
+            "err_msg": details.get("err_msg", "横图打分失败"),
+            "task_id": task_id
+        }
+
+    # 提取图片数量信息
+    summary = details.get("summary", {})
+    return True, {
+        "task_id": task_id,
+        "horizontal_image_score_stats": details,
+        "image_gen_number": summary.get("total_scored", 0),
+        "total_score": summary.get("total_score", 0)
+    }
 
 
 def _calculate_total_score(task_id: str, conf: dict) -> tuple[bool, dict]:
@@ -423,45 +440,9 @@ def _calculate_total_score(task_id: str, conf: dict) -> tuple[bool, dict]:
     Returns:
         tuple[bool, dict]: (是否成功，详情字典)
     """
-    from rules.scoring.land_sea_ratio import compute_land_sea_ratio
-    import cv2
-
-    # 1. 确定图片路径
-    image_path = conf.get('image_path')
-    if not image_path:
-        # 默认使用装饰边框后的图片
-        base_path = Path(".results") / task_id / "rst"
-        if not base_path.exists():
-            return False, {"err_msg": f"rst directory not found: {base_path}", "task_id": task_id}
-
-        # 获取第一个图片文件
-        image_files = list(base_path.glob("*.png"))
-        if not image_files:
-            return False, {"err_msg": "No images found in rst directory", "task_id": task_id}
-        image_path = str(image_files[0])
-
-    # 2. 读取图片
-    img = cv2.imread(image_path)
-    if img is None:
-        return False, {"err_msg": f"Failed to read image: {image_path}", "task_id": task_id}
-
-    # 3. 计算海陆比评分
-    land_sea_conf = conf.get('land_sea_ratio', {})
-    land_sea_score, land_sea_details = compute_land_sea_ratio(img, land_sea_conf)
-
-    # 4. 聚合总分
-    details = {
-        "total_score": land_sea_score,
-        "image_path": image_path,
-        "scoring_items": {
-            "land_sea_ratio": {
-                "score": land_sea_score,
-                "details": land_sea_details
-            }
-        }
-    }
-
-    return True, details
+    # TODO: 聚合前序阶段的评分结果
+    # 不再调用 compute_land_sea_ratio
+    return True, {"total_score": 0, "task_id": task_id}
 
 
 def _standard_input(task_id: str, conf: dict, details: dict) -> tuple[bool, dict]:

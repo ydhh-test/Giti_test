@@ -39,6 +39,18 @@ DEFAULT_HORIZONTAL_STITCH_CONF = {
     "history_file": None,  # 由调用方动态设置，默认为 None 表示不启用历史计数
 }
 
+# 横图打分默认配置
+DEFAULT_HORIZONTAL_IMAGE_SCORE_CONF = {
+    "input_dir": "combine_horizontal",
+    "visualize": True,
+    "output_base_dir": ".results",
+    "land_sea_ratio": {
+        "target_min": 28.0,
+        "target_max": 35.0,
+        "margin": 5.0
+    }
+}
+
 
 @dataclass
 class UserConfig:
