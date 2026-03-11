@@ -6,8 +6,8 @@
 提供系统级配置参数，包括路径设置、默认参数等。
 """
 
-from dataclasses import dataclass
-from typing import Dict, Any
+from dataclasses import dataclass, field
+from typing import Dict, Any, List
 from pathlib import Path
 
 
@@ -47,6 +47,10 @@ class SystemConfig:
 
     # 是否启用GPU加速
     enable_gpu: bool = False
+
+    # 图片目录配置
+    inf_output_dirs: List[str] = field(default_factory=lambda: ["center_inf", "side_inf"])
+    filter_output_dirs: List[str] = field(default_factory=lambda: ["center_filter", "side_filter"])
 
     @classmethod
     def from_dict(cls, conf: Dict[str, Any]) -> 'SystemConfig':
@@ -88,6 +92,8 @@ class SystemConfig:
             'max_batch_size': self.max_batch_size,
             'concurrent_workers': self.concurrent_workers,
             'enable_gpu': self.enable_gpu,
+            'inf_output_dirs': self.inf_output_dirs,
+            'filter_output_dirs': self.filter_output_dirs,
         }
 
     def get_full_input_path(self) -> Path:

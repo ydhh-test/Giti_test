@@ -20,6 +20,9 @@ from pathlib import Path
 from typing import Union
 
 from algorithms.stitching.vertical_stitch import VerticalStitch
+from utils.logger import get_logger
+
+logger = get_logger("postprocessor")
 
 
 # ==========================================
@@ -181,6 +184,12 @@ def _small_image_filter(task_id: str, conf: dict) -> tuple[bool, dict]:
     """
     小图筛选阶段
 
+    流程:
+    1. 从 SystemConfig 获取 inf_output_dirs 和 filter_output_dirs
+    2. 复制图片 inf → filter
+    3. 调用 rule6_1::process_pattern_continuity()
+    4. 返回结果
+
     Args:
         task_id: 任务 ID
         conf: 小图筛选配置
@@ -188,8 +197,60 @@ def _small_image_filter(task_id: str, conf: dict) -> tuple[bool, dict]:
     Returns:
         tuple[bool, dict]: (是否成功，详情字典)
     """
-    # TODO: 实现小图筛选逻辑
-    return True, {"image_gen_number": 0, "task_id": task_id}
+    from configs.base_config import SystemConfig
+    from rules.rule6_1 import process_pattern_continuity
+    from pathlib import Path
+    import shutil
+
+    # 获取系统配置
+    system_config = SystemConfig()
+    inf_output_dirs = system_config.inf_output_dirs
+    filter_output_dirs = system_config.filter_output_dirs
+
+    # 构建基础路径
+    base_path = Path(".results") / f"task_id_{task_id}"
+
+    # Step 1: 复制图片 (inf → filter)
+    for inf_dir, filter_dir in zip(inf_output_dirs, filter_output_dirs):
+        src_dir = base_path / inf_dir
+        dst_dir = base_path / filter_dir
+
+        if src_dir.exists():
+            _copy_images(src_dir, dst_dir)
+        else:
+            logger.warning(f"源目录不存在，跳过：{src_dir}")
+
+    # Step 2: 调用图案连续性检测
+    flag, details = process_pattern_continuity(task_id, conf)
+
+    if not flag:
+        return False, {
+            "err_msg": details.get("err_msg", "图案连续性检测失败"),
+            "task_id": task_id,
+            "failed_stage": "pattern_continuity"
+        }
+
+    # 返回结果
+    summary = details.get("summary", {})
+    return True, {
+        "task_id": task_id,
+        "pattern_continuity_stats": details,
+        "image_gen_number": summary.get("total_kept", 0),
+        "total_deleted": summary.get("total_deleted", 0)
+    }
+
+
+def _copy_images(src_dir: Path, dst_dir: Path) -> None:
+    """辅助函数：复制图片"""
+    if not src_dir.exists():
+        return
+
+    dst_dir.mkdir(parents=True, exist_ok=True)
+
+    extensions = ['.png', '.jpg', '.jpeg', '.bmp']
+    for ext in extensions:
+        for img_file in src_dir.glob(f"*{ext}"):
+            shutil.copy2(str(img_file), str(dst_dir / img_file.name))
 
 
 def _small_image_score(task_id: str, conf: dict) -> tuple[bool, dict]:
