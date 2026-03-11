@@ -149,7 +149,7 @@ score_result = scorer(task_id, conf, user_conf)
 ### 连续性检测示例
 
 ```python
-from services.analyzers import detect_pattern_continuity
+from algorithms.detection.pattern_continuity import detect_pattern_continuity
 import cv2
 import numpy as np
 
