@@ -95,14 +95,53 @@ def _vertical_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
 
 def _horizontal_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
     """横图拼接"""
-    # TODO: 实现横图拼接逻辑
-    return True, {}
+    from algorithms.stitching.horizontal_stitch import HorizontalStitch
+    stitcher = HorizontalStitch(task_id, conf)
+    return stitcher.process()
 
 
 def _calculate_total_score(task_id: str, conf: dict) -> tuple[bool, dict]:
     """统计总分"""
-    # TODO: 实现统计总分逻辑
-    return True, {}
+    from rules.scoring.land_sea_ratio import compute_land_sea_ratio
+    from pathlib import Path
+    import cv2
+
+    # 1. 确定图片路径
+    image_path = conf.get('image_path')
+    if not image_path:
+        # 默认使用装饰边框后的图片
+        base_path = Path(".results") / task_id / "rst"
+        if not base_path.exists():
+            return False, {"error": f"rst directory not found: {base_path}"}
+
+        # 获取第一个图片文件
+        image_files = list(base_path.glob("*.png"))
+        if not image_files:
+            return False, {"error": "No images found in rst directory"}
+        image_path = str(image_files[0])
+
+    # 2. 读取图片
+    img = cv2.imread(image_path)
+    if img is None:
+        return False, {"error": f"Failed to read image: {image_path}"}
+
+    # 3. 计算海陆比评分
+    land_sea_conf = conf.get('land_sea_ratio', {})
+    land_sea_score, land_sea_details = compute_land_sea_ratio(img, land_sea_conf)
+
+    # 4. 聚合总分
+    details = {
+        "total_score": land_sea_score,
+        "image_path": image_path,
+        "scoring_items": {
+            "land_sea_ratio": {
+                "score": land_sea_score,
+                "details": land_sea_details
+            }
+        }
+    }
+
+    return True, details
 
 
 def _add_decoration_borders(task_id: str, conf: dict, merged_conf: dict) -> tuple[bool, dict]:
