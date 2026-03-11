@@ -6,9 +6,50 @@
 提供用户自定义的配置参数，包括可视化、调试、输出等选项。
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
 from pathlib import Path
+
+
+# ========== 模块级常量：默认配置 ==========
+
+# 纵图拼接默认配置
+DEFAULT_VERTICAL_STITCH_CONF = {
+    "center_vertical": {"resolution": [200, 1241]},
+    "side_vertical": {"resolution": [400, 1241]},
+    "center_count": 5,
+    "side_count": 5,
+}
+
+# 横图拼接默认配置
+DEFAULT_HORIZONTAL_STITCH_CONF = {
+    "rib_count": 5,  # RIB 数量 (4 或 5)
+    "symmetry_type": "both",  # 对称类型：asymmetric/rotate180/mirror/mirror_shifted/random/all_symmetry/both
+    "blend_width": 10,  # 边缘融合宽度 (像素)
+    "main_groove_width": 20,  # 主沟宽度 (像素)
+    "generation": {
+        "max_per_mode": 10,  # 每种模式最大生成数
+    },
+    "symmetry_mapping": {  # 对称模式文件名映射
+        "asymmetric": 0,
+        "rotate180": 1,
+        "mirror": 2,
+        "mirror_shifted": 3,
+    },
+    "history_file": None,  # 由调用方动态设置，默认为 None 表示不启用历史计数
+}
+
+# 横图打分默认配置
+DEFAULT_HORIZONTAL_IMAGE_SCORE_CONF = {
+    "input_dir": "combine_horizontal",
+    "visualize": True,
+    "output_base_dir": ".results",
+    "land_sea_ratio": {
+        "target_min": 28.0,
+        "target_max": 35.0,
+        "margin": 5.0
+    }
+}
 
 
 @dataclass
@@ -75,10 +116,14 @@ class UserConfig:
 
     # ========== 轮胎尺寸参数 ==========
     # 花纹有效宽度（像素）
-    tire_design_width: int = 700
+    tire_design_width: int = 1000
 
     # 轮胎总宽度（像素）
     tire_total_width: int = 1200
+
+    # ========== 纵图拼接参数 ==========
+    # 纵图拼接配置（默认值来自 DEFAULT_VERTICAL_STITCH_CONF）
+    vertical_stitch_conf: Dict[str, Any] = field(default_factory=dict)
 
     # ========== 装饰边框参数 ==========
     # 灰色透明度（0~1）
@@ -134,6 +179,7 @@ class UserConfig:
             'decoration_border_alpha': self.decoration_border_alpha,
             'decoration_style': self.decoration_style,
             'decoration_gray_color': self.decoration_gray_color,
+            'vertical_stitch_conf': self.vertical_stitch_conf,
         }
 
     def get_output_directory(self, base_output_dir: Path) -> Path:

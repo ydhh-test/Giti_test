@@ -149,7 +149,7 @@ score_result = scorer(task_id, conf, user_conf)
 ### 连续性检测示例
 
 ```python
-from services.analyzers import detect_pattern_continuity
+from algorithms.detection.pattern_continuity import detect_pattern_continuity
 import cv2
 import numpy as np
 
@@ -186,6 +186,17 @@ print(f"详细信息: {details}")
 - 基础系统配置 (`base_config.py`)
 - 业务规则配置 (`rules_config.py`)
 - 后处理参数配置 (`postprocessor_config.py`)
+
+#### 配置规范
+
+**核心原则：配置文件中不应该出现任何带 "test" 的路径。**
+
+- 所有配置路径指向 `.results/` 目录（项目根目录的子目录）
+- 测试数据由测试准备函数从 `tests/datasets/` 拷贝到 `.results/`
+- 功能函数对 `.results/` 目录进行操作，不直接操作 `tests/datasets/`
+- 使用 `Path` 进行路径拼接，确保跨平台兼容（Windows/Linux/macOS）
+
+详细规范请参考 [.claude/skills/config-and-test-data-management.md](.claude/skills/config-and-test-data-management.md)
 
 ## 开发指南
 
