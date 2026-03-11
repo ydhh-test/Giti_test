@@ -6,9 +6,20 @@
 提供用户自定义的配置参数，包括可视化、调试、输出等选项。
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
 from pathlib import Path
+
+
+# ========== 模块级常量：默认配置 ==========
+
+# 纵图拼接默认配置
+DEFAULT_VERTICAL_STITCH_CONF = {
+    "center_vertical": {"resolution": [200, 1241]},
+    "side_vertical": {"resolution": [400, 1241]},
+    "center_count": 5,
+    "side_count": 5,
+}
 
 
 @dataclass
@@ -80,6 +91,10 @@ class UserConfig:
     # 轮胎总宽度（像素）
     tire_total_width: int = 1200
 
+    # ========== 纵图拼接参数 ==========
+    # 纵图拼接配置（默认值来自 DEFAULT_VERTICAL_STITCH_CONF）
+    vertical_stitch_conf: Dict[str, Any] = field(default_factory=dict)
+
     # ========== 装饰边框参数 ==========
     # 灰色透明度（0~1）
     decoration_border_alpha: float = 0.5
@@ -134,6 +149,7 @@ class UserConfig:
             'decoration_border_alpha': self.decoration_border_alpha,
             'decoration_style': self.decoration_style,
             'decoration_gray_color': self.decoration_gray_color,
+            'vertical_stitch_conf': self.vertical_stitch_conf,
         }
 
     def get_output_directory(self, base_output_dir: Path) -> Path:

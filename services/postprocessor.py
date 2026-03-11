@@ -20,7 +20,8 @@ import shutil
 from pathlib import Path
 from typing import Union
 
-from algorithms.stitching.vertical_stitch import VerticalStitch
+from algorithms.stitching.vertical_stitch import stitch_and_resize
+from configs.user_config import DEFAULT_VERTICAL_STITCH_CONF
 from utils.logger import get_logger
 
 logger = get_logger("postprocessor")
@@ -79,6 +80,15 @@ def _merge_conf_from_complete_config(task_id: str, user_conf: dict) -> dict:
 
     # 用用户配置覆盖同名项
     merged_conf = {**base_conf, **user_conf}
+
+    # 特殊处理 vertical_stitch_conf：深度合并
+    # 用户配置覆盖默认值，但未提供的字段保留默认值
+    default_vertical_conf = DEFAULT_VERTICAL_STITCH_CONF
+    user_vertical_conf = user_conf.get('vertical_stitch_conf', {})
+
+    # 深度合并：用户配置覆盖默认值
+    merged_vertical_conf = {**default_vertical_conf, **user_vertical_conf}
+    merged_conf['vertical_stitch_conf'] = merged_vertical_conf
 
     return merged_conf
 
@@ -181,6 +191,65 @@ def postprocessor(task_id: str, user_conf: Union[dict, str]) -> tuple[bool, dict
 # Step 3: 9 个阶段的内部函数
 # ==========================================
 
+def _build_vertical_stitch_filters(vertical_stitch_conf: dict) -> list:
+    """
+    基于 filter_output_dirs 构建纵图拼接 filters 列表
+
+    Args:
+        vertical_stitch_conf: 纵图拼接配置（已合并默认值）
+            - center_vertical.resolution: center 方向分辨率
+            - side_vertical.resolution: side 方向分辨率
+            - center_count: center 方向拼接数量
+            - side_count: side 方向拼接数量
+
+    Returns:
+        list: filters 列表
+
+    Raises:
+        ValueError: 如果配置缺失
+    """
+    from configs.base_config import SystemConfig
+
+    # 获取 filter_output_dirs（和小图筛选使用同一个配置）
+    system_config = SystemConfig()
+    filter_output_dirs = system_config.filter_output_dirs
+
+    # 配置校验：不能为空
+    if not vertical_stitch_conf:
+        raise ValueError("vertical_stitch_conf 不能为空")
+
+    # 遍历 filter_output_dirs，生成 filters
+    filters = []
+    for filter_dir in filter_output_dirs:
+        # 从 filter_dir 提取 base_type: center_filter → center, side_filter → side
+        base_type = filter_dir.replace('_filter', '')
+
+        # 从配置中获取该方向的参数
+        vertical_key = f"{base_type}_vertical"
+        count_key = f"{base_type}_count"
+
+        # 获取分辨率 - 缺少则报错
+        vertical_conf = vertical_stitch_conf.get(vertical_key, {})
+        resolution = vertical_conf.get("resolution")
+
+        if resolution is None:
+            raise ValueError(f"配置缺少 {vertical_key}.resolution")
+
+        # 获取拼接数量 - 缺少则报错
+        stitch_count = vertical_stitch_conf.get(count_key)
+
+        if stitch_count is None:
+            raise ValueError(f"配置缺少 {count_key}")
+
+        filters.append({
+            "dir": filter_dir,
+            "stitch_count": stitch_count,
+            "resolution": resolution
+        })
+
+    return filters
+
+
 def _small_image_filter(task_id: str, conf: dict) -> tuple[bool, dict]:
     """
     小图筛选阶段
@@ -275,14 +344,40 @@ def _vertical_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
 
     Args:
         task_id: 任务 ID
-        conf: 纵图拼接配置
+        conf: 纵图拼接配置（已合并默认值）
 
     Returns:
         tuple[bool, dict]: (是否成功，详情字典)
     """
-    # 传递完整的配置给 VerticalStitch，以便访问所有配置参数
-    stitcher = VerticalStitch(task_id, conf)
-    return stitcher.process()
+    from rules.rule6_2 import process_vertical_stitch
+
+    # conf 已经是纵图拼接配置内容本身，直接使用
+    vertical_stitch_conf = conf
+
+    # 配置校验：不能为空
+    if not vertical_stitch_conf:
+        return False, {
+            "err_msg": "vertical_stitch_conf 不能为空",
+            "task_id": task_id
+        }
+
+    # 构建 filters 列表（基于 filter_output_dirs）
+    try:
+        filters = _build_vertical_stitch_filters(vertical_stitch_conf)
+    except ValueError as e:
+        return False, {
+            "err_msg": str(e),
+            "task_id": task_id
+        }
+
+    # 构建完整的配置传递给 rule6_2
+    vertical_stitch_full_conf = {
+        "base_path": ".results",
+        "filters": filters,
+        "output_dir_suffix": "_vertical",
+    }
+
+    return process_vertical_stitch(task_id, vertical_stitch_full_conf)
 
 
 def _horizontal_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
