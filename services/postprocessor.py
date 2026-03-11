@@ -386,14 +386,15 @@ def _horizontal_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
 
     Args:
         task_id: 任务 ID
-        conf: 横图拼接配置
+        conf: 横图拼接配置 (扁平配置)
 
     Returns:
         tuple[bool, dict]: (是否成功，详情字典)
     """
-    from algorithms.stitching.horizontal_stitch import HorizontalStitch
-    stitcher = HorizontalStitch(task_id, conf)
-    return stitcher.process()
+    from rules.rule1to5 import process_horizontal_stitch
+
+    # conf 已经是扁平配置，直接传递给中间层
+    return process_horizontal_stitch(task_id, conf)
 
 
 def _horizontal_image_score(task_id: str, conf: dict) -> tuple[bool, dict]:

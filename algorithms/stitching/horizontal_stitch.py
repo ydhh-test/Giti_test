@@ -292,11 +292,17 @@ class CombinationManager:
         self.rib_count = rib_count
         self.config = config
 
-        # 历史计数文件路径
-        history_path = self.config.get('history_file', '.results/data/history_counts.json')
-        if not os.path.isabs(history_path):
-            history_path = os.path.join(os.path.dirname(__file__), '..', '..', history_path)
-        self.history_file = history_path
+        # 历史计数文件路径 - 从 config 中获取，不设置默认值（避免 hard code）
+        history_path = self.config.get('history_file')
+        if history_path:
+            # 如果是相对路径，转换为绝对路径
+            history_path = Path(history_path)
+            if not history_path.is_absolute():
+                history_path = Path.cwd() / history_path
+            self.history_file = str(history_path)
+        else:
+            # 如果没有传入 history_file，则不启用历史计数功能
+            self.history_file = None
 
         # 加载历史计数
         self.history_counts = self._load_history()
@@ -307,7 +313,9 @@ class CombinationManager:
 
     def _load_history(self) -> Dict:
         """加载历史计数"""
-        if os.path.exists(self.history_file):
+        if self.history_file is None:
+            return defaultdict(int)
+        if Path(self.history_file).exists():
             try:
                 with open(self.history_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
@@ -317,7 +325,10 @@ class CombinationManager:
 
     def _save_history(self):
         """保存历史计数"""
-        os.makedirs(os.path.dirname(self.history_file), exist_ok=True)
+        if self.history_file is None:
+            return
+        history_path = Path(self.history_file)
+        history_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.history_file, 'w', encoding='utf-8') as f:
             json.dump(dict(self.history_counts), f, ensure_ascii=False, indent=2)
 
@@ -703,8 +714,13 @@ def generate_layout_images(
     return results
 
 
-def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir: str = None):
-    """保存结果到指定目录"""
+def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir: str = None) -> List[Dict[str, Any]]:
+    """
+    保存结果到指定目录
+
+    Returns:
+        List[Dict[str, Any]]: 保存的图片信息列表，每个包含 filename, output_path, symmetry, score
+    """
     if output_dir is None:
         output_dir = config.get('output_dir')
 
@@ -718,16 +734,19 @@ def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir
         "mirror_shifted": 3
     })
 
+    # 收集保存的图片信息
+    saved_images = []
+
     for idx, result in enumerate(results):
         sym_number = sym_dict.get(result.applied_symmetry, 99)
 
-        # 生成文件名: 根据 rib_combination 的长度自适应，避免索引越界
+        # 生成文件名：根据 rib_combination 的长度自适应，避免索引越界
         rib_combination = result.rib_combination or ()
         combo_len = len(rib_combination)
         rib_count = len(result.rib_regions)  # 实际参与拼接的 RIB 数
 
         if combo_len == 5:
-            # 5 RIB 完整组合: r1_side, r2_center, r3_center, r4_center, r5_side
+            # 5 RIB 完整组合：r1_side, r2_center, r3_center, r4_center, r5_side
             combo_str = (
                 f"r1_{rib_combination[0]}_"
                 f"r2_{rib_combination[1]}_"
@@ -736,7 +755,7 @@ def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir
                 f"r5_{rib_combination[4]}"
             )
         elif combo_len == 4:
-            # 4 RIB 完整组合: r1_side, r2_center, r3_center, r4_side
+            # 4 RIB 完整组合：r1_side, r2_center, r3_center, r4_side
             combo_str = (
                 f"r1_{rib_combination[0]}_"
                 f"r2_{rib_combination[1]}_"
@@ -764,7 +783,18 @@ def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir
         out_path = os.path.join(output_dir, out_filename)
 
         cv2.imwrite(out_path, result.layout_image)
-        print(f"  -> 成功! 保存至 {out_filename} [得分: {result.layout_score}]")
+        print(f"  -> 成功！保存至 {out_filename} [得分：{result.layout_score}]")
+
+        # 收集图片信息
+        saved_images.append({
+            "filename": out_filename,
+            "output_path": out_path,
+            "symmetry": result.applied_symmetry,
+            "score": result.layout_score
+        })
+
+    return saved_images
+
 
 
 
@@ -846,14 +876,15 @@ class HorizontalStitch:
             if not self.results:
                 return False, {"error": "未生成任何布局图"}
             
-            # 3. 保存结果
-            save_results(self.results, self.conf)
+            # 3. 保存结果，获取图片列表
+            saved_images = save_results(self.results, self.conf)
             
-            # 4. 返回成功信息
+            # 4. 返回成功信息（包含图片列表）
             return True, {
                 "generated_count": len(self.results),
                 "symmetry_types": list(set(r.applied_symmetry for r in self.results)),
-                "average_score": sum(r.layout_score for r in self.results) / len(self.results)
+                "average_score": sum(r.layout_score for r in self.results) / len(self.results),
+                "images": saved_images
             }
             
         except Exception as e:

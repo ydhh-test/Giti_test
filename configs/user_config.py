@@ -21,6 +21,24 @@ DEFAULT_VERTICAL_STITCH_CONF = {
     "side_count": 5,
 }
 
+# 横图拼接默认配置
+DEFAULT_HORIZONTAL_STITCH_CONF = {
+    "rib_count": 5,  # RIB 数量 (4 或 5)
+    "symmetry_type": "both",  # 对称类型：asymmetric/rotate180/mirror/mirror_shifted/random/all_symmetry/both
+    "blend_width": 10,  # 边缘融合宽度 (像素)
+    "main_groove_width": 20,  # 主沟宽度 (像素)
+    "generation": {
+        "max_per_mode": 10,  # 每种模式最大生成数
+    },
+    "symmetry_mapping": {  # 对称模式文件名映射
+        "asymmetric": 0,
+        "rotate180": 1,
+        "mirror": 2,
+        "mirror_shifted": 3,
+    },
+    "history_file": None,  # 由调用方动态设置，默认为 None 表示不启用历史计数
+}
+
 
 @dataclass
 class UserConfig:
