@@ -395,6 +395,11 @@ class TransverseGroovesConfig:
     # 需求14满分（交叉点数量合规）
     score_intersection: int = 2
 
+    # image_type → RIB 标签（用于合规判定分支）
+    rib_label: Dict[str, str] = field(
+        default_factory=lambda: {"center": "RIB1/5", "side": "RIB2/3/4"}
+    )
+
     @classmethod
     def from_dict(cls, conf: Dict[str, Any]) -> 'TransverseGroovesConfig':
         """从配置字典创建对象"""
@@ -403,11 +408,12 @@ class TransverseGroovesConfig:
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return {
-            'groove_width_mm':   dict(self.groove_width_mm),
-            'pixel_per_mm':      self.pixel_per_mm,
-            'max_intersections': self.max_intersections,
+            'groove_width_mm':    dict(self.groove_width_mm),
+            'pixel_per_mm':       self.pixel_per_mm,
+            'max_intersections':  self.max_intersections,
             'score_groove_count': self.score_groove_count,
             'score_intersection': self.score_intersection,
+            'rib_label':          dict(self.rib_label),
         }
 
 
