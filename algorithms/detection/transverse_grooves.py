@@ -285,13 +285,26 @@ def _count_intersections(
     groove_mask: np.ndarray,
 ) -> int:
     """
-    统计横沟与纵向线条（细纵沟/钢片）的交叉点数量。
+    统计横沟与纵向线条（细纵沟/钢片）的交叉点数量（逐横沟双侧密度验证法）。
 
-    方法：
-    1. 在横沟行以外，用垂直投影找到各纵向线的 X 坐标聚簇。
-    2. 在横沟行内，对每个纵向线 X 范围，检查是否存在前景像素。
-       存在即为一次"穿过"，计入交叉点。
-    3. 遍历每条横沟的行范围 × 每个纵向线 X 聚簇 = 交叉点总数。
+    设计原理
+    --------
+    真实纵向线（钢片/细纵沟）贯穿整幅图像高度，在每条横沟的**上方和下方**都有
+    稳定的前景信号；而斜向横沟的边缘渗漏、局部纹路噪声等伪影只在横沟的某一侧
+    集中出现，无法同时满足双侧密度要求。
+
+    对每条横沟分别执行以下步骤：
+
+    Step A — 双侧列密度卷积核
+        分别对横沟上方和下方的外部行计算各列前景密度：
+        ``D_above[x] = sum(binary[above_rows, x]) / img_h``（归一化到图像高度）
+        ``D_below[x] = sum(binary[below_rows, x]) / img_h``
+        两侧均可用时阈值 **15%**（各自独立）；只有一侧时阈值提升至 **25%**。
+
+    Step B — 合并热列（5px 间隔容差），过滤图像边缘聚簇
+
+    Step C — 聚簇 × 该横沟配对计数（每对最多计 1 次）
+        粗粒度计数天然处理斜向横沟像素碎片化：无论纵线如何穿过横沟，每对最多 1 次。
 
     Parameters
     ----------
@@ -306,79 +319,78 @@ def _count_intersections(
         交叉点数量。
     """
     img_h, img_w = binary.shape
+    gm_row_active = groove_mask.sum(axis=1) > 0   # bool (H,)
 
-    # ── Step A：在横沟行以外找纵向线的 X 聚簇 ───────────────────
-    # 横沟行：groove_mask 中有前景的行
-    gm_row_active = groove_mask.sum(axis=1) > 0    # bool array, shape (H,)
-    outside_rows  = binary[~gm_row_active, :]       # 横沟以外的行
-
-    if outside_rows.shape[0] == 0:
-        return 0
-
-    # 屏蔽最右边界列（裁剪伪影），保留最左列（可能是真实纵向线）
-    outside_rows = outside_rows.copy()
-    outside_rows[:, img_w - 1] = 0
-
-    col_sums = (outside_rows > 0).sum(axis=0).astype(np.float32)   # shape (W,)
-
-    # 列密度阈值：取横沟外行数的 5%（至少 2px），识别有明显信号的列
-    min_col_px = max(2, outside_rows.shape[0] * 5 // 100)
-    hot_cols = np.where(col_sums >= min_col_px)[0]
-
-    if len(hot_cols) == 0:
-        return 0
-
-    # 将相邻的热列合并为纵向线 X 聚簇（允许 5px 间隔）
-    vert_clusters: List[Tuple[int, int]] = []    # (x_start, x_end)
-    cluster_start = int(hot_cols[0])
-    cluster_end   = int(hot_cols[0])
-    for c in hot_cols[1:]:
-        c = int(c)
-        if c - cluster_end <= 5:
-            cluster_end = c
-        else:
-            vert_clusters.append((cluster_start, cluster_end))
-            cluster_start = c
-            cluster_end   = c
-    vert_clusters.append((cluster_start, cluster_end))
-
-    # 排除触及图像左右边缘的聚簇（边缘列 = 裁剪伪影，非真实纵向线）
-    # xs==0 → 聚簇紧贴左边缘；xe==img_w-1 → 聚簇紧贴右边缘
-    vert_clusters = [
-        (xs, xe) for xs, xe in vert_clusters
-        if xs > 0 and xe < img_w - 1
-    ]
-
-    if not vert_clusters:
-        return 0
-
-    # ── Step B：识别每条横沟的行范围 ────────────────────────────
-    # 从 groove_mask 中按连续行段提取
     groove_row_idx = np.where(gm_row_active)[0]
     if len(groove_row_idx) == 0:
         return 0
 
+    # ── 提取横沟行组（连续行段，允许 2 行空白）────────────────────────
     groove_row_groups: List[Tuple[int, int]] = []
-    g_start = int(groove_row_idx[0])
-    g_end   = int(groove_row_idx[0])
+    gs, ge = int(groove_row_idx[0]), int(groove_row_idx[0])
     for r in groove_row_idx[1:]:
         r = int(r)
-        if r - g_end <= 2:
-            g_end = r
+        if r - ge <= 2:
+            ge = r
         else:
-            groove_row_groups.append((g_start, g_end))
-            g_start = r
-            g_end   = r
-    groove_row_groups.append((g_start, g_end))
+            groove_row_groups.append((gs, ge))
+            gs = ge = r
+    groove_row_groups.append((gs, ge))
 
-    # ── Step C：统计纵向线 × 横沟行范围的交叉数 ─────────────────
+    arange_h    = np.arange(img_h)
     intersections = 0
+
     for g_r0, g_r1 in groove_row_groups:
+        # ── Step A：计算该横沟上下两侧的列密度 ──────────────────────
+        above_idx = np.where(~gm_row_active & (arange_h < g_r0))[0]
+        below_idx = np.where(~gm_row_active & (arange_h > g_r1))[0]
+        n_above, n_below = len(above_idx), len(below_idx)
+
+        if n_above == 0 and n_below == 0:
+            continue
+
+        # 两侧均可用：双侧阈值 15%；仅一侧可用：单侧阈值 25%（更严格）
+        if n_above > 0 and n_below > 0:
+            # 使用向上取整（ceiling）确保 15% 阈值严格成立，避免整除下取整使小样本门槛过低
+            ta = max(2, (n_above * 15 + 99) // 100) / img_h
+            tb = max(2, (n_below * 15 + 99) // 100) / img_h
+            da = (binary[above_idx, :] > 0).sum(axis=0) / img_h
+            db = (binary[below_idx, :] > 0).sum(axis=0) / img_h
+            hot = (da >= ta) & (db >= tb)
+        elif n_above > 0:   # 横沟触及底部边界
+            ta = max(2, (n_above * 25 + 99) // 100) / img_h
+            da = (binary[above_idx, :] > 0).sum(axis=0) / img_h
+            hot = da >= ta
+        else:               # 横沟触及顶部边界
+            tb = max(2, (n_below * 25 + 99) // 100) / img_h
+            db = (binary[below_idx, :] > 0).sum(axis=0) / img_h
+            hot = db >= tb
+
+        hot_cols = np.where(hot)[0]
+        if len(hot_cols) == 0:
+            continue
+
+        # ── Step B：合并相邻热列（5px 间隔容差） ─────────────────────
+        vert_clusters: List[Tuple[int, int]] = []
+        cs, ce = int(hot_cols[0]), int(hot_cols[0])
+        for c in hot_cols[1:]:
+            c = int(c)
+            if c - ce <= 5:
+                ce = c
+            else:
+                vert_clusters.append((cs, ce))
+                cs = ce = c
+        vert_clusters.append((cs, ce))
+
+        vert_clusters = [
+            (xs, xe) for xs, xe in vert_clusters
+            if xs > 0 and xe < img_w - 1
+        ]
+
+        # ── Step C：配对计数，每（纵向线聚簇 × 横沟）最多计 1 次 ────
         groove_rows_bin = binary[g_r0:g_r1 + 1, :]
         for xs, xe in vert_clusters:
-            # 检查纵向线 X 范围在该横沟行段内是否有前景像素
-            region = groove_rows_bin[:, xs:xe + 1]
-            if (region > 0).any():
+            if (groove_rows_bin[:, xs:xe + 1] > 0).any():
                 intersections += 1
 
     return intersections
