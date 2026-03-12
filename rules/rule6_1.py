@@ -168,6 +168,20 @@ def process_pattern_continuity_single_dir(
             )
 
             # 判断连续性
+            # 检查是否返回错误
+            if score is None:
+                err_msg = details.get('err_msg', '未知错误')
+                error_type = details.get('error_type', 'UnknownError')
+                logger.error(f"图案连续性检测失败，图片路径：{image_path}, "
+                             f"错误类型：{error_type}, 错误信息：{err_msg}")
+                stats["images"][image_path.name] = {
+                    "error": err_msg,
+                    "error_type": error_type,
+                    "deleted": True
+                }
+                stats["deleted_count"] += 1
+                continue
+
             is_continuous = details.get('is_continuous', False)
 
             # 记录结果

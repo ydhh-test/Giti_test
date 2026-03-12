@@ -167,13 +167,11 @@ def detect_pattern_continuity(
 
         return score, details
 
-    except (PatternDetectionError, ImageDimensionError, ContinuityAnalysisError):
-        # 重新抛出我们的自定义异常
-        raise
     except Exception as e:
-        # 捕获其他异常并转换为PatternDetectionError
-        logger.error(f"图案连续性检测时发生未知错误: {str(e)}")
-        raise PatternDetectionError(f"未知错误: {str(e)}")
+        err_msg = str(e)
+        error_type = type(e).__name__
+        logger.error(f"图案连续性检测失败：{err_msg}")
+        return None, {'err_msg': err_msg, 'error_type': error_type}
 
 
 def get_adaptive_threshold(image: np.ndarray, config: PatternContinuityConfig) -> int:
