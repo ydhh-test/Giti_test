@@ -16,6 +16,8 @@
 - **模式识别**：基于深度学习的花纹块生成
 - **连续性检测**：图案上下边缘连续性分析
 - **智能拼接**：纵图/横图自动拼接
+- **规则引擎**：配置驱动的业务规则判定
+- **后处理 9 阶段流程**：Conf 处理→小图筛选→小图打分→纵图拼接→横图拼接→横图打分→装饰边框→统计总分→整理输出
 - **质量评分**：业务评分 + 美感评分
 - **可视化输出**：检测结果可视化展示
 
@@ -80,6 +82,7 @@ giti-tire-ai-pattern/
 │   │   └── pattern_continuity.py  # 连续性检测算法
 │   └── stitching/          # 拼接算法
 │       ├── __init__.py
+│       ├── horizontal_stitch.py   # 横图拼接算法
 │       └── vertical_stitch.py     # 纵图拼接算法
 ├── utils/                  # 工具模块
 │   ├── __init__.py
@@ -95,10 +98,15 @@ giti-tire-ai-pattern/
 ├── docs/                   # 文档
 │   ├── before_jobs/       # 前期工作文档
 │   └── development/       # 开发文档
-├── plans/                  # 计划文档
-│   ├── executing/         # 执行中的计划
-│   └── writing/           # 编写中的计划
+├── plans/                  # 计划文档（存储大模型生成的执行计划）
+│   ├── merge_by_hand/     # 手动合并的计划
+│   ├── rules/             # 规则相关计划
+│   ├── scripts/           # 脚本相关计划
+│   └── services/          # 服务相关计划
 ├── scripts/                # 脚本工具
+│   ├── pieces_2_standard_input.py  # 准备输入数据脚本
+│   ├── postprocessor.py            # 后处理运行脚本
+│   └── small_image_filter.py       # 小图筛选脚本
 ├── ARCHITECTURE.md         # 架构设计文档
 ├── CONTRIBUTING.md         # 贡献指南
 ├── README.md              # 项目说明
@@ -109,14 +117,25 @@ giti-tire-ai-pattern/
 
 项目采用分层架构设计：
 
-- **服务层** (`services/`): 对外提供的服务接口，负责业务流程编排
+- **服务层** (`services/`): 对外提供的服务接口，负责业务流程编排（预处理、推理、后处理、评分）
+- **规则层** (`rules/`): 业务规则实现，配置驱动的规则判定
 - **算法层** (`algorithms/`): 核心算法实现，按功能语义分组
   - `detection/`: 检测类算法（如连续性检测）
-  - `stitching/`: 拼接类算法（如纵图拼接）
-- **工具层** (`utils/`): 通用工具函数
+  - `stitching/`: 拼接类算法（如纵图拼接、横图拼接）
+- **工具层** (`utils/`): 通用工具函数（日志、异常、图像处理、IO）
 - **配置层** (`configs/`): 配置管理
 
-**注意**: 用户代码应通过服务层接口调用，算法层为内部实现。
+**注意**: 用户代码应通过服务层接口调用，规则层和算法层为内部实现。
+
+### 后处理 9 阶段流程
+
+后处理模块实现完整的 9 阶段处理流程：
+
+```
+Conf 处理 → 小图筛选 → 小图打分 → 纵图拼接 → 横图拼接 → 横图打分 → 装饰边框 → 统计总分 → 整理输出
+```
+
+详细 API 说明请参考 [docs/api_postprocessor.md](docs/api_postprocessor.md)
 
 ## 使用指南
 
@@ -251,9 +270,9 @@ except PatternDetectionError as e:
 
 ## 部署说明
 
-详细的部署指南请参考 [DEPLOYMENT.md](DEPLOYMENT.md)
+详细的部署指南请参考 [docs/deployment.md](docs/deployment.md)
 
-### 开发环境部署
+### 快速运行
 
 ```bash
 # 1. 环境配置
@@ -263,21 +282,14 @@ source venv/bin/activate
 # 2. 安装依赖
 pip install -r requirements.txt
 
-# 3. 运行测试
-pytest tests/ -v
-```
+# 3. 运行测试（可选）
+pytest tests/unittests/services/test_preprocessor.py -v
 
-### 生产环境部署
+# 4. 准备输入数据
+python scripts/pieces_2_standard_input.py --task_id <TASK_ID>
 
-```bash
-# 1. 使用 Docker 部署（推荐）
-docker build -t giti-tire-ai-pattern .
-docker run -p 8080:8080 giti-tire-ai-pattern
-
-# 2. 使用 systemd 服务（Linux）
-sudo cp giti-tire-ai-pattern.service /etc/systemd/system/
-sudo systemctl start giti-tire-ai-pattern
-sudo systemctl enable giti-tire-ai-pattern
+# 5. 运行后处理
+python scripts/postprocessor.py --task-id <TASK_ID>
 ```
 
 ## 架构设计
@@ -341,6 +353,14 @@ A: 修改 `configs/rules_config.py` 中的 `PatternContinuityConfig` 参数。
 A: 最低配置：4核CPU，8GB内存。推荐配置：8核CPU，16GB内存，GPU支持。
 
 ## 版本历史
+
+### v2.0.0 MVP (2026-03-12)
+- **后处理模块**：实现完整 9 阶段处理流程（Conf 处理→小图筛选→小图打分→纵图拼接→横图拼接→横图打分→装饰边框→统计总分→整理输出）
+- **规则引擎**：新增 5 个规则文件（rule1to5、rule6_1、rule6_2、rule13、rule19）
+- **算法层**：新增横图拼接算法（horizontal_stitch.py）
+- **测试体系**：新增单元测试 + 集成测试，覆盖核心功能
+- **配置系统**：完善 6 个配置文件，支持配置驱动
+- **脚本工具**：新增 3 个脚本（pieces_2_standard_input.py、postprocessor.py、small_image_filter.py）
 
 ### v1.0.0 (2026-03-08)
 - 完成基础架构设计
