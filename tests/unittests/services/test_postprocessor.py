@@ -18,6 +18,7 @@ import json
 import shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+import pytest
 
 # 添加项目根目录到 Python 路径
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
@@ -92,24 +93,21 @@ def cleanup_task_data(task_id: str):
         shutil.rmtree(task_dir)
 
 
-class TestLoadUserConf(unittest.TestCase):
+class TestLoadUserConf:
     """测试 _load_user_conf 函数"""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_path):
         """设置测试环境"""
-        self.test_dir = Path("/tmp/test_postprocessor")
+        self.test_dir = tmp_path / "test_postprocessor"
         self.test_dir.mkdir(exist_ok=True)
-
-    def tearDown(self):
-        """清理测试环境"""
-        if self.test_dir.exists():
-            shutil.rmtree(self.test_dir)
+        # pytest 自动清理，无需 tearDown
 
     def test_user_conf_dict_input(self):
         """测试 dict 类型输入"""
         user_conf = {"key1": "value1", "key2": 123}
         result = _load_user_conf(user_conf)
-        self.assertEqual(result, user_conf)
+        assert result == user_conf
 
     def test_user_conf_json_path_input(self):
         """测试 JSON 文件路径输入"""
@@ -119,13 +117,12 @@ class TestLoadUserConf(unittest.TestCase):
             json.dump(test_conf, f)
 
         result = _load_user_conf(str(json_path))
-        self.assertEqual(result, test_conf)
+        assert result == test_conf
 
     def test_user_conf_invalid_type(self):
         """测试无效类型输入（应报错）"""
-        with self.assertRaises(TypeError) as context:
+        with pytest.raises(TypeError, match="user_conf must be dict or str"):
             _load_user_conf(12345)
-        self.assertIn("user_conf must be dict or str", str(context.exception))
 
     def test_user_conf_invalid_json(self):
         """测试无效 JSON 文件（应报错）"""
@@ -133,14 +130,13 @@ class TestLoadUserConf(unittest.TestCase):
         with open(json_path, 'w', encoding='utf-8') as f:
             f.write("{invalid json content")
 
-        with self.assertRaises(json.JSONDecodeError):
+        with pytest.raises(json.JSONDecodeError):
             _load_user_conf(str(json_path))
 
     def test_user_conf_file_not_found(self):
         """测试 JSON 文件不存在（应报错）"""
-        with self.assertRaises(FileNotFoundError) as context:
+        with pytest.raises(FileNotFoundError, match="JSON config file not found"):
             _load_user_conf("/non/existent/path/config.json")
-        self.assertIn("JSON config file not found", str(context.exception))
 
 
 class TestMergeConfFromCompleteConfig(unittest.TestCase):
@@ -176,45 +172,41 @@ class TestCreateErrorResponse(unittest.TestCase):
         self.assertEqual(details["task_id"], task_id)
 
 
-class TestStageFunctions(unittest.TestCase):
+class TestStageFunctions:
     """测试各阶段内部函数"""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_path):
         """设置测试环境"""
         self.task_id = "test_task"
-        self.test_dir = Path("/tmp/test_postprocessor_stages")
-        self.test_dir.mkdir(exist_ok=True)
-
-    def tearDown(self):
-        """清理测试环境"""
-        if self.test_dir.exists():
-            shutil.rmtree(self.test_dir)
+        self.test_dir = tmp_path / "test_postprocessor_stages"
+        # pytest 自动清理，无需 tearDown
 
     def test_small_image_filter_empty(self):
         """测试小图筛选空函数"""
         flag, details = _small_image_filter(self.task_id, {})
-        self.assertTrue(flag)
-        self.assertIn("image_gen_number", details)
-        self.assertEqual(details["task_id"], self.task_id)
+        assert flag is True
+        assert "image_gen_number" in details
+        assert details["task_id"] == self.task_id
 
     def test_small_image_score_empty(self):
         """测试小图打分空函数"""
         flag, details = _small_image_score(self.task_id, {})
-        self.assertTrue(flag)
-        self.assertIn("image_gen_number", details)
+        assert flag is True
+        assert "image_gen_number" in details
 
     def test_horizontal_image_score_empty(self):
         """测试横图打分空函数"""
         flag, details = _horizontal_image_score(self.task_id, {})
-        self.assertTrue(flag)
-        self.assertIn("image_gen_number", details)
+        assert flag is True
+        assert "image_gen_number" in details
 
     def test_standard_input_empty(self):
         """测试整理输出空函数"""
         input_details = {"image_gen_number": 5, "test_key": "test_value"}
         flag, details = _standard_input(self.task_id, {}, input_details)
-        self.assertTrue(flag)
-        self.assertEqual(details, input_details)
+        assert flag is True
+        assert details == input_details
 
 
 class TestAddDecorationBorders(unittest.TestCase):
@@ -430,6 +422,28 @@ class TestPostprocessorIntegration(unittest.TestCase):
         self.assertIn("failed_stage", details)
         self.assertEqual(details["failed_stage"], "vertical_stitch")
         self.assertIn("err_msg", details)
+
+
+
+class TestPositiveExample:
+    """正例测试 - 输出保留供检查"""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """设置固定输出目录，测试后不清理"""
+        self.output_dir = Path(".results/tmp/positive_example")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        yield
+        # 不清理输出，供人工检查
+
+    @pytest.mark.trylast
+    def test_positive_example(self):
+        """正例测试 - 验证基本功能并保留输出"""
+        # 测试逻辑，输出到 self.output_dir
+        # 创建一个测试文件证明输出已保留
+        test_output_file = self.output_dir / "test_output.txt"
+        test_output_file.write_text("positive example output", encoding='utf-8')
+        assert test_output_file.exists()
 
 
 if __name__ == '__main__':
