@@ -14,16 +14,13 @@
 - 总分：最高 6 分
 """
 
-# Copyright © 2026. All rights reserved.
-# Author: 桂禹
-# AI Assistant: ClaudeCode (Claude Sonnet 4.6)
-
 import cv2
 import numpy as np
 from typing import Dict, Any, List, Optional, Tuple
 
 from utils.logger import get_logger
 from utils.exceptions import PatternDetectionError, ImageDimensionError
+from configs.rules_config import TransverseGroovesConfig
 
 logger = get_logger("detect_transverse_grooves")
 
@@ -31,21 +28,9 @@ logger = get_logger("detect_transverse_grooves")
 # 常量
 # ============================================================
 
-# image_type → RIB 标签
-_RIB_LABEL: Dict[str, str] = {
-    "center": "RIB1/5",
-    "side":   "RIB2/3/4",
-}
-
-# 各类型默认最小横沟厚度（mm）
-_DEFAULT_GROOVE_WIDTH_MM: Dict[str, float] = {
-    "center": 3.5,
-    "side":   1.8,
-}
-
-# 各要求满分
-_MAX_SCORE_REQ8  = 4   # 需求8：横沟数量
-_MAX_SCORE_REQ14 = 2   # 需求14：交叉点数量
+# 模块级默认配置（groove_width_mm / score / rib_label 等）
+# 均由 TransverseGroovesConfig 统一管理，不在此处重复硬编码
+_DEFAULT_CFG = TransverseGroovesConfig()
 
 
 # ============================================================
@@ -113,16 +98,16 @@ def detect_transverse_grooves(
             )
 
         image_type = image_type.strip().lower()
-        if image_type not in _RIB_LABEL:
+        if image_type not in _DEFAULT_CFG.rib_label:
             raise PatternDetectionError(
                 f"未知的 image_type '{image_type}'，应为 'center' 或 'side'"
             )
 
         # ── 参数准备 ───────────────────────────────────────────────────
-        widths     = groove_width_mm if groove_width_mm is not None else _DEFAULT_GROOVE_WIDTH_MM
-        min_w_mm   = widths.get(image_type, _DEFAULT_GROOVE_WIDTH_MM[image_type])
+        widths     = groove_width_mm if groove_width_mm is not None else _DEFAULT_CFG.groove_width_mm
+        min_w_mm   = widths.get(image_type, _DEFAULT_CFG.groove_width_mm[image_type])
         groove_px  = max(1, int(round(min_w_mm * pixel_per_mm)))
-        rib_type   = _RIB_LABEL[image_type]
+        rib_type   = _DEFAULT_CFG.rib_label[image_type]
         img_h, img_w = image.shape[:2]
 
         logger.debug("rib_type=%s, groove_px=%d (%.1fmm @ %.1fpx/mm)",
@@ -158,13 +143,13 @@ def detect_transverse_grooves(
             rib_type, groove_count, intersection_count, max_intersections
         )
         score      = float(score_8 + score_14)
-        is_valid   = (score_8 == _MAX_SCORE_REQ8) and (score_14 == _MAX_SCORE_REQ14)
+        is_valid   = (score_8 == _DEFAULT_CFG.score_groove_count) and (score_14 == _DEFAULT_CFG.score_intersection)
 
         # ── Step 7: 生成调试标注图 ────────────────────────────────────
         debug_image = _draw_debug_image(
             image, groove_mask, groove_positions,
             rib_type, groove_count, intersection_count,
-            score_8 == _MAX_SCORE_REQ8, score_14 == _MAX_SCORE_REQ14, score,
+            score_8 == _DEFAULT_CFG.score_groove_count, score_14 == _DEFAULT_CFG.score_intersection, score,
         )
 
         details: Dict[str, Any] = {
@@ -417,11 +402,11 @@ def _compute_scores(
     (score_8, score_14)
     """
     if rib_type == "RIB1/5":
-        score_8 = _MAX_SCORE_REQ8 if groove_count == 1 else 0
+        score_8 = _DEFAULT_CFG.score_groove_count if groove_count == 1 else 0
     else:   # RIB2/3/4
-        score_8 = _MAX_SCORE_REQ8 if groove_count <= 1 else 0
+        score_8 = _DEFAULT_CFG.score_groove_count if groove_count <= 1 else 0
 
-    score_14 = _MAX_SCORE_REQ14 if intersection_count <= max_intersections else 0
+    score_14 = _DEFAULT_CFG.score_intersection if intersection_count <= max_intersections else 0
     return score_8, score_14
 
 

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 
 """
 横沟检测算法单元测试
@@ -208,7 +208,7 @@ class TestTransverseGroovesFull(unittest.TestCase):
     PIXEL_PER_MM = 7.1
 
     def _run(self, img, image_type, max_intersections=2):
-        from algorithms.detection.transverse_grooves import detect_transverse_grooves
+        from algorithms.detection.groove_intersection import detect_transverse_grooves
         return detect_transverse_grooves(
             img, image_type,
             pixel_per_mm=self.PIXEL_PER_MM,
@@ -292,7 +292,7 @@ class TestTransverseGroovesFull(unittest.TestCase):
 
     def test_analyze_grooves_single_band_center(self):
         """直接测试 _analyze_grooves：1条全宽横沟 → count==1"""
-        from algorithms.detection.transverse_grooves import _analyze_grooves
+        from algorithms.detection.groove_intersection import _analyze_grooves
         # center groove_px=25, img_w=128
         mask = _make_groove_mask(band_rows=[(50, 80)])   # 30px 高
         positions, count, _ = _analyze_grooves(mask, groove_px=25, img_w=128)
@@ -304,21 +304,21 @@ class TestTransverseGroovesFull(unittest.TestCase):
 
     def test_analyze_grooves_two_bands_center(self):
         """直接测试 _analyze_grooves：2条横沟 → count==2"""
-        from algorithms.detection.transverse_grooves import _analyze_grooves
+        from algorithms.detection.groove_intersection import _analyze_grooves
         mask = _make_groove_mask(band_rows=[(20, 46), (82, 108)])  # 各 26px
         positions, count, _ = _analyze_grooves(mask, groove_px=25, img_w=128)
         self.assertEqual(count, 2)
 
     def test_analyze_grooves_single_band_side(self):
         """直接测试 _analyze_grooves：side 类型 groove_px=13"""
-        from algorithms.detection.transverse_grooves import _analyze_grooves
+        from algorithms.detection.groove_intersection import _analyze_grooves
         mask = _make_groove_mask(band_rows=[(56, 72)])   # 16px 高 > 13px
         positions, count, _ = _analyze_grooves(mask, groove_px=13, img_w=128)
         self.assertEqual(count, 1)
 
     def test_analyze_grooves_too_narrow_filtered(self):
         """宽度不足 groove_px 的细带应被过滤，count==0"""
-        from algorithms.detection.transverse_grooves import _analyze_grooves
+        from algorithms.detection.groove_intersection import _analyze_grooves
         # 3px 高的带，groove_px=25，面积远不足
         mask = _make_groove_mask(band_rows=[(60, 63)])
         positions, count, _ = _analyze_grooves(mask, groove_px=25, img_w=128)
@@ -326,7 +326,7 @@ class TestTransverseGroovesFull(unittest.TestCase):
 
     def test_analyze_grooves_positions_sorted(self):
         """多横沟 groove_positions 应为升序"""
-        from algorithms.detection.transverse_grooves import _analyze_grooves
+        from algorithms.detection.groove_intersection import _analyze_grooves
         mask = _make_groove_mask(band_rows=[(80, 106), (20, 46)])
         positions, _, _ = _analyze_grooves(mask, groove_px=25, img_w=128)
         self.assertEqual(positions, sorted(positions))
@@ -350,7 +350,7 @@ class TestTransverseGroovesFull(unittest.TestCase):
 
     def test_groove_positions_sorted(self):
         """多横沟时，groove_positions 应升序排列（通过 _analyze_grooves 验证）"""
-        from algorithms.detection.transverse_grooves import _analyze_grooves
+        from algorithms.detection.groove_intersection import _analyze_grooves
         mask = _make_groove_mask(band_rows=[(80, 106), (10, 46)])
         positions, _, _ = _analyze_grooves(mask, groove_px=25, img_w=128)
         self.assertEqual(positions, sorted(positions))
@@ -477,9 +477,13 @@ class TestTransverseGroovesFull(unittest.TestCase):
 
     _TASK_ID = "task_id_9f8d7b6a-5e4d-3c2b-1a09-876543210fed"
 
-    def _save_real_results(self, dataset_dir, image_type, out_dir):
+    def _save_real_results(self, dataset_dir, image_type, prod_input_dir, out_dir):
         """
-        对 dataset_dir 下所有图片运行检测，将结果写入 out_dir。
+        模拟生产流程：
+
+        Step 1 — 将 dataset_dir 下的图片拷贝到 prod_input_dir（伪造生产输入路径），
+                 使功能函数从生产目录读取，而非直接读 tests/ 目录。
+        Step 2 — 从 prod_input_dir 读取图片，调用检测函数，结果写入 out_dir。
 
         每张图片：
         - ``{stem}_debug.png`` : debug_image 标注图
@@ -488,17 +492,27 @@ class TestTransverseGroovesFull(unittest.TestCase):
         - ``results.json`` : 包含每张图片的数值指标列表
         """
         import json
+        import shutil
 
-        out_dir.mkdir(parents=True, exist_ok=True)
-        summary = []
-
-        image_files = sorted(
+        # Step 1: 拷贝测试数据到生产输入目录
+        prod_input_dir.mkdir(parents=True, exist_ok=True)
+        src_files = sorted(
             f for f in dataset_dir.iterdir()
             if f.suffix.lower() in (".png", ".jpg", ".jpeg")
         )
-        self.assertTrue(len(image_files) > 0, f"{dataset_dir} 下没有找到图片文件")
+        self.assertTrue(len(src_files) > 0, f"{dataset_dir} 下没有找到图片文件")
+        for fpath in src_files:
+            shutil.copy2(str(fpath), str(prod_input_dir / fpath.name))
 
-        for fpath in image_files:
+        # Step 2: 从生产输入目录读取，模拟生产流程
+        out_dir.mkdir(parents=True, exist_ok=True)
+        summary = []
+
+        prod_files = sorted(
+            f for f in prod_input_dir.iterdir()
+            if f.suffix.lower() in (".png", ".jpg", ".jpeg")
+        )
+        for fpath in prod_files:
             img = cv2.imread(str(fpath))
             self.assertIsNotNone(img, f"无法读取图片：{fpath}")
 
@@ -535,9 +549,11 @@ class TestTransverseGroovesFull(unittest.TestCase):
         if not dataset_dir.exists():
             self.skipTest("测试数据集不存在")
 
+        # 生产输入目录：将测试图片 copy 到此处，功能函数从这里读取
+        prod_input_dir = _ROOT / ".results" / self._TASK_ID / "center_inf"
         out_dir = _ROOT / ".results" / self._TASK_ID / \
             "detect_transverse_grooves" / "center"
-        summary = self._save_real_results(dataset_dir, "center", out_dir)
+        summary = self._save_real_results(dataset_dir, "center", prod_input_dir, out_dir)
 
         for entry in summary:
             self.assertIsInstance(entry["total_score"], float)
@@ -550,9 +566,11 @@ class TestTransverseGroovesFull(unittest.TestCase):
         if not dataset_dir.exists():
             self.skipTest("测试数据集不存在")
 
+        # 生产输入目录：将测试图片 copy 到此处，功能函数从这里读取
+        prod_input_dir = _ROOT / ".results" / self._TASK_ID / "side_inf"
         out_dir = _ROOT / ".results" / self._TASK_ID / \
             "detect_transverse_grooves" / "side"
-        summary = self._save_real_results(dataset_dir, "side", out_dir)
+        summary = self._save_real_results(dataset_dir, "side", prod_input_dir, out_dir)
 
         for entry in summary:
             self.assertIsInstance(entry["total_score"], float)
