@@ -15,7 +15,7 @@ git clone <repository-url>
 cd giti-tire-ai-pattern
 ```
 
-### 2. 创建虚拟环境
+### 2. 创建虚拟环境(或conda)
 
 ```bash
 python3.12 -m venv venv
@@ -72,10 +72,9 @@ python scripts/postprocessor.py --task-id <TASK_ID>
 
 ## 输出位置
 
-- 结果输出到 `.results/tasks/<TASK_ID>/` 目录
+- 结果输出到 `.results/task_id_<TASK_ID>/` 目录
 - 主要输出文件：
-  - `.results/tasks/<TASK_ID>/combine/` - 拼接后的图片
-  - `.results/tasks/<TASK_ID>/rst/` - 最终结果图片
+  - `.results/task_id_<TASK_ID>/combine/` - 拼接后的图片
 
 ## 常见问题
 
