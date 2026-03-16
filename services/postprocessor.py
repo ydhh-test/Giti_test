@@ -357,11 +357,26 @@ def assemble_symmetry_layout(
             raise ValueError(
                 f"输入异常: 画布总宽度过小 (total_layout_width={total_layout_width})，无法进行对称覆写，请检查 RIB 宽度与数量。"
             )
-        mid_x = total_layout_width // 2
-        right_half_w = total_layout_width - mid_x
-        left_half_w = mid_x
+        # 修正: 如果 rib 数量是偶数 (如 4-RIB), 中间有一条完整的主沟(main_groove)
+        # 传统的 // 2 会把最中间的主沟切分并镜像导致沟变宽或消失。
+        # 我们需要保留中间的那条主沟不被镜像覆盖
+        if num_ribs % 2 == 0:
+            # 找到中间那条沟的起始 x 坐标
+            # 对于 4-RIB, 中间的沟是第二条沟 (index 1)
+            mid_groove_idx = num_ribs // 2 - 1
+            left_rib_end = rib_regions[mid_groove_idx][2]
+            right_rib_start = rib_regions[mid_groove_idx + 1][0]
+            
+            left_half_w = left_rib_end
+            right_half_start = right_rib_start
+            right_half_w = total_layout_width - right_half_start
+        else:
+            mid_x = total_layout_width // 2
+            right_half_start = mid_x
+            left_half_w = mid_x
+            right_half_w = total_layout_width - mid_x
 
-        right_half = layout_img[:, mid_x: total_layout_width].copy()
+        right_half = layout_img[:, right_half_start: total_layout_width].copy()
 
         if symmetry_mode == "rotate180":
             transformed_half = cv2.rotate(right_half, cv2.ROTATE_180)
@@ -373,10 +388,33 @@ def assemble_symmetry_layout(
 
         copy_w = min(left_half_w, right_half_w)
         if copy_w > 0:
-            left_start = mid_x - copy_w
-            layout_img[:, left_start:mid_x] = transformed_half[:, :copy_w]
+            left_start = left_half_w - copy_w
+            layout_img[:, left_start:left_half_w] = transformed_half[:, :copy_w]
 
-    # 5. 质量评估与组装返回
+    # ==========================================
+    # 5. 裁剪左右两侧全黑或近黑画布 (约束规则)
+    # 强制去除左侧(RIB1外侧)和右侧(最后一个RIB外侧)的冗余区域
+    # 使用灰度阈值，能够剪裁掉带有图片自带微弱噪声黑边的情况
+    # ==========================================
+    gray_layout = cv2.cvtColor(layout_img, cv2.COLOR_BGR2GRAY)
+    black_threshold = 15  # 亮度阈值配置：低于此亮度视作待裁切纯黑
+    non_black_cols = np.where(np.any(gray_layout > black_threshold, axis=0))[0]
+    
+    if len(non_black_cols) > 0:
+        first_col = int(non_black_cols[0])
+        last_col = int(non_black_cols[-1])
+        if first_col > 0 or last_col < layout_img.shape[1] - 1:
+            layout_img = layout_img[:, first_col:last_col + 1].copy()
+            
+            # 修正 rib_regions 的坐标
+            adjusted_regions = []
+            for (rx_start, ry_start, rx_end, ry_end) in rib_regions:
+                new_start = max(0, rx_start - first_col)
+                new_end = max(0, rx_end - first_col)
+                adjusted_regions.append((new_start, ry_start, new_end, ry_end))
+            rib_regions = adjusted_regions
+
+    # 6. 质量评估与组装返回
     base_score = 8.0
     extra_score = 1.0 if applied_symmetry == user_config.get("symmetry_type") else 0.0
     layout_score = base_score + extra_score
@@ -437,14 +475,14 @@ class CombinationManager:
             for side_combo in side_combinations:
                 for center_combo in center_combinations:
                     combinations.append((side_combo[0], center_combo[0], center_combo[1], center_combo[2], side_combo[1]))
-        # else:  # 4 RIB 模式已注释
-        #     side_combinations = list(product(side_indices, repeat=2))
-        #     center_combinations = list(product(center_indices, repeat=2))
-        #
-        #     combinations = []
-        #     for side_combo in side_combinations:
-        #         for center_combo in center_combinations:
-        #             combinations.append((side_combo[0], center_combo[0], center_combo[1], side_combo[1]))
+        else:  # 4 RIB 模式
+            side_combinations = list(product(side_indices, repeat=2))
+            center_combinations = list(product(center_indices, repeat=2))
+
+            combinations = []
+            for side_combo in side_combinations:
+                for center_combo in center_combinations:
+                    combinations.append((side_combo[0], center_combo[0], center_combo[1], side_combo[1]))
 
         return combinations
 
@@ -458,11 +496,11 @@ class CombinationManager:
                 for rib4_idx in center_indices:
                     for rib5_idx in side_indices:
                         combinations.append((rib3_idx, rib4_idx, rib5_idx))
-        # else:  # 4 RIB 模式已注释
-        #     combinations = []
-        #     for rib3_idx in center_indices:
-        #         for rib4_idx in side_indices:
-        #             combinations.append((rib3_idx, rib4_idx))
+        else:  # 4 RIB 模式
+            combinations = []
+            for rib3_idx in center_indices:
+                for rib4_idx in side_indices:
+                    combinations.append((rib3_idx, rib4_idx))
 
         return combinations
 
@@ -544,9 +582,9 @@ def apply_symmetry_coverage(
     if rib_count == 5:
         result[1] = ribs[3].copy()
         result[0] = ribs[4].copy()
-    # else:  # 4 RIB 模式已注释
-    #     result[0] = ribs[2].copy()
-    #     result[1] = ribs[3].copy()
+    else:  # 4 RIB 模式
+        result[0] = ribs[3].copy()
+        result[1] = ribs[2].copy()
 
     return result
 
@@ -629,13 +667,13 @@ def generate_layout_images(
                         center_images[combo[3]],
                         side_images[combo[4]]
                     ]
-                # else:  # 4 RIB 模式已注释
-                #     ribs = [
-                #         side_images[combo[0]],
-                #         center_images[combo[1]],
-                #         center_images[combo[2]],
-                #         side_images[combo[3]]
-                #     ]
+                else:  # 4 RIB 模式
+                    ribs = [
+                        side_images[combo[0]],
+                        center_images[combo[1]],
+                        center_images[combo[2]],
+                        side_images[combo[3]]
+                    ]
             else:
                 if rib_count == 5:
                     full_combo = (0, 0, combo[0], combo[1], combo[2])
@@ -646,14 +684,14 @@ def generate_layout_images(
                         center_images[combo[1]],
                         side_images[combo[2]]
                     ]
-                # else:  # 4 RIB 模式已注释
-                #     full_combo = (0, 0, combo[0], combo[1])
-                #     initial_ribs = [
-                #         side_images[0],
-                #         center_images[0],
-                #         center_images[combo[0]],
-                #         side_images[combo[1]]
-                #     ]
+                else:  # 4 RIB 模式
+                    full_combo = (0, 0, combo[0], combo[1])
+                    initial_ribs = [
+                        side_images[0],
+                        center_images[0],
+                        center_images[combo[0]],
+                        side_images[combo[1]]
+                    ]
                 ribs = apply_symmetry_coverage(initial_ribs, rib_count, mode_type)
                 combo = full_combo
 
