@@ -233,6 +233,31 @@ class TestAssembleSymmetryLayout:
         assert result.layout_image is not None
         assert result.layout_image.shape[0] == 100
 
+    def test_canvas_margin_cropping(self):
+        """测试左右黑边自动裁剪约束功能"""
+        # 测试在侧边包含明显黑边的情况下，生成布局图是否能自动裁剪冗余边距
+        rib1 = np.zeros((100, 50, 3), dtype=np.uint8)
+        rib1[:, 20:50] = 255  # 左侧20像素纯黑，右侧30像素全白
+        
+        rib2 = np.zeros((100, 50, 3), dtype=np.uint8)
+        rib2[:, 0:30] = 128  # 左侧30像素灰，右侧20像素纯黑
+
+        result = assemble_symmetry_layout(
+            extracted_ribs=[rib1, rib2],
+            user_config={"symmetry_type": "asymmetric"},
+            groove_positions=[[20]], # 给一个较小的 groove，不要覆盖黑边测试的宽度
+            rib_combination=(0, 1)
+        )
+
+        # 最关键的断言：整张最终拼好的 layout_image，其左右不能存在任何全黑冗余列
+        # 左侧的 20 列黑边应该被切掉，右侧的 20 列黑边也应该被切掉
+        # 整体返回的 width 应该小于直接叠加的最大理论 width
+        gray_layout = cv2.cvtColor(result.layout_image, cv2.COLOR_BGR2GRAY)
+        
+        # 验证最左边和最右边的第一列/最后一列都不是全黑（即至少有一个像素>15）
+        assert np.any(gray_layout[:, 0] > 15)
+        assert np.any(gray_layout[:, -1] > 15)
+
 
 # ==========================================
 # 4. 测试 CombinationManager 类
@@ -256,12 +281,12 @@ class TestCombinationManager:
         assert len(manager.center_images) == 3
         assert len(manager.side_images) == 2
 
-    # def test_initialization_4_rib(self, mock_images):
-    #     """测试 4 RIB 模式初始化"""
-    #     center, side = mock_images
-    #     manager = CombinationManager(center, side, rib_count=4)
+    def test_initialization_4_rib(self, mock_images):
+        """测试 4 RIB 模式初始化"""
+        center, side = mock_images
+        manager = CombinationManager(center, side, rib_count=4)
 
-    #     assert manager.rib_count == 4
+        assert manager.rib_count == 4
 
     def test_asymmetric_combinations_5_rib(self, mock_images):
         """测试 5 RIB 不对称组合生成"""
@@ -284,18 +309,18 @@ class TestCombinationManager:
             assert combo[2] < len(center)
             assert combo[3] < len(center)
 
-    # def test_asymmetric_combinations_4_rib(self, mock_images):
-    #     """测试 4 RIB 不对称组合生成"""
-    #     center, side = mock_images
-    #     manager = CombinationManager(center, side, rib_count=4)
+    def test_asymmetric_combinations_4_rib(self, mock_images):
+        """测试 4 RIB 不对称组合生成"""
+        center, side = mock_images
+        manager = CombinationManager(center, side, rib_count=4)
 
-    #     combos = manager.asymmetric_combinations
-    #     # 2 side * 3 center * 3 center * 2 side = 36 组合
-    #     # 注意：允许重复，所以是笛卡尔积
-    #     assert len(combos) == 2 * 3 * 3 * 2
+        combos = manager.asymmetric_combinations
+        # 2 side * 3 center * 3 center * 2 side = 36 组合
+        # 注意：允许重复，所以是笛卡尔积
+        assert len(combos) == 2 * 3 * 3 * 2
 
-    #     for combo in combos:
-    #         assert len(combo) == 4
+        for combo in combos:
+            assert len(combo) == 4
 
     def test_symmetry_combinations_5_rib(self, mock_images):
         """测试 5 RIB 对称组合生成"""
@@ -309,17 +334,17 @@ class TestCombinationManager:
         for combo in combos:
             assert len(combo) == 3  # 只排列右侧3个 RIB
 
-    # def test_symmetry_combinations_4_rib(self, mock_images):
-    #     """测试 4 RIB 对称组合生成"""
-    #     center, side = mock_images
-    #     manager = CombinationManager(center, side, rib_count=4)
+    def test_symmetry_combinations_4_rib(self, mock_images):
+        """测试 4 RIB 对称组合生成"""
+        center, side = mock_images
+        manager = CombinationManager(center, side, rib_count=4)
 
-    #     combos = manager.symmetry_combinations
-    #     # 3 center * 2 side = 6 组合
-    #     assert len(combos) == 3 * 2
+        combos = manager.symmetry_combinations
+        # 3 center * 2 side = 6 组合
+        assert len(combos) == 3 * 2
 
-    #     for combo in combos:
-    #         assert len(combo) == 2
+        for combo in combos:
+            assert len(combo) == 2
 
     def test_select_combinations_by_priority(self, mock_images):
         """测试按优先级选择组合"""
@@ -374,20 +399,20 @@ class TestHelperFunctions:
         assert np.array_equal(result[1], ribs[3])  # RIB2 <- RIB4
         assert np.array_equal(result[2], ribs[2])  # RIB3 保持不变
 
-    # def test_apply_symmetry_coverage_4_rib(self):
-    #     """测试 4 RIB 对称覆盖"""
-    #     ribs = [
-    #         np.ones((10, 10, 3), dtype=np.uint8) * 1,   # RIB1
-    #         np.ones((10, 10, 3), dtype=np.uint8) * 2,   # RIB2
-    #         np.ones((10, 10, 3), dtype=np.uint8) * 3,   # RIB3
-    #         np.ones((10, 10, 3), dtype=np.uint8) * 4    # RIB4
-    #     ]
+    def test_apply_symmetry_coverage_4_rib(self):
+        """测试 4 RIB 对称覆盖"""
+        ribs = [
+            np.ones((10, 10, 3), dtype=np.uint8) * 1,   # RIB1
+            np.ones((10, 10, 3), dtype=np.uint8) * 2,   # RIB2
+            np.ones((10, 10, 3), dtype=np.uint8) * 3,   # RIB3
+            np.ones((10, 10, 3), dtype=np.uint8) * 4    # RIB4
+        ]
 
-    #     result = apply_symmetry_coverage(ribs, rib_count=4, symmetry_mode='mirror')
+        result = apply_symmetry_coverage(ribs, rib_count=4, symmetry_mode='mirror')
 
-    #     # 验证覆盖: RIB3 -> RIB1, RIB4 -> RIB2
-    #     assert np.array_equal(result[0], ribs[2])  # RIB1 <- RIB3
-    #     assert np.array_equal(result[1], ribs[3])  # RIB2 <- RIB4
+        # 验证覆盖: RIB4 -> RIB1, RIB3 -> RIB2
+        assert np.array_equal(result[0], ribs[3])  # RIB1 <- RIB4
+        assert np.array_equal(result[1], ribs[2])  # RIB2 <- RIB3
 
     def test_preprocess_images_same_size(self):
         """测试图片尺寸相同时不处理"""
@@ -484,20 +509,20 @@ class TestGenerateLayoutImages:
             assert isinstance(result, LayoutResult)
             assert result.applied_symmetry == "asymmetric"
 
-    # def test_generate_all_symmetry_modes(self):
-    #     """测试生成所有对称模式"""
-    #     center = [np.ones((200, 100, 3), dtype=np.uint8) * i for i in range(1, 3)]
-    #     side = [np.ones((200, 80, 3), dtype=np.uint8) * (i + 10) for i in range(1, 2)]
+    def test_generate_all_symmetry_modes(self):
+        """测试生成所有对称模式"""
+        center = [np.ones((200, 100, 3), dtype=np.uint8) * i for i in range(1, 3)]
+        side = [np.ones((200, 80, 3), dtype=np.uint8) * (i + 10) for i in range(1, 2)]
 
-    #     results = generate_layout_images(
-    #         center, side, rib_count=4, symmetry_type="all_symmetry"
-    #     )
+        results = generate_layout_images(
+            center, side, rib_count=4, symmetry_type="all_symmetry"
+        )
 
-    #     symmetry_types = [r.applied_symmetry for r in results]
-    #     # 应该有 rotate180, mirror, mirror_shifted
-    #     assert "rotate180" in symmetry_types
-    #     assert "mirror" in symmetry_types
-    #     assert "mirror_shifted" in symmetry_types
+        symmetry_types = [r.applied_symmetry for r in results]
+        # 应该有 rotate180, mirror, mirror_shifted
+        assert "rotate180" in symmetry_types
+        assert "mirror" in symmetry_types
+        assert "mirror_shifted" in symmetry_types
 
 
 # ==========================================
@@ -625,48 +650,48 @@ class TestIntegrationWithRealData:
         else:
             pytest.skip(f"测试数据不足 (center: {len(center_images)}, side: {len(side_images)})，跳过集成测试")
 
-    # def test_layout_with_real_images_4_rib(self):
-    #     """使用真实图片测试 4 RIB 布局"""
-    #     from configs.postprocessor_config import CONFIG
-    #     center_dir = CONFIG.get('paths', {}).get('center_dir')
-    #     side_dir = CONFIG.get('paths', {}).get('side_dir')
+    def test_layout_with_real_images_4_rib(self):
+        """使用真实图片测试 4 RIB 布局"""
+        from configs.postprocessor_config import CONFIG
+        center_dir = CONFIG.get('paths', {}).get('center_dir')
+        side_dir = CONFIG.get('paths', {}).get('side_dir')
 
-    #     center_images = []
-    #     side_images = []
+        center_images = []
+        side_images = []
 
-    #     if center_dir and os.path.exists(center_dir):
-    #         for filename in sorted(os.listdir(center_dir))[:2]:
-    #             if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-    #                 filepath = os.path.join(center_dir, filename)
-    #                 img = cv2.imdecode(np.fromfile(filepath, dtype=np.uint8), cv2.IMREAD_COLOR)
-    #                 if img is not None:
-    #                     center_images.append(img)
+        if center_dir and os.path.exists(center_dir):
+            for filename in sorted(os.listdir(center_dir))[:2]:
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    filepath = os.path.join(center_dir, filename)
+                    img = cv2.imdecode(np.fromfile(filepath, dtype=np.uint8), cv2.IMREAD_COLOR)
+                    if img is not None:
+                        center_images.append(img)
 
-    #     if side_dir and os.path.exists(side_dir):
-    #         for filename in sorted(os.listdir(side_dir))[:2]:
-    #             if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-    #                 filepath = os.path.join(side_dir, filename)
-    #                 img = cv2.imdecode(np.fromfile(filepath, dtype=np.uint8), cv2.IMREAD_COLOR)
-    #                 if img is not None:
-    #                     side_images.append(img)
+        if side_dir and os.path.exists(side_dir):
+            for filename in sorted(os.listdir(side_dir))[:2]:
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    filepath = os.path.join(side_dir, filename)
+                    img = cv2.imdecode(np.fromfile(filepath, dtype=np.uint8), cv2.IMREAD_COLOR)
+                    if img is not None:
+                        side_images.append(img)
 
-    #     if len(center_images) >= 2 and len(side_images) >= 2:
-    #         center_processed, side_processed = preprocess_images(
-    #             center_images, side_images,
-    #             center_size=(200, 1241),
-    #             side_size=(400, 1241)
-    #         )
+        if len(center_images) >= 2 and len(side_images) >= 2:
+            center_processed, side_processed = preprocess_images(
+                center_images, side_images,
+                center_size=(200, 1241),
+                side_size=(400, 1241)
+            )
 
-    #         results = generate_layout_images(
-    #             center_processed, side_processed,
-    #             rib_count=4,
-    #             symmetry_type="mirror_shifted"
-    #         )
+            results = generate_layout_images(
+                center_processed, side_processed,
+                rib_count=4,
+                symmetry_type="mirror_shifted"
+            )
 
-    #         assert len(results) > 0
-    #         print(f"\n成功生成 {len(results)} 张 4 RIB 镜像错位布局图")
-    #     else:
-    #         pytest.skip(f"测试数据不足 (center: {len(center_images)}, side: {len(side_images)})，跳过集成测试")
+            assert len(results) > 0
+            print(f"\n成功生成 {len(results)} 张 4 RIB 镜像错位布局图")
+        else:
+            pytest.skip(f"测试数据不足 (center: {len(center_images)}, side: {len(side_images)})，跳过集成测试")
 
 
 # ==========================================
