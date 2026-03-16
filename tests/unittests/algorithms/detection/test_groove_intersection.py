@@ -217,25 +217,25 @@ class TestTransverseGroovesFull(unittest.TestCase):
 
     # ── 输入验证 ────────────────────────────────────────────────────
 
-    def test_none_image_raises(self):
-        """传入 None 应抛出 PatternDetectionError"""
-        from utils.exceptions import PatternDetectionError
-        with self.assertRaises(PatternDetectionError):
-            self._run(None, "center")
+    def test_none_image_returns_err(self):
+        """传入 None 应返回 (None, {'err_msg': ...})"""
+        score, details = self._run(None, "center")
+        self.assertIsNone(score)
+        self.assertIn("err_msg", details)
 
-    def test_wrong_ndim_raises(self):
-        """传入 2D 灰度图应抛出 ImageDimensionError"""
-        from utils.exceptions import ImageDimensionError
+    def test_wrong_ndim_returns_err(self):
+        """传入 2D 灰度图应返回 (None, {'err_msg': ...})"""
         gray = np.zeros((128, 128), dtype=np.uint8)
-        with self.assertRaises(ImageDimensionError):
-            self._run(gray, "center")
+        score, details = self._run(gray, "center")
+        self.assertIsNone(score)
+        self.assertIn("err_msg", details)
 
-    def test_invalid_image_type_raises(self):
-        """传入未知 image_type 应抛出 PatternDetectionError"""
-        from utils.exceptions import PatternDetectionError
+    def test_invalid_image_type_returns_err(self):
+        """传入未知 image_type 应返回 (None, {'err_msg': ...})"""
         img = _make_white_image()
-        with self.assertRaises(PatternDetectionError):
-            self._run(img, "unknown_type")
+        score, details = self._run(img, "unknown_type")
+        self.assertIsNone(score)
+        self.assertIn("err_msg", details)
 
     # ── 输出结构验证 ─────────────────────────────────────────────────
 

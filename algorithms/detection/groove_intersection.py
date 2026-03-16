@@ -19,7 +19,6 @@ import numpy as np
 from typing import Dict, Any, List, Optional, Tuple
 
 from utils.logger import get_logger
-from utils.exceptions import PatternDetectionError, ImageDimensionError
 from configs.rules_config import TransverseGroovesConfig
 
 logger = get_logger("detect_transverse_grooves")
@@ -63,10 +62,11 @@ def detect_transverse_grooves(
 
     Returns
     -------
-    score : float
+    score : float or None
         综合评分（需求8最高 4 分 + 需求14最高 2 分）。
+        检测失败时返回 ``None``。
     details : dict
-        详细分析结果，包含以下键：
+        成功时包含以下键：
 
         - ``rib_type`` (*str*)：RIB 类型，``"RIB1/5"`` 或 ``"RIB2/3/4"``
         - ``groove_count`` (*int*)：检测到的横沟数量
@@ -78,12 +78,10 @@ def detect_transverse_grooves(
         - ``score_req14`` (*float*)：需求14得分
         - ``debug_image`` (*ndarray*)：BGR 标注图
 
-    Raises
-    ------
-    PatternDetectionError
-        图像数据为 None 或检测过程中发生未预期错误时。
-    ImageDimensionError
-        图像不是三通道 BGR 数组时。
+        失败时仅包含：
+
+        - ``err_msg`` (*str*)：错误描述
+        - ``error_type`` (*str*)：异常类型名称
     """
     try:
         logger.debug("开始横沟检测，image_type=%s", image_type)
@@ -166,10 +164,11 @@ def detect_transverse_grooves(
         logger.debug("横沟检测完成，score=%.1f, is_valid=%s", score, is_valid)
         return score, details
 
-    except (PatternDetectionError, ImageDimensionError):
-        raise
     except Exception as exc:
-        raise PatternDetectionError(f"横沟检测失败: {exc}") from exc
+        err_msg = str(exc)
+        error_type = type(exc).__name__
+        logger.error("横沟检测失败：%s", err_msg)
+        return None, {"err_msg": err_msg, "error_type": error_type}
 
 
 # ============================================================
