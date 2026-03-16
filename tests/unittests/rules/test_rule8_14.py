@@ -74,19 +74,23 @@ class TestRule8_14:
         ]
         s = _aggregate_summary(results)
         assert s["total_images"] == 3
-        assert s["total_scored"] == 2
+        assert s["total_processed"] == 3
+        assert s["total_success"] == 2
         assert s["total_failed"] == 1
+        assert s["total_skipped"] == 0
         assert s["total_score"]  == 10.0
 
     def test_aggregate_dir_summary_totals(self):
         dir_stats = {
-            "center_inf": {"total_count": 5, "scored_count": 4, "failed_count": 1, "total_score": 20.0, "images": {}},
-            "side_inf":   {"total_count": 3, "scored_count": 3, "failed_count": 0, "total_score": 18.0, "images": {}},
+            "center_inf": {"total_count": 5, "processed_count": 5, "success_count": 4, "failed_count": 1, "skipped_count": 0, "total_score": 20.0, "images": {}},
+            "side_inf":   {"total_count": 3, "processed_count": 3, "success_count": 3, "failed_count": 0, "skipped_count": 0, "total_score": 18.0, "images": {}},
         }
         s = _aggregate_dir_summary(dir_stats)
         assert s["total_images"] == 8
-        assert s["total_scored"] == 7
+        assert s["total_processed"] == 8
+        assert s["total_success"] == 7
         assert s["total_failed"] == 1
+        assert s["total_skipped"] == 0
         assert s["total_score"]  == 38.0
 
     # ------------------------------------------------------------------
@@ -192,7 +196,8 @@ class TestRule8_14:
         )
         assert flag is True
         assert details["summary"]["total_images"] == 0
-        assert details["summary"]["total_scored"] == 0
+        assert details["summary"]["total_processed"] == 0
+        assert details["summary"]["total_success"] == 0
 
     def test_empty_input_dir_returns_empty_stats(self):
         """输入目录存在但为空：返回 True + 空统计"""
@@ -270,7 +275,8 @@ class TestRule8_14:
         if n_center > 0:
             center_stats = details["directories"]["center_inf"]
             assert center_stats["total_count"] == n_center
-            assert center_stats["scored_count"] + center_stats["failed_count"] == n_center
+            assert center_stats["processed_count"] == n_center
+            assert center_stats["success_count"] + center_stats["failed_count"] == n_center
 
             center_out = self.TEST_OUTPUT_BASE / self.DETECTOR_DIR / "center"
             assert center_out.exists()
@@ -304,7 +310,7 @@ class TestRule8_14:
         # --- 整体 summary ---
         s = details["summary"]
         assert s["total_images"] == n_center + n_side
-        assert s["total_scored"] + s["total_failed"] == s["total_images"]
+        assert s["total_success"] + s["total_failed"] == s["total_images"]
 
     def test_full_center_only(self):
         """只提供 center_inf，side_inf 缺失时不报错"""

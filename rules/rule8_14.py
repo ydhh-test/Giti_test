@@ -104,11 +104,13 @@ def process_transverse_grooves(task_id: str, conf: dict) -> Tuple[bool, dict]:
 
         summary = _aggregate_summary(images_results)
         dir_stats[dir_name] = {
-            "total_count":   len(image_files),
-            "scored_count":  summary["total_scored"],
-            "failed_count":  summary["total_failed"],
-            "total_score":   summary["total_score"],
-            "images":        images_dict,
+            "total_count":     len(image_files),
+            "processed_count": summary["total_processed"],
+            "success_count":   summary["total_success"],
+            "failed_count":    summary["total_failed"],
+            "skipped_count":   summary["total_skipped"],
+            "total_score":     summary["total_score"],
+            "images":          images_dict,
         }
 
     overall = _aggregate_dir_summary(dir_stats)
@@ -195,11 +197,13 @@ def _write_results_json(output_dir: Path, results: List[Dict[str, Any]]) -> None
 
 def _empty_dir_stats() -> Dict[str, Any]:
     return {
-        "total_count":  0,
-        "scored_count": 0,
-        "failed_count": 0,
-        "total_score":  0,
-        "images":       {},
+        "total_count":     0,
+        "processed_count": 0,
+        "success_count":   0,
+        "failed_count":    0,
+        "skipped_count":   0,
+        "total_score":     0,
+        "images":          {},
     }
 
 
@@ -207,21 +211,27 @@ def _aggregate_summary(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     scored  = [r for r in results if r.get("status") == "ok"]
     failed  = [r for r in results if r.get("status") != "ok"]
     return {
-        "total_images":  len(results),
-        "total_scored":  len(scored),
-        "total_failed":  len(failed),
-        "total_score":   sum(r.get("total_score", 0) for r in scored),
+        "total_images":    len(results),
+        "total_processed": len(results),
+        "total_success":   len(scored),
+        "total_failed":    len(failed),
+        "total_skipped":   0,
+        "total_score":     sum(r.get("total_score", 0) for r in scored),
     }
 
 
 def _aggregate_dir_summary(dir_stats: Dict[str, Any]) -> Dict[str, Any]:
-    total_images  = sum(s["total_count"]  for s in dir_stats.values())
-    total_scored  = sum(s["scored_count"] for s in dir_stats.values())
-    total_failed  = sum(s["failed_count"] for s in dir_stats.values())
-    total_score   = sum(s["total_score"]  for s in dir_stats.values())
+    total_images    = sum(s["total_count"] for s in dir_stats.values())
+    total_processed = sum(s["processed_count"] for s in dir_stats.values())
+    total_success   = sum(s["success_count"] for s in dir_stats.values())
+    total_failed    = sum(s["failed_count"] for s in dir_stats.values())
+    total_skipped   = sum(s["skipped_count"] for s in dir_stats.values())
+    total_score     = sum(s["total_score"] for s in dir_stats.values())
     return {
         "total_images": total_images,
-        "total_scored": total_scored,
+        "total_processed": total_processed,
+        "total_success": total_success,
         "total_failed": total_failed,
-        "total_score":  total_score,
+        "total_skipped": total_skipped,
+        "total_score": total_score,
     }
