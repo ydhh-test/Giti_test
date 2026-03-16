@@ -374,11 +374,58 @@ class ScoringRules:
 
 
 @dataclass
+class TransverseGroovesConfig:
+    """横沟检测配置（需求8 & 需求14）"""
+
+    # 各小图类型的最小横沟厚度（mm）
+    # center → RIB1/5 以 3.5mm 计算；side → RIB2/3/4 以 1.8mm 计算
+    groove_width_mm: Dict[str, float] = field(
+        default_factory=lambda: {"center": 3.5, "side": 1.8}
+    )
+
+    # 像素密度（px/mm）
+    pixel_per_mm: float = 7.1
+
+    # 需求14：允许的最大交叉点数量
+    max_intersections: int = 2
+
+    # 需求8满分（横沟数量合规）
+    score_groove_count: int = 4
+
+    # 需求14满分（交叉点数量合规）
+    score_intersection: int = 2
+
+    # image_type → RIB 标签（用于合规判定分支）
+    rib_label: Dict[str, str] = field(
+        default_factory=lambda: {"center": "RIB1/5", "side": "RIB2/3/4"}
+    )
+
+    @classmethod
+    def from_dict(cls, conf: Dict[str, Any]) -> 'TransverseGroovesConfig':
+        """从配置字典创建对象"""
+        return cls(**{k: v for k, v in conf.items() if k in cls.__dataclass_fields__})
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            'groove_width_mm':    dict(self.groove_width_mm),
+            'pixel_per_mm':       self.pixel_per_mm,
+            'max_intersections':  self.max_intersections,
+            'score_groove_count': self.score_groove_count,
+            'score_intersection': self.score_intersection,
+            'rib_label':          dict(self.rib_label),
+        }
+
+
+@dataclass
 class BusinessRules:
     """业务规则汇总配置，整合所有规则配置"""
 
     # 图案连续性检测规则
     pattern_continuity: PatternContinuityConfig = field(default_factory=PatternContinuityConfig)
+
+    # 横沟检测规则
+    transverse_grooves: TransverseGroovesConfig = field(default_factory=TransverseGroovesConfig)
 
     # 小图筛选规则
     small_image_filter: SmallImageFilterRules = field(default_factory=SmallImageFilterRules)
@@ -407,6 +454,9 @@ class BusinessRules:
             pattern_continuity=PatternContinuityConfig.from_dict(
                 conf.get('pattern_continuity', {})
             ),
+            transverse_grooves=TransverseGroovesConfig.from_dict(
+                conf.get('transverse_grooves', {})
+            ),
             small_image_filter=SmallImageFilterRules.from_dict(
                 conf.get('small_image_filter', {})
             ),
@@ -430,6 +480,7 @@ class BusinessRules:
         """
         return {
             'pattern_continuity': self.pattern_continuity.to_dict(),
+            'transverse_grooves': self.transverse_grooves.to_dict(),
             'small_image_filter': self.small_image_filter.to_dict(),
             'vertical_stitch': self.vertical_stitch.to_dict(),
             'horizontal_stitch': self.horizontal_stitch.to_dict(),
