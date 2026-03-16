@@ -15,6 +15,8 @@
 - **图像预处理**：灰边去除、CMYK颜色空间转换
 - **模式识别**：基于深度学习的花纹块生成
 - **连续性检测**：图案上下边缘连续性分析
+- **海陆比评分**：计算花纹中海陆比（黑+灰区域占比），返回0/1/2分
+- **对称性拼接**：支持 4-RIB 和 5-RIB 轮胎花纹的多种对称布局模式，附带智能去黑边算法
 - **智能拼接**：纵图/横图自动拼接
 - **质量评分**：业务评分 + 美感评分
 - **可视化输出**：检测结果可视化展示
@@ -180,6 +182,51 @@ print(f"连续性评分: {score}")
 print(f"详细信息: {details}")
 ```
 
+### 海陆比评分示例
+
+```python
+from services.analyzers import compute_land_sea_ratio
+import cv2
+
+# 读取图像
+image = cv2.imread("tire_pattern.png")
+
+# 配置参数
+conf = {
+    'target_min': 28.0,   # 目标最小值（%）
+    'target_max': 35.0,   # 目标最大值（%）
+    'margin': 5.0          # 容差范围
+}
+
+# 计算海陆比
+ratio, score = compute_land_sea_ratio(image, conf)
+
+print(f"海陆比: {ratio:.2f}%")
+print(f"评分: {score}")  # 0/1/2分
+```
+
+### 对称性拼接示例
+
+```python
+from services.postprocessor import generate_layout_images, save_results
+import cv2
+
+# 读取花纹图片
+center_images = [cv2.imread(f"center_{i}.png") for i in range(3)]
+side_images = [cv2.imread(f"side_{i}.png") for i in range(2)]
+
+# 生成 4-RIB 或 5-RIB 对称布局，且自动剥除外边缘画布黑边
+results = generate_layout_images(
+    center_images=center_images,
+    side_images=side_images,
+    rib_count=5, # 支持 4 或 5
+    symmetry_type="random"  # random/both/all_symmetry/asymmetric/rotate180/mirror/mirror_shifted
+)
+
+# 保存结果
+save_results(results, output_dir="./output")
+```
+
 ### 配置管理
 
 配置文件位于 `configs/` 目录，支持：
@@ -293,8 +340,10 @@ sudo systemctl enable giti-tire-ai-pattern
 
 - **图像处理速度**：单张图片 < 100ms
 - **连续性检测准确率**：> 95%
+- **海陆比评分**：支持0/1/2分评分，配置目标范围28%-35%
+- **对称性拼接**：支持 4-RIB 和 5-RIB 的 asymmetric、rotate180、mirror、mirror_shifted 四种模式，并具备主沟噪边自修剪降噪能力
 - **系统可用性**：> 99.5%
-- **测试覆盖率**：当前 26 个单元测试全部通过
+- **测试覆盖率**：75个单元测试全部通过
 
 ## 贡献指南
 
@@ -330,6 +379,20 @@ A: 修改 `configs/rules_config.py` 中的 `PatternContinuityConfig` 参数。
 A: 最低配置：4核CPU，8GB内存。推荐配置：8核CPU，16GB内存，GPU支持。
 
 ## 版本历史
+
+### v1.2.0 (2026-03-16)
+- [BugFix] 修复并启用了 4-RIB 对称与不对称镜像拼接排版功能（对称留取中间原生沟槽不裁剪切割）。
+- [Feature] 智能画布黑边修剪功能：拼接引擎现在强制过滤并剪切位于全图外侧最左/最右端的纯黑冗余画布边带（基于灰阶阈值动态适应带有图片压缩噪点的假黑边）。
+- [Test] 为拼接框架新增专门校验边界检测与裁切逻辑的单元测试 `test_canvas_margin_cropping`。
+
+## 版本历史
+
+### v1.1.0 (2026-03-10)
+- 新增海陆比评分功能：compute_land_sea_ratio()、compute_black_area()、compute_gray_area()
+- 新增对称性拼接功能：CombinationManager类、generate_layout_images()函数
+- 支持5RIB轮胎花纹对称布局：asymmetric、rotate180、mirror、mirror_shifted模式
+- 新增72个后处理单元测试
+- 测试覆盖率：81个单元测试全部通过
 
 ### v1.0.0 (2026-03-08)
 - 完成基础架构设计
