@@ -4,7 +4,7 @@ rule16_17: RIB横向连续性拼接中间层
 
 功能:
 - Rule 16: RIB2/3/4横沟/钢片任意组合连续性
-- Rule 17: RIB1/2和RIB4/5可连续可不连续（50%概率）
+- Rule 17: RIB1/2和RIB4/5可连续可不连续（概率控制）
 
 处理流程:
 1. 从 split 目录读取 center_horz 和 side_horz 的 RIB 长条图
@@ -15,10 +15,11 @@ rule16_17: RIB横向连续性拼接中间层
 目录关系:
 - 输入：.results/task_id_{task_id}/split/center_horz/
          .results/task_id_{task_id}/split/side_horz/
-- 输出：.results/task_id_{task_id}/rule16_17/
+- 输出：.results/task_id_{task_id}/{output_dir}/
 """
 
 import cv2
+import random
 from pathlib import Path
 from typing import Dict, List, Tuple, Any
 
@@ -39,16 +40,18 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
         conf: 配置字典
             - base_path: 基础路径（默认 ".results"）
             - input_dir: split 目录名（默认 "split"）
-            - continuity_config: 连续性配置
-                - center_mode: "RIB2-RIB3" | "RIB3-RIB4" | "RIB2-RIB3-RIB4" | "none"
-                - edge_rib12: True/False/None (None=50%随机)
-                - edge_rib45: True/False/None (None=50%随机)
-            - groove_width_px: 主沟宽度像素（默认20）
-            - blend_width: 融合宽度（默认10）
-            - output_dir_name: 输出子目录名（默认 "rule16_17"）
+            - continuity_mode: "RIB2-RIB3" | "RIB3-RIB4" | "RIB2-RIB3-RIB4" | "none"
+            - groove_width_mm: 主沟宽度(mm)，默认10.0
+            - pixel_per_mm: 像素/毫米，默认2.0
+            - blend_width: 融合宽度像素（默认10）
+            - edge_continuity: 边缘连续性概率配置
+                - "RIB1-RIB2": 0.0~1.0 概率
+                - "RIB4-RIB5": 0.0~1.0 概率
+            - output_dir: 输出子目录名（默认 "rule16_17"）
+            - group_filter: 可选分组名过滤列表
 
     返回:
-        (True, {"task_id": ..., "output_dir": ..., "results": {...}})
+        (True, {"task_id": ..., "output_dir": ..., "directories": {...}})
         或 (False, {"err_msg": ..., "task_id": ...})
     """
     try:
@@ -60,7 +63,7 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
         center_dir = task_dir / input_dir_name / "center_horz"
         side_dir = task_dir / input_dir_name / "side_horz"
 
-        output_dir_name = conf.get("output_dir_name", "rule16_17")
+        output_dir_name = conf.get("output_dir", "rule16_17")
         output_dir = task_dir / output_dir_name
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -76,15 +79,26 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
         if not center_groups:
             return False, {"err_msg": "未找到center RIB图像", "task_id": task_id}
 
-        # Step 4: 读取配置
-        continuity_config = conf.get("continuity_config", {
-            "center_mode": "RIB2-RIB3-RIB4",
-            "edge_rib12": None,
-            "edge_rib45": None
-        })
-        groove_width_px = conf.get("groove_width_px", 20)
+        # Step 4: 解析配置
+        continuity_mode = conf.get("continuity_mode", "none")
+        groove_width_mm = conf.get("groove_width_mm", 10.0)
+        pixel_per_mm = conf.get("pixel_per_mm", 2.0)
+        groove_width_px = max(1, int(round(groove_width_mm * pixel_per_mm)))
         blend_width = conf.get("blend_width", 10)
         group_filter = conf.get("group_filter", None)
+
+        # 边缘连续性：概率 -> 布尔
+        edge_conf = conf.get("edge_continuity", {})
+        edge_rib12_prob = edge_conf.get("RIB1-RIB2")
+        edge_rib45_prob = edge_conf.get("RIB4-RIB5")
+        edge_rib12 = (random.random() < edge_rib12_prob) if edge_rib12_prob is not None else None
+        edge_rib45 = (random.random() < edge_rib45_prob) if edge_rib45_prob is not None else None
+
+        continuity_config = {
+            "center_mode": continuity_mode,
+            "edge_rib12": edge_rib12,
+            "edge_rib45": edge_rib45,
+        }
 
         # Step 5: 处理每组图像
         dir_stats = {
@@ -111,7 +125,7 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
             dir_stats["total_count"] += 1
 
             try:
-                debug_dir = str(output_dir / f"debug_{group_name}")
+                group_debug_dir = str(output_dir / f"debug_{group_name}")
 
                 full_image, info = stitch_with_continuity(
                     center_images=center_imgs,
@@ -119,21 +133,30 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
                     continuity_config=continuity_config,
                     groove_width_px=groove_width_px,
                     blend_width=blend_width,
-                    debug_dir=debug_dir,
+                    debug_dir=group_debug_dir,
                     source_names=file_names.get(group_name, {})
                 )
 
-                # 保存结果
+                # 保存结果图
                 output_path = str(output_dir / f"tread_{group_name}.png")
                 cv2.imwrite(output_path, full_image)
+
+                # 转换 continuity_map: True->"continuous", False->"independent"
+                cmap_str = {}
+                for k, v in info["continuity_map"].items():
+                    cmap_str[k] = "continuous" if v else "independent"
 
                 dir_stats["processed_count"] += 1
                 dir_stats["success_count"] += 1
                 dir_stats["images"][f"tread_{group_name}.png"] = {
                     "status": "success",
                     "output_path": output_path,
-                    "debug_dir": debug_dir,
-                    "continuity_info": info,
+                    "debug_dir": group_debug_dir,
+                    "continuity_map": cmap_str,
+                    "main_groove_positions": info["main_groove_positions"],
+                    "actual_rib_widths": info["rib_widths"],
+                    "image_size": (full_image.shape[0], full_image.shape[1]),
+                    "groove_width_px": groove_width_px,
                 }
                 logger.info(f"组 {group_name} 拼接成功: {output_path}")
 
@@ -147,19 +170,10 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
                 logger.error(f"组 {group_name} 拼接失败: {e}")
 
         # Step 6: 汇总
-        summary = {
-            "total_images": dir_stats["total_count"],
-            "total_processed": dir_stats["processed_count"],
-            "total_success": dir_stats["success_count"],
-            "total_failed": dir_stats["failed_count"],
-            "total_skipped": dir_stats["skipped_count"],
-        }
-
         return True, {
             "task_id": task_id,
             "output_dir": str(output_dir),
-            "directories": {"rule16_17": dir_stats},
-            "summary": summary,
+            "directories": {output_dir_name: dir_stats},
         }
 
     except Exception as e:

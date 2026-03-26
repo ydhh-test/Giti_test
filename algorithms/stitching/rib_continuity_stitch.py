@@ -143,39 +143,37 @@ def build_center_ribs(
         return [rib2, rib3, rib4], descriptions
 
     elif center_mode == "RIB2-RIB3-RIB4":
-        # 拉宽c0和c1各1.5x，拼接后三等分 -> 全连续
-        w0 = widen_image(c0, 1.5)
-        w1 = widen_image(c1, 1.5)
+        # 各拉宽2x，切半后 RIB3 由 c0右半与c1左半 alpha融合 -> 全连续
+        w0 = widen_image(c0, 2.0)
+        w1 = widen_image(c1, 2.0)
 
         # 统一高度
         h = min(w0.shape[0], w1.shape[0])
         w0, w1 = w0[:h], w1[:h]
 
-        # 拼接（在接缝处融合）
-        bw = min(blend_width, w0.shape[1] // 4, w1.shape[1] // 4)
-        if bw > 0:
-            left_part = w0[:, :w0.shape[1] - bw]
-            right_part = w1[:, bw:]
-            overlap_l = w0[:, w0.shape[1] - bw:].astype(np.float32)
-            overlap_r = w1[:, :bw].astype(np.float32)
-            alpha = np.linspace(1, 0, bw).reshape(1, bw, 1)
-            blended = (overlap_l * alpha + overlap_r * (1 - alpha)).astype(np.uint8)
-            combined = np.hstack([left_part, blended, right_part])
-        else:
-            combined = np.hstack([w0, w1])
+        # 切半
+        mid0 = w0.shape[1] // 2
+        mid1 = w1.shape[1] // 2
+        c0_left = w0[:, :mid0]       # RIB2
+        c0_right = w0[:, mid0:]      # RIB3 左源
+        c1_left = w1[:, :mid1]       # RIB3 右源
+        c1_right = w1[:, mid1:]      # RIB4
 
-        # 三等分
-        total_w = combined.shape[1]
-        rib_w = total_w // 3
-        rib2 = combined[:, :rib_w]
-        rib3 = combined[:, rib_w:2 * rib_w]
-        rib4 = combined[:, 2 * rib_w:3 * rib_w]
+        # RIB3: c0_right 与 c1_left 全宽度 alpha 渐变融合
+        rib3_w = min(c0_right.shape[1], c1_left.shape[1])
+        c0_r = c0_right[:, :rib3_w].astype(np.float32)
+        c1_l = c1_left[:, c1_left.shape[1] - rib3_w:].astype(np.float32)
+        alpha = np.linspace(1, 0, rib3_w).reshape(1, rib3_w, 1)
+        rib3 = (c0_r * alpha + c1_l * (1 - alpha)).astype(np.uint8)
+
+        rib2 = c0_left
+        rib4 = c1_right
 
         descriptions = [
-            f"RIB2: center[0]+[1] each 1.5x, combined 1/3 (w={rib2.shape[1]})",
-            f"RIB3: center[0]+[1] each 1.5x, combined 2/3 (w={rib3.shape[1]})",
-            f"RIB4: center[0]+[1] each 1.5x, combined 3/3 (w={rib4.shape[1]})",
-            ">> RIB2-RIB3-RIB4 ALL CONTINUOUS",
+            f"RIB2: center[0] widen 2x left-half (w={rib2.shape[1]})",
+            f"RIB3: center[0] 2x right + center[1] 2x left alpha-blend (w={rib3.shape[1]})",
+            f"RIB4: center[1] widen 2x right-half (w={rib4.shape[1]})",
+            ">> RIB2-RIB3-RIB4 ALL CONTINUOUS (2x widen + alpha blend)",
         ]
         return [rib2, rib3, rib4], descriptions
 

@@ -61,14 +61,19 @@ class TestRule16_17:
         # 验证文件存在
         task_dir = Path(self.BASE_PATH) / f"task_id_{self.TASK_ID}"
         output_dir = task_dir / f"rule16_17_TC01"
-        debug_dir = output_dir / "debug"
         assert output_dir.exists(), f"输出目录应存在: {output_dir}"
-        assert debug_dir.exists(), f"调试目录应存在: {debug_dir}"
 
-        result_files = list(output_dir.glob("*.png"))
-        debug_files = list(debug_dir.glob("*_debug.png"))
+        result_files = list(output_dir.glob("tread_*.png"))
+        debug_dirs = list(output_dir.glob("debug_*"))
         assert len(result_files) > 0, "应至少生成1张结果图"
-        assert len(debug_files) > 0, "应至少生成1张调试图"
+        assert len(debug_dirs) > 0, "应至少生成1个调试目录"
+
+        # 验证调试目录结构
+        for dd in debug_dirs:
+            if dd.is_dir():
+                assert (dd / "debug_annotated.png").exists(), f"调试图应存在: {dd}"
+                assert (dd / "debug_info.json").exists(), f"调试JSON应存在: {dd}"
+                assert (dd / "input").exists(), f"input目录应存在: {dd}"
 
         # 验证图像元数据
         for img_info in stats["images"].values():
