@@ -72,10 +72,10 @@ class TestRule12_16_17:
     TASK_ID = _TASK_ID
     BASE_PATH = _BASE_PATH
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(autouse=True, scope="class")
     def setup_test_data(self):
-        """每次测试前将 datasets/task_id_rule12_16_17 全量拷贝到 .results/"""
-        dst = Path(self.BASE_PATH) / f"task_id_{self.TASK_ID}"
+        """测试类启动前拷贝一次，16种组合的输出子目录全部保留"""
+        dst = Path(_BASE_PATH) / f"task_id_{_TASK_ID}"
         if dst.exists():
             shutil.rmtree(dst)
         shutil.copytree(_SRC_TASK_DIR, dst)
