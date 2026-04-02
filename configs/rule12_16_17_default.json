@@ -1,0 +1,11 @@
+{
+  "base_path": ".results",
+  "input_dir": "split",
+  "output_dir": "rule12_16_17",
+  "continuity_mode": "none",
+  "groove_width_mm": 10.0,
+  "pixel_per_mm": 2.0,
+  "blend_width": 10,
+  "edge_continuity": {},
+  "group_filter": null
+}
