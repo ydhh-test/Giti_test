@@ -9,6 +9,8 @@ rule12_16_17 单元测试
 共 4 × 2 × 2 = 16 种组合
 """
 
+import shutil
+
 import pytest
 from pathlib import Path
 
@@ -46,20 +48,22 @@ def _make_combos():
     return combos
 
 
-# 测试所需的 split 输入目录
-_TASK_ID = "1778457600"
+# 测试所需的数据集路径
+_TASK_ID = "rule12_16_17"
 _BASE_PATH = ".results"
-_SPLIT_CENTER = Path(_BASE_PATH) / f"task_id_{_TASK_ID}" / "split" / "center_horz"
-_SPLIT_SIDE = Path(_BASE_PATH) / f"task_id_{_TASK_ID}" / "split" / "side_horz"
+
+_DATASETS_DIR = Path(__file__).resolve().parent.parent.parent / "datasets"
+_SRC_TASK_DIR = _DATASETS_DIR / f"task_id_{_TASK_ID}"
+_SRC_SPLIT_CENTER = _SRC_TASK_DIR / "split" / "center_horz"
+_SRC_SPLIT_SIDE = _SRC_TASK_DIR / "split" / "side_horz"
 
 _SKIP_REASON = (
-    f"测试输入数据不存在: 需要 {_SPLIT_CENTER} 和 {_SPLIT_SIDE}，"
-    "请先运行预处理生成 split 输出，或从 tests/datasets 拷贝预生成数据"
+    f"测试数据集不存在: 需要 {_SRC_SPLIT_CENTER} 和 {_SRC_SPLIT_SIDE}"
 )
 
 
 @pytest.mark.skipif(
-    not (_SPLIT_CENTER.exists() and _SPLIT_SIDE.exists()),
+    not (_SRC_SPLIT_CENTER.exists() and _SRC_SPLIT_SIDE.exists()),
     reason=_SKIP_REASON,
 )
 class TestRule12_16_17:
@@ -67,6 +71,14 @@ class TestRule12_16_17:
 
     TASK_ID = _TASK_ID
     BASE_PATH = _BASE_PATH
+
+    @pytest.fixture(autouse=True)
+    def setup_test_data(self):
+        """每次测试前将 datasets/task_id_rule12_16_17 全量拷贝到 .results/"""
+        dst = Path(self.BASE_PATH) / f"task_id_{self.TASK_ID}"
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(_SRC_TASK_DIR, dst)
 
     def _run(self, mode: str, e12: bool, e45: bool, suffix: str):
         """通用执行器，edge 用 1.0/0.0 强制确定性"""
