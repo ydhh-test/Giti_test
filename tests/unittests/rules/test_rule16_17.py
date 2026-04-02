@@ -46,11 +46,27 @@ def _make_combos():
     return combos
 
 
+# 测试所需的 split 输入目录
+_TASK_ID = "1778457600"
+_BASE_PATH = ".results"
+_SPLIT_CENTER = Path(_BASE_PATH) / f"task_id_{_TASK_ID}" / "split" / "center_horz"
+_SPLIT_SIDE = Path(_BASE_PATH) / f"task_id_{_TASK_ID}" / "split" / "side_horz"
+
+_SKIP_REASON = (
+    f"测试输入数据不存在: 需要 {_SPLIT_CENTER} 和 {_SPLIT_SIDE}，"
+    "请先运行预处理生成 split 输出，或从 tests/datasets 拷贝预生成数据"
+)
+
+
+@pytest.mark.skipif(
+    not (_SPLIT_CENTER.exists() and _SPLIT_SIDE.exists()),
+    reason=_SKIP_REASON,
+)
 class TestRule16_17:
     """rule16_17 RIB连续性与主沟渲染 — 全组合测试"""
 
-    TASK_ID = "1778457600"
-    BASE_PATH = ".results"
+    TASK_ID = _TASK_ID
+    BASE_PATH = _BASE_PATH
 
     def _run(self, mode: str, e12: bool, e45: bool, suffix: str):
         """通用执行器，edge 用 1.0/0.0 强制确定性"""

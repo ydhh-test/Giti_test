@@ -6,8 +6,8 @@ Rule 16: RIB2/3/4横沟/钢片任意组合连续性
 Rule 17: RIB1/2和RIB4/5可连续可不连续（50%概率）
 
 实现方法：
-- 中间双RIB连续（RIB2-RIB3 或 RIB3-RIB4）：拉宽1条center到2x，切分出2条连续RIB
-- 中间三RIB连续（RIB2-RIB3-RIB4）：拉宽2条center各1.5x，拼接后三等分
+- 中间双RIB连续（RIB2-RIB3 或 RIB3-RIB4）：拉宽对应1条center到2x，在过渡区域做横向blend，切分出2条连续RIB
+- 中间三RIB连续（RIB2-RIB3-RIB4）：对左右两条center各拉宽到2x，在RIB3区域做alpha blend，按实际宽度切分成3条连续RIB
 - 边缘连续（RIB1-RIB2 或 RIB4-RIB5）：拉宽side到1.25x，与center融合
 """
 

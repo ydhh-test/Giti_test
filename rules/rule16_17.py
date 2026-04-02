@@ -156,7 +156,10 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
                     "continuity_map": cmap_str,
                     "main_groove_positions": info["main_groove_positions"],
                     "actual_rib_widths": info["rib_widths"],
-                    "image_size": (full_image.shape[0], full_image.shape[1]),
+                    "image_size": {
+                        "width": full_image.shape[1],
+                        "height": full_image.shape[0],
+                    },
                     "groove_width_px": groove_width_px,
                 }
                 logger.info(f"组 {group_name} 拼接成功: {output_path}")
