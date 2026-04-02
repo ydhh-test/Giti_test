@@ -173,7 +173,7 @@ def main() -> None:
     if not success:
         sys.exit(1)
 
-    # 打印摘要
+    # 打印摘要到 stderr，保证 stdout 是纯 JSON
     dirs = result.get("directories", {})
     for dir_name, stats in dirs.items():
         total = stats.get("total_count", 0)
@@ -182,12 +182,13 @@ def main() -> None:
         skipped_count = stats.get("skipped_count", 0)
         print(
             f"\n[{dir_name}] 合计: {total}  成功: {success_count}"
-            f"  失败: {failed_count}  跳过: {skipped_count}"
+            f"  失败: {failed_count}  跳过: {skipped_count}",
+            file=sys.stderr,
         )
 
     output_dir = result.get("output_dir", "")
     if output_dir:
-        print(f"\n输出目录: {output_dir}")
+        print(f"\n输出目录: {output_dir}", file=sys.stderr)
 
 
 if __name__ == "__main__":

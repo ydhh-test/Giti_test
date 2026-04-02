@@ -87,18 +87,10 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
         blend_width = conf.get("blend_width", 10)
         group_filter = conf.get("group_filter", None)
 
-        # 边缘连续性：概率 -> 布尔
+        # 边缘连续性概率配置（每组独立采样）
         edge_conf = conf.get("edge_continuity", {})
         edge_rib12_prob = edge_conf.get("RIB1-RIB2")
         edge_rib45_prob = edge_conf.get("RIB4-RIB5")
-        edge_rib12 = (random.random() < edge_rib12_prob) if edge_rib12_prob is not None else None
-        edge_rib45 = (random.random() < edge_rib45_prob) if edge_rib45_prob is not None else None
-
-        continuity_config = {
-            "center_mode": continuity_mode,
-            "edge_rib12": edge_rib12,
-            "edge_rib45": edge_rib45,
-        }
 
         # Step 5: 处理每组图像
         dir_stats = {
@@ -125,6 +117,15 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
             dir_stats["total_count"] += 1
 
             try:
+                # 每组独立按概率采样边缘连续性
+                edge_rib12 = (random.random() < edge_rib12_prob) if edge_rib12_prob is not None else None
+                edge_rib45 = (random.random() < edge_rib45_prob) if edge_rib45_prob is not None else None
+                continuity_config = {
+                    "center_mode": continuity_mode,
+                    "edge_rib12": edge_rib12,
+                    "edge_rib45": edge_rib45,
+                }
+
                 group_debug_dir = str(output_dir / f"debug_{group_name}")
 
                 full_image, info = stitch_with_continuity(
@@ -170,11 +171,37 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
                 logger.error(f"组 {group_name} 拼接失败: {e}")
 
         # Step 6: 汇总
-        return True, {
+        success_count = dir_stats["success_count"]
+        failed_count = dir_stats["failed_count"]
+        processed_count = dir_stats["processed_count"]
+        total_count = dir_stats["total_count"]
+        skipped_count = dir_stats["skipped_count"]
+
+        overall_success = success_count > 0 and failed_count == 0
+
+        result_payload = {
             "task_id": task_id,
             "output_dir": str(output_dir),
             "directories": {output_dir_name: dir_stats},
         }
+
+        if not overall_success:
+            if processed_count == 0 and total_count == 0 and skipped_count > 0:
+                err_msg = "所有分组均被跳过，未进行任何拼接"
+            elif success_count == 0 and failed_count > 0:
+                err_msg = f"所有分组拼接失败：failed_count={failed_count}"
+            elif failed_count > 0:
+                err_msg = (
+                    f"部分分组拼接失败：success_count={success_count}, "
+                    f"failed_count={failed_count}"
+                )
+            else:
+                err_msg = "RIB 连续性拼接失败，统计结果异常"
+
+            result_payload["err_msg"] = err_msg
+            return False, result_payload
+
+        return True, result_payload
 
     except Exception as e:
         logger.error(f"Rule 16/17 处理异常: {e}")
