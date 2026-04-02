@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-rule16_17 单元测试
+rule12_16_17 单元测试
 
 全组合测试 RIB 连续性与主沟渲染功能：
 - center_mode: none / RIB2-RIB3 / RIB3-RIB4 / RIB2-RIB3-RIB4  (4种)
@@ -12,7 +12,7 @@ rule16_17 单元测试
 import pytest
 from pathlib import Path
 
-from rules.rule16_17 import process_rib_continuity
+from rules.rule12_16_17 import process_rib_continuity
 
 
 # ── 全组合参数 ──────────────────────────────────────────
@@ -62,8 +62,8 @@ _SKIP_REASON = (
     not (_SPLIT_CENTER.exists() and _SPLIT_SIDE.exists()),
     reason=_SKIP_REASON,
 )
-class TestRule16_17:
-    """rule16_17 RIB连续性与主沟渲染 — 全组合测试"""
+class TestRule12_16_17:
+    """rule12_16_17 RIB连续性与主沟渲染 — 全组合测试"""
 
     TASK_ID = _TASK_ID
     BASE_PATH = _BASE_PATH
@@ -80,7 +80,7 @@ class TestRule16_17:
                 "RIB1-RIB2": 1.0 if e12 else 0.0,
                 "RIB4-RIB5": 1.0 if e45 else 0.0,
             },
-            "output_dir": f"rule16_17/{suffix}",
+            "output_dir": f"rule12_16_17/{suffix}",
         }
         flag, result = process_rib_continuity(self.TASK_ID, conf)
         return flag, result, conf
@@ -105,13 +105,13 @@ class TestRule16_17:
         assert flag is True, f"[{combo_tag}] flag={flag}, result={result}"
         assert result["task_id"] == self.TASK_ID
 
-        dir_key = f"rule16_17/{combo_tag}"
+        dir_key = f"rule12_16_17/{combo_tag}"
         stats = result["directories"][dir_key]
         assert stats["success_count"] > 0, f"[{combo_tag}] 无成功图像"
 
         # 验证输出文件与调试目录
         task_dir = Path(self.BASE_PATH) / f"task_id_{self.TASK_ID}"
-        output_dir = task_dir / "rule16_17" / combo_tag
+        output_dir = task_dir / "rule12_16_17" / combo_tag
         assert output_dir.exists(), f"输出目录不存在: {output_dir}"
 
         result_files = list(output_dir.glob("tread_*.png"))

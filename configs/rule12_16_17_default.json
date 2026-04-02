@@ -1,7 +1,7 @@
 {
   "base_path": ".results",
   "input_dir": "split",
-  "output_dir": "rule16_17",
+  "output_dir": "rule12_16_17",
   "continuity_mode": "none",
   "groove_width_mm": 10.0,
   "pixel_per_mm": 2.0,

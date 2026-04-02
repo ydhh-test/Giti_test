@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Rule 16/17 独立运行脚本
+Rule 12/16/17 独立运行脚本
 
 功能:
   从 split/center_horz 和 split/side_horz 读取 RIB 长条图，
   按连续性配置调用拼接算法，输出带主沟的完整胎面图。
 
 调用方式:
-    python scripts/run_rule16_17.py --task_id <task_id> [--conf_path <path>]
+    python scripts/run_rule12_16_17.py --task_id <task_id> [--conf_path <path>]
 
 示例:
     # 使用默认配置
-    python scripts/run_rule16_17.py --task_id abc123
+    python scripts/run_rule12_16_17.py --task_id abc123
 
     # 使用自定义配置文件
-    python scripts/run_rule16_17.py --task_id abc123 --conf_path my_conf.json
+    python scripts/run_rule12_16_17.py --task_id abc123 --conf_path my_conf.json
 
     # 格式化 JSON 输出
-    python scripts/run_rule16_17.py --task_id abc123 --pretty
+    python scripts/run_rule12_16_17.py --task_id abc123 --pretty
 
 配置文件说明 (JSON):
     {
       "base_path":        ".results",        // 基础结果路径
       "input_dir":        "split",           // split 子目录名
-      "output_dir":       "rule16_17",       // 输出子目录名
+      "output_dir":       "rule12_16_17",    // 输出子目录名
       "continuity_mode":  "none",            // none | RIB2-RIB3 | RIB3-RIB4 | RIB2-RIB3-RIB4
       "groove_width_mm":  10.0,              // 主沟宽度 (mm)
       "pixel_per_mm":     2.0,              // 像素/毫米比例
@@ -47,15 +47,15 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from rules.rule16_17 import process_rib_continuity
+from rules.rule12_16_17 import process_rib_continuity
 
-_DEFAULT_CONF_PATH = _PROJECT_ROOT / "configs" / "rule16_17_default.json"
+_DEFAULT_CONF_PATH = _PROJECT_ROOT / "configs" / "rule12_16_17_default.json"
 
 
 def parse_args() -> argparse.Namespace:
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="Rule 16/17 RIB 横向连续性拼接独立脚本",
+        description="Rule 12/16/17 RIB 横向连续性拼接独立脚本",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -69,7 +69,7 @@ def parse_args() -> argparse.Namespace:
         "--conf_path",
         type=str,
         default=str(_DEFAULT_CONF_PATH),
-        help=f"配置文件路径（JSON，默认: configs/rule16_17_default.json）",
+        help=f"配置文件路径（JSON，默认: configs/rule12_16_17_default.json）",
     )
     parser.add_argument(
         "--pretty",
@@ -100,7 +100,7 @@ def main() -> None:
     # 校验配置
     _validate_conf(conf)
 
-    # 调用 rule16_17
+    # 调用 rule12_16_17
     success, result = process_rib_continuity(args.task_id, conf)
 
     # 输出 JSON 结果

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-rule16_17: RIB横向连续性拼接中间层
+rule12_16_17: RIB横向连续性拼接中间层
 
 功能:
 - Rule 16: RIB2/3/4横沟/钢片任意组合连续性
@@ -26,14 +26,14 @@ from typing import Dict, List, Tuple, Any
 from algorithms.stitching.rib_continuity_stitch import stitch_with_continuity
 from utils.logger import get_logger
 
-logger = get_logger("rule16_17")
+logger = get_logger("rule12_16_17")
 
 
 # ========== 主入口函数 ==========
 
 def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
     """
-    Rule 16/17 主入口
+    Rule 12/16/17 主入口
 
     参数:
         task_id: 任务ID
@@ -47,7 +47,7 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
             - edge_continuity: 边缘连续性概率配置
                 - "RIB1-RIB2": 0.0~1.0 概率
                 - "RIB4-RIB5": 0.0~1.0 概率
-            - output_dir: 输出子目录名（默认 "rule16_17"）
+            - output_dir: 输出子目录名（默认 "rule12_16_17"）
             - group_filter: 可选分组名过滤列表
 
     返回:
@@ -63,7 +63,7 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
         center_dir = task_dir / input_dir_name / "center_horz"
         side_dir = task_dir / input_dir_name / "side_horz"
 
-        output_dir_name = conf.get("output_dir", "rule16_17")
+        output_dir_name = conf.get("output_dir", "rule12_16_17")
         output_dir = task_dir / output_dir_name
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -207,7 +207,7 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
         return True, result_payload
 
     except Exception as e:
-        logger.error(f"Rule 16/17 处理异常: {e}")
+        logger.error(f"Rule 12/16/17 处理异常: {e}")
         return False, {"err_msg": str(e), "task_id": task_id}
 
 
