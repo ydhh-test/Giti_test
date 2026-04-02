@@ -1,6 +1,6 @@
 # PR: feat: Rule 16/17 RIB 横向连续性拼接脚本
 
-**分支**: `feature/rule16_17`
+**分支**: `feature/rule12_16_17`
 **目标分支**: `dev`
 **创建日期**: 2026-04-02
 **状态**: Ready for Review
@@ -9,9 +9,9 @@
 
 ## 一、背景
 
-Rule 16/17 (`rules/rule16_17.py` + `algorithms/stitching/rib_continuity_stitch.py`) 在本分支已完成实现与单元测试，但尚未集成到 `services/postprocessor.py` 后处理主流程。
+Rule 16/17 (`rules/rule12_16_17.py` + `algorithms/stitching/rib_continuity_stitch.py`) 在本分支已完成实现与单元测试，但尚未集成到 `services/postprocessor.py` 后处理主流程。
 
-为便于在集成前独立验证和调试拼接效果，本 PR 新增一个独立运行脚本 `scripts/run_rule16_17.py`，可直接从命令行调用 `process_rib_continuity`。
+为便于在集成前独立验证和调试拼接效果，本 PR 新增一个独立运行脚本 `scripts/run_rule12_16_17.py`，可直接从命令行调用 `process_rib_continuity`。
 
 ---
 
@@ -21,16 +21,16 @@ Rule 16/17 (`rules/rule16_17.py` + `algorithms/stitching/rib_continuity_stitch.p
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
-| `scripts/run_rule16_17.py` | **新增** | Rule 16/17 独立运行脚本 |
+| `scripts/run_rule12_16_17.py` | **新增** | Rule 16/17 独立运行脚本 |
 
 ### 本分支累计变更（相对 dev）
 
 | 文件 | 操作 | 行数 |
 |------|------|------|
 | `algorithms/stitching/rib_continuity_stitch.py` | 新增 | +551 |
-| `rules/rule16_17.py` | 新增 | +232 |
-| `tests/unittests/rules/test_rule16_17.py` | 新增 | +140 |
-| `scripts/run_rule16_17.py` | 新增 | +170 |
+| `rules/rule12_16_17.py` | 新增 | +232 |
+| `tests/unittests/rules/test_rule12_16_17.py` | 新增 | +140 |
+| `scripts/run_rule12_16_17.py` | 新增 | +170 |
 | `.gitignore` | 修改 | +2/-2 |
 
 ---
@@ -40,7 +40,7 @@ Rule 16/17 (`rules/rule16_17.py` + `algorithms/stitching/rib_continuity_stitch.p
 ### 3.1 命令行接口
 
 ```bash
-python scripts/run_rule16_17.py --task_id <task_id> [options]
+python scripts/run_rule12_16_17.py --task_id <task_id> [options]
 ```
 
 | 参数 | 必填 | 默认值 | 说明 |
@@ -48,7 +48,7 @@ python scripts/run_rule16_17.py --task_id <task_id> [options]
 | `--task_id` | ✅ | — | 任务 ID |
 | `--base_path` | 否 | `.results` | 基础结果路径 |
 | `--input_dir` | 否 | `split` | split 子目录名 |
-| `--output_dir` | 否 | `rule16_17` | 输出子目录名 |
+| `--output_dir` | 否 | `rule12_16_17` | 输出子目录名 |
 | `--continuity_mode` | 否 | `none` | 中间 RIB 连续性模式 |
 | `--groove_width_mm` | 否 | `10.0` | 主沟宽度 (mm) |
 | `--pixel_per_mm` | 否 | `2.0` | 像素/毫米比例 |
@@ -68,14 +68,14 @@ python scripts/run_rule16_17.py --task_id <task_id> [options]
   .results/task_id_<task_id>/split/side_horz/*.png
 
 输出:
-  .results/task_id_<task_id>/rule16_17/tread_<group>.png
-  .results/task_id_<task_id>/rule16_17/debug_<group>/   (过程图)
+  .results/task_id_<task_id>/rule12_16_17/tread_<group>.png
+  .results/task_id_<task_id>/rule12_16_17/debug_<group>/   (过程图)
 ```
 
 ### 3.3 输出示例
 
 ```bash
-$ python scripts/run_rule16_17.py --task_id abc123 \
+$ python scripts/run_rule12_16_17.py --task_id abc123 \
     --continuity_mode RIB2-RIB3 \
     --edge_rib12 0.8 --edge_rib45 0.5 --pretty
 ```
@@ -83,9 +83,9 @@ $ python scripts/run_rule16_17.py --task_id abc123 \
 ```json
 {
   "task_id": "abc123",
-  "output_dir": ".results/task_id_abc123/rule16_17",
+  "output_dir": ".results/task_id_abc123/rule12_16_17",
   "directories": {
-    "rule16_17": {
+    "rule12_16_17": {
       "total_count": 3,
       "processed_count": 3,
       "success_count": 3,
@@ -102,9 +102,9 @@ $ python scripts/run_rule16_17.py --task_id abc123 \
   }
 }
 
-[rule16_17] 合计: 3  成功: 3  失败: 0  跳过: 0
+[rule12_16_17] 合计: 3  成功: 3  失败: 0  跳过: 0
 
-输出目录: .results/task_id_abc123/rule16_17
+输出目录: .results/task_id_abc123/rule12_16_17
 ```
 
 ---
@@ -124,7 +124,7 @@ $ python scripts/run_rule16_17.py --task_id abc123 \
 ### 5.1 单元测试（已有）
 
 ```bash
-pytest tests/unittests/rules/test_rule16_17.py -v
+pytest tests/unittests/rules/test_rule12_16_17.py -v
 ```
 
 覆盖 4 × 2 × 2 = **16 种参数组合**（center_mode × edge_rib12 × edge_rib45）。
@@ -133,7 +133,7 @@ pytest tests/unittests/rules/test_rule16_17.py -v
 
 ```bash
 # 使用测试任务数据验证脚本可正常运行
-python scripts/run_rule16_17.py --task_id 1778457600 --pretty
+python scripts/run_rule12_16_17.py --task_id 1778457600 --pretty
 
 # 测试退出码：成功应为 0
 echo $?
@@ -143,9 +143,9 @@ echo $?
 
 ## 六、Checklist
 
-- [x] 新增 `scripts/run_rule16_17.py`
+- [x] 新增 `scripts/run_rule12_16_17.py`
 - [x] 脚本不修改后处理主流程
-- [x] 支持全部 rule16_17 的配置参数
+- [x] 支持全部 rule12_16_17 的配置参数
 - [x] 对概率参数 `--edge_rib12` / `--edge_rib45` 做合法性校验
 - [x] 失败时 `sys.exit(1)` 返回非零退出码
 - [x] JSON 结果通过 stdout 输出，便于管道接入
