@@ -5,7 +5,7 @@ import os
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, NamedTuple
+from typing import Dict, List, Tuple, Any, NamedTuple, Optional
 from itertools import product
 from collections import defaultdict
 
@@ -714,7 +714,7 @@ def generate_layout_images(
     return results
 
 
-def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir: str = None, image_names: Dict[str, str] = None) -> List[Dict[str, Any]]:
+def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir: Optional[str] = None, image_names: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
     """
     保存结果到指定目录
 
