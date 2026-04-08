@@ -5,7 +5,7 @@ import os
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, NamedTuple
+from typing import Dict, List, Tuple, Any, NamedTuple, Optional
 from itertools import product
 from collections import defaultdict
 
@@ -714,7 +714,7 @@ def generate_layout_images(
     return results
 
 
-def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir: str = None) -> List[Dict[str, Any]]:
+def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir: Optional[str] = None, image_names: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
     """
     保存结果到指定目录
 
@@ -724,7 +724,17 @@ def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir
     if output_dir is None:
         output_dir = config.get('output_dir')
 
+    if image_names is None:
+        image_names = {}
+
     os.makedirs(output_dir, exist_ok=True)
+
+    def _stem(key: str, fallback) -> str:
+        """从 image_names 中查找文件名并返回不含扩展名的 stem，找不到则返回 fallback 字符串。"""
+        fname = image_names.get(key)
+        if fname:
+            return Path(fname).stem
+        return str(fallback)
 
     # 对称模式映射
     sym_dict = config.get('symmetry_mapping', {
@@ -744,24 +754,49 @@ def save_results(results: List[LayoutResult], config: Dict[str, Any], output_dir
         rib_combination = result.rib_combination or ()
         combo_len = len(rib_combination)
         rib_count = len(result.rib_regions)  # 实际参与拼接的 RIB 数
+        is_symmetric = (result.applied_symmetry != 'asymmetric')
 
         if combo_len == 5:
-            # 5 RIB 完整组合：r1_side, r2_center, r3_center, r4_center, r5_side
-            combo_str = (
-                f"r1_{rib_combination[0]}_"
-                f"r2_{rib_combination[1]}_"
-                f"r3_{rib_combination[2]}_"
-                f"r4_{rib_combination[3]}_"
-                f"r5_{rib_combination[4]}"
-            )
+            if not is_symmetric:
+                # 非对称 5-RIB：[0,4] → side，[1,2,3] → center
+                combo_str = (
+                    f"r1_{_stem(f'side_{rib_combination[0]}', rib_combination[0])}_"
+                    f"r2_{_stem(f'center_{rib_combination[1]}', rib_combination[1])}_"
+                    f"r3_{_stem(f'center_{rib_combination[2]}', rib_combination[2])}_"
+                    f"r4_{_stem(f'center_{rib_combination[3]}', rib_combination[3])}_"
+                    f"r5_{_stem(f'side_{rib_combination[4]}', rib_combination[4])}"
+                )
+            else:
+                # 对称 5-RIB full_combo：(0,0,r3_c,r4_c,r5_s)；实际显示 r1=r5, r2=r4
+                r3_name = _stem(f'center_{rib_combination[2]}', rib_combination[2])
+                r4_name = _stem(f'center_{rib_combination[3]}', rib_combination[3])
+                r5_name = _stem(f'side_{rib_combination[4]}', rib_combination[4])
+                combo_str = (
+                    f"r1_{r5_name}_"
+                    f"r2_{r4_name}_"
+                    f"r3_{r3_name}_"
+                    f"r4_{r4_name}_"
+                    f"r5_{r5_name}"
+                )
         elif combo_len == 4:
-            # 4 RIB 完整组合：r1_side, r2_center, r3_center, r4_side
-            combo_str = (
-                f"r1_{rib_combination[0]}_"
-                f"r2_{rib_combination[1]}_"
-                f"r3_{rib_combination[2]}_"
-                f"r4_{rib_combination[3]}"
-            )
+            if not is_symmetric:
+                # 非对称 4-RIB：[0,3] → side，[1,2] → center
+                combo_str = (
+                    f"r1_{_stem(f'side_{rib_combination[0]}', rib_combination[0])}_"
+                    f"r2_{_stem(f'center_{rib_combination[1]}', rib_combination[1])}_"
+                    f"r3_{_stem(f'center_{rib_combination[2]}', rib_combination[2])}_"
+                    f"r4_{_stem(f'side_{rib_combination[3]}', rib_combination[3])}"
+                )
+            else:
+                # 对称 4-RIB full_combo：(0,0,r3_c,r4_s)；实际显示 r1=r3(center), r2=r4(side)
+                r3_name = _stem(f'center_{rib_combination[2]}', rib_combination[2])
+                r4_name = _stem(f'side_{rib_combination[3]}', rib_combination[3])
+                combo_str = (
+                    f"r1_{r3_name}_"
+                    f"r2_{r4_name}_"
+                    f"r3_{r3_name}_"
+                    f"r4_{r4_name}"
+                )
         elif combo_len == 3 and rib_count == 5:
             # 对称模式 5 RIB: 只排列 r3, r4, r5
             combo_str = (
@@ -877,7 +912,7 @@ class HorizontalStitch:
                 return False, {"error": "未生成任何布局图"}
             
             # 3. 保存结果，获取图片列表
-            saved_images = save_results(self.results, self.conf)
+            saved_images = save_results(self.results, self.conf, image_names=self.image_names)
             
             # 4. 返回成功信息（包含图片列表）
             return True, {
