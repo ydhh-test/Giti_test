@@ -4,8 +4,8 @@
 Rule 12/16/17 独立运行脚本
 
 功能:
-  从 split/center_horz 和 split/side_horz 读取 RIB 长条图，
-  按连续性配置调用拼接算法，输出带主沟的完整胎面图。
+  从 center_vertical 和 side_vertical 读取完整 RIB 图，
+  根据连续性配置调用拼接算法，输出带主沟的完整胎面图。
 
 调用方式:
     python scripts/run_rule12_16_17.py --task_id <task_id> [--conf_path <path>]
@@ -23,7 +23,8 @@ Rule 12/16/17 独立运行脚本
 配置文件说明 (JSON):
     {
       "base_path":        ".results",        // 基础结果路径
-      "input_dir":        "split",           // split 子目录名
+      "center_dir":       "center_vertical", // center 图像子目录名
+      "side_dir":         "side_vertical",   // side 图像子目录名
       "output_dir":       "rule12_16_17",    // 输出子目录名
       "continuity_mode":  "none",            // none | RIB2-RIB3 | RIB3-RIB4 | RIB2-RIB3-RIB4
       "groove_width_mm":  10.0,              // 主沟宽度 (mm)
@@ -32,8 +33,7 @@ Rule 12/16/17 独立运行脚本
       "edge_continuity": {                   // 边缘连续性概率，可省略
         "RIB1-RIB2": 0.8,
         "RIB4-RIB5": 0.5
-      },
-      "group_filter":     null               // null 表示处理全部分组
+      }
     }
 """
 
