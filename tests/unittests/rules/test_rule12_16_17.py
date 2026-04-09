@@ -54,16 +54,16 @@ _BASE_PATH = ".results"
 
 _DATASETS_DIR = Path(__file__).resolve().parent.parent.parent / "datasets"
 _SRC_TASK_DIR = _DATASETS_DIR / f"task_id_{_TASK_ID}"
-_SRC_SPLIT_CENTER = _SRC_TASK_DIR / "split" / "center_horz"
-_SRC_SPLIT_SIDE = _SRC_TASK_DIR / "split" / "side_horz"
+_SRC_CENTER_DIR = _SRC_TASK_DIR / "center_vertical"
+_SRC_SIDE_DIR = _SRC_TASK_DIR / "side_vertical"
 
 _SKIP_REASON = (
-    f"测试数据集不存在: 需要 {_SRC_SPLIT_CENTER} 和 {_SRC_SPLIT_SIDE}"
+    f"测试数据集不存在: 需要 {_SRC_CENTER_DIR} 和 {_SRC_SIDE_DIR}"
 )
 
 
 @pytest.mark.skipif(
-    not (_SRC_SPLIT_CENTER.exists() and _SRC_SPLIT_SIDE.exists()),
+    not (_SRC_CENTER_DIR.exists() and _SRC_SIDE_DIR.exists()),
     reason=_SKIP_REASON,
 )
 class TestRule12_16_17:
@@ -92,7 +92,7 @@ class TestRule12_16_17:
                 "RIB1-RIB2": 1.0 if e12 else 0.0,
                 "RIB4-RIB5": 1.0 if e45 else 0.0,
             },
-            "output_dir": f"rule12_16_17/{suffix}",
+            "output_dir": f"rule12_16_17_{suffix}",
         }
         flag, result = process_rib_continuity(self.TASK_ID, conf)
         return flag, result, conf
@@ -117,24 +117,22 @@ class TestRule12_16_17:
         assert flag is True, f"[{combo_tag}] flag={flag}, result={result}"
         assert result["task_id"] == self.TASK_ID
 
-        dir_key = f"rule12_16_17/{combo_tag}"
+        dir_key = f"rule12_16_17_{combo_tag}"
         stats = result["directories"][dir_key]
         assert stats["success_count"] > 0, f"[{combo_tag}] 无成功图像"
 
         # 验证输出文件与调试目录
         task_dir = Path(self.BASE_PATH) / f"task_id_{self.TASK_ID}"
-        output_dir = task_dir / "rule12_16_17" / combo_tag
+        output_dir = task_dir / f"rule12_16_17_{combo_tag}"
         assert output_dir.exists(), f"输出目录不存在: {output_dir}"
 
-        result_files = list(output_dir.glob("tread_*.png"))
-        debug_dirs = [d for d in output_dir.glob("debug_*") if d.is_dir()]
-        assert len(result_files) > 0, f"[{combo_tag}] 无结果图"
-        assert len(debug_dirs) > 0, f"[{combo_tag}] 无调试目录"
+        assert (output_dir / "tread.png").exists(), f"[{combo_tag}] 无结果图"
+        debug_dir = output_dir / "debug"
+        assert debug_dir.is_dir(), f"[{combo_tag}] 无调试目录"
 
-        for dd in debug_dirs:
-            assert (dd / "debug_annotated.png").exists(), f"缺失调试图: {dd}"
-            assert (dd / "debug_info.json").exists(), f"缺失调试JSON: {dd}"
-            assert (dd / "input").exists(), f"缺失input目录: {dd}"
+        assert (debug_dir / "debug_annotated.png").exists(), f"缺失调试图: {debug_dir}"
+        assert (debug_dir / "debug_info.json").exists(), f"缺失调试JSON: {debug_dir}"
+        assert (debug_dir / "input").exists(), f"缺失input目录: {debug_dir}"
 
         # 验证每张图像的元数据
         expected_center = EXPECTED_CENTER[mode]
