@@ -185,6 +185,14 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
 
 # ========== 辅助函数 ==========
 
+def _numeric_sort_key(p: Path):
+    """数字感知排序键：stem 能转为整数时按数值排序，否则按文件名字符串排序"""
+    try:
+        return (0, int(p.stem), p.name)
+    except ValueError:
+        return (1, 0, p.name)
+
+
 def _load_images(image_dir: Path) -> Tuple[List, List[str]]:
     """
     从目录加载所有图像
@@ -192,13 +200,16 @@ def _load_images(image_dir: Path) -> Tuple[List, List[str]]:
     Returns:
         (images, file_names) — images 为 BGR ndarray 列表，file_names 为对应文件名列表
     """
+    candidates = sorted(
+        (f for f in image_dir.iterdir() if f.is_file() and f.suffix.lower() in _IMAGE_EXTENSIONS),
+        key=_numeric_sort_key,
+    )
     images = []
     names = []
-    for f in sorted(image_dir.iterdir()):
-        if f.suffix.lower() in _IMAGE_EXTENSIONS:
-            img = cv2.imread(str(f))
-            if img is not None:
-                images.append(img)
-                names.append(f.name)
+    for f in candidates:
+        img = cv2.imread(str(f))
+        if img is not None:
+            images.append(img)
+            names.append(f.name)
     logger.info(f"从 {image_dir} 加载 {len(images)} 张图像")
     return images, names
