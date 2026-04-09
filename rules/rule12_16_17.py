@@ -129,7 +129,8 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
 
             # 保存结果图
             output_path = str(output_dir / "tread.png")
-            cv2.imwrite(output_path, full_image)
+            if not cv2.imwrite(output_path, full_image):
+                raise RuntimeError(f"cv2.imwrite 写入失败: {output_path}")
 
             # 转换 continuity_map: True->"continuous", False->"independent"
             cmap_str = {}
