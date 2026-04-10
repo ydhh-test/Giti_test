@@ -231,13 +231,27 @@ def assemble_symmetry_layout(
             raise ValueError(
                 f"输入异常: 画布总宽度过小 (total_layout_width={total_layout_width})，无法进行对称覆写，请检查 RIB 宽度与数量。"
             )
-        # 寻找全局图像中轴线
-        mid_x = total_layout_width // 2
-        right_half_w = total_layout_width - mid_x
-        left_half_w = mid_x  # 左半幅宽度
+        # 修正: 如果 rib 数量是偶数 (如 4-RIB), 中间有一条完整的主沟(main_groove)
+        # 传统的 // 2 会把最中间的主沟切分并镜像导致沟变宽或消失。
+        # 我们需要保留中间的那条主沟不被镜像覆盖
+        if num_ribs % 2 == 0:
+            # 找到中间那条沟的起始 x 坐标
+            # 对于 4-RIB, 中间的沟是第二条沟 (index 1)
+            mid_groove_idx = num_ribs // 2 - 1
+            left_rib_end = rib_regions[mid_groove_idx][2]
+            right_rib_start = rib_regions[mid_groove_idx + 1][0]
+
+            left_half_w = left_rib_end
+            right_half_start = right_rib_start
+            right_half_w = total_layout_width - right_half_start
+        else:
+            mid_x = total_layout_width // 2
+            right_half_start = mid_x
+            left_half_w = mid_x
+            right_half_w = total_layout_width - mid_x
 
         # 抠出右半边图像作为变换基底 (必须 .copy() 以防视图引用问题)
-        right_half = layout_img[:, mid_x: total_layout_width].copy()
+        right_half = layout_img[:, right_half_start: total_layout_width].copy()
 
         if symmetry_mode == "rotate180":
             # 旋转180°策略: 相当于同时水平翻转(X轴)和垂直翻转(Y轴)
@@ -256,12 +270,35 @@ def assemble_symmetry_layout(
         # 将变换后的右半幅覆写回左半幅，保证左右宽度一致，避免 broadcast 报错
         copy_w = min(left_half_w, right_half_w)
         if copy_w > 0:
-            left_start = mid_x - copy_w
-            layout_img[:, left_start:mid_x] = transformed_half[:, :copy_w]
+            left_start = left_half_w - copy_w
+            layout_img[:, left_start:left_half_w] = transformed_half[:, :copy_w]
 
 
     # ==========================================
-    # 5. 质量评估与组装返回
+    # 5. 裁剪左右两侧全黑或近黑画布 (约束规则)
+    # 强制去除左侧(RIB1外侧)和右侧(最后一个RIB外侧)的冗余区域
+    # 使用灰度阈值，能够剪裁掉带有图片自带微弱噪声黑边的情况
+    # ==========================================
+    gray_layout = cv2.cvtColor(layout_img, cv2.COLOR_BGR2GRAY)
+    black_threshold = 15  # 亮度阈值配置：低于此亮度视作待裁切纯黑
+    non_black_cols = np.where(np.any(gray_layout > black_threshold, axis=0))[0]
+
+    if len(non_black_cols) > 0:
+        first_col = int(non_black_cols[0])
+        last_col = int(non_black_cols[-1])
+        if first_col > 0 or last_col < layout_img.shape[1] - 1:
+            layout_img = layout_img[:, first_col:last_col + 1].copy()
+
+            # 修正 rib_regions 的坐标
+            adjusted_regions = []
+            for (rx_start, ry_start, rx_end, ry_end) in rib_regions:
+                new_start = max(0, rx_start - first_col)
+                new_end = max(0, rx_end - first_col)
+                adjusted_regions.append((new_start, ry_start, new_end, ry_end))
+            rib_regions = adjusted_regions
+
+    # ==========================================
+    # 6. 质量评估与组装返回
     # ==========================================
     # 量化评分逻辑：
     # 基础分 8 分：当前只要生成了一条符合物理对称性原则（或合法定义为不对称）的有效轮胎切片，即获得 8 分。

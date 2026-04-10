@@ -4,11 +4,13 @@
 
 import pytest
 import numpy as np
+import cv2
 import os
 from algorithms.stitching.horizontal_stitch import (
     HorizontalStitch,
     CombinationManager,
-    LayoutResult
+    LayoutResult,
+    assemble_symmetry_layout
 )
 
 
@@ -189,6 +191,32 @@ def test_horizontal_stitch_different_symmetry_types():
 
         finally:
             shutil.rmtree(temp_output, ignore_errors=True)
+
+
+def test_canvas_margin_cropping():
+    """测试左右黑边自动裁剪约束功能"""
+    # 测试在侧边包含明显黑边的情况下，生成布局图是否能自动裁剪冗余边距
+    rib1 = np.zeros((100, 50, 3), dtype=np.uint8)
+    rib1[:, 20:50] = 255  # 左侧20像素纯黑，右侧30像素全白
+
+    rib2 = np.zeros((100, 50, 3), dtype=np.uint8)
+    rib2[:, 0:30] = 128  # 左侧30像素灰，右侧20像素纯黑
+
+    result = assemble_symmetry_layout(
+        extracted_ribs=[rib1, rib2],
+        user_config={"symmetry_type": "asymmetric"},
+        groove_positions=[[20]],  # 给一个较小的 groove，不要覆盖黑边测试的宽度
+        rib_combination=(0, 1)
+    )
+
+    # 最关键的断言：整张最终拼好的 layout_image，其左右不能存在任何全黑冗余列
+    # 左侧的 20 列黑边应该被切掉，右侧的 20 列黑边也应该被切掉
+    # 整体返回的 width 应该小于直接叠加的最大理论 width
+    gray_layout = cv2.cvtColor(result.layout_image, cv2.COLOR_BGR2GRAY)
+
+    # 验证最左边和最右边的第一列/最后一列都不是全黑（即至少有一个像素>15）
+    assert np.any(gray_layout[:, 0] > 15), "左侧黑边未完全裁切"
+    assert np.any(gray_layout[:, -1] > 15), "右侧黑边未完全裁切"
 
 
 if __name__ == "__main__":
