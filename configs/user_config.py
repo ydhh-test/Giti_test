@@ -39,6 +39,17 @@ DEFAULT_HORIZONTAL_STITCH_CONF = {
     "history_file": None,  # 由调用方动态设置，默认为 None 表示不启用历史计数
 }
 
+# RIB 横向连续性拼接默认配置（rule12/16/17）
+DEFAULT_RIB_CONTINUITY_CONF = {
+    "center_dir": "center_vertical",
+    "side_dir": "side_vertical",
+    "continuity_mode": "none",
+    "groove_width_mm": 10.0,
+    "pixel_per_mm": 2.0,
+    "blend_width": 10,
+    "edge_continuity": {},
+}
+
 # 横图打分默认配置
 DEFAULT_HORIZONTAL_IMAGE_SCORE_CONF = {
     "input_dir": "combine_horizontal",
@@ -125,6 +136,13 @@ class UserConfig:
     # 纵图拼接配置（默认值来自 DEFAULT_VERTICAL_STITCH_CONF）
     vertical_stitch_conf: Dict[str, Any] = field(default_factory=dict)
 
+    # ========== RIB 横向连续性拼接参数（rule12/16/17）==========
+    # 是否启用 RIB 连续性拼接（替代 rule1to5 横图拼接）
+    enable_rib_continuity: bool = False
+
+    # RIB 连续性拼接配置（默认值来自 DEFAULT_RIB_CONTINUITY_CONF）
+    rib_continuity_conf: Dict[str, Any] = field(default_factory=dict)
+
     # ========== 装饰边框参数 ==========
     # 灰色透明度（0~1）
     decoration_border_alpha: float = 0.5
@@ -180,6 +198,8 @@ class UserConfig:
             'decoration_style': self.decoration_style,
             'decoration_gray_color': self.decoration_gray_color,
             'vertical_stitch_conf': self.vertical_stitch_conf,
+            'enable_rib_continuity': self.enable_rib_continuity,
+            'rib_continuity_conf': self.rib_continuity_conf,
         }
 
     def get_output_directory(self, base_output_dir: Path) -> Path:

@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Union
 
 from algorithms.stitching.vertical_stitch import stitch_and_resize
-from configs.user_config import DEFAULT_VERTICAL_STITCH_CONF
+from configs.user_config import DEFAULT_VERTICAL_STITCH_CONF, DEFAULT_RIB_CONTINUITY_CONF
 from utils.logger import get_logger
 
 logger = get_logger("postprocessor")
@@ -89,6 +89,11 @@ def _merge_conf_from_complete_config(task_id: str, user_conf: dict) -> dict:
     # 深度合并：用户配置覆盖默认值
     merged_vertical_conf = {**default_vertical_conf, **user_vertical_conf}
     merged_conf['vertical_stitch_conf'] = merged_vertical_conf
+
+    # 特殊处理 rib_continuity_conf：深度合并
+    default_rib_conf = DEFAULT_RIB_CONTINUITY_CONF
+    user_rib_conf = user_conf.get('rib_continuity_conf', {})
+    merged_conf['rib_continuity_conf'] = {**default_rib_conf, **user_rib_conf}
 
     return merged_conf
 
@@ -164,10 +169,10 @@ def postprocessor(task_id: str, user_conf: Union[dict, str]) -> tuple[bool, dict
 
     # Stage 5: 横图拼接
     if merged_conf.get("enable_rib_continuity"):
-        rule12_16_17_conf = dict(merged_conf.get("rib_continuity_conf", {}))
+        rib_continuity_conf = dict(merged_conf.get("rib_continuity_conf", {}))
         # 强制对齐输出目录，确保 Stage 6/7 能从 combine_horizontal 读取
-        rule12_16_17_conf["output_dir"] = "combine_horizontal"
-        flag, details = _rib_continuity_stitch(task_id, rule12_16_17_conf)
+        rib_continuity_conf["output_dir"] = "combine_horizontal"
+        flag, details = _rib_continuity_stitch(task_id, rib_continuity_conf)
         if not flag:
             return False, {**details, "failed_stage": "rib_continuity_stitch", "task_id": task_id}
     else:

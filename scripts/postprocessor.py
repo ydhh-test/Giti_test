@@ -14,6 +14,35 @@
     python scripts/postprocessor.py --task-id test_rule6_1
     python scripts/postprocessor.py --task-id test_rule6_1 --config config.json
     python scripts/postprocessor.py --task-id test_rule6_1 --log info
+
+启用 RIB 横向连续性拼接（rule12/16/17）:
+    在 --config 指定的 JSON 文件中设置以下字段，即可替代默认的横图拼接（rule1to5）：
+
+    {
+        "enable_rib_continuity": true,
+        "rib_continuity_conf": {
+            "continuity_mode": "RIB2-RIB3",
+            "groove_width_mm": 10.0,
+            "pixel_per_mm": 2.0,
+            "blend_width": 10,
+            "edge_continuity": {
+                "RIB1-RIB2": 0.5,
+                "RIB4-RIB5": 0.5
+            }
+        }
+    }
+
+    continuity_mode 可选值:
+        "none"            - 所有 RIB 独立（等同于不启用连续性）
+        "RIB2-RIB3"       - RIB2 与 RIB3 连续
+        "RIB3-RIB4"       - RIB3 与 RIB4 连续
+        "RIB2-RIB3-RIB4"  - RIB2/RIB3/RIB4 全部连续
+
+    edge_continuity 为边缘概率配置，0.0~1.0；不传则边缘随机独立。
+    不传 enable_rib_continuity 或设为 false 时，走原有 rule1to5 横图拼接。
+
+    运行脚本：
+    python scripts/postprocessor.py --task-id your_task_id --config rib_conf.json
 """
 
 import argparse
