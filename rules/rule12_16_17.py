@@ -127,8 +127,11 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
                 source_names=source_names,
             )
 
-            # 保存结果图
-            output_path = str(output_dir / "tread.png")
+            # 构建输出文件名: tread_center-{stems}_side-{stems}_{mode}.png
+            center_stems = "-".join(Path(n).stem for n in center_names)
+            side_stems = "-".join(Path(n).stem for n in side_names)
+            output_filename = f"tread_center-{center_stems}_side-{side_stems}_{continuity_mode}.png"
+            output_path = str(output_dir / output_filename)
             if not cv2.imwrite(output_path, full_image):
                 raise RuntimeError(f"cv2.imwrite 写入失败: {output_path}")
 
@@ -139,7 +142,7 @@ def process_rib_continuity(task_id: str, conf: dict) -> Tuple[bool, dict]:
 
             dir_stats["processed_count"] = 1
             dir_stats["success_count"] = 1
-            dir_stats["images"]["tread.png"] = {
+            dir_stats["images"][output_filename] = {
                 "status": "success",
                 "output_path": output_path,
                 "debug_dir": debug_dir,

@@ -126,7 +126,8 @@ class TestRule12_16_17:
         output_dir = task_dir / f"rule12_16_17_{combo_tag}"
         assert output_dir.exists(), f"输出目录不存在: {output_dir}"
 
-        assert (output_dir / "tread.png").exists(), f"[{combo_tag}] 无结果图"
+        result_files = list(output_dir.glob("tread_*.png"))
+        assert len(result_files) == 1, f"[{combo_tag}] 期望1张结果图，实际{len(result_files)}张"
         debug_dir = output_dir / "debug"
         assert debug_dir.is_dir(), f"[{combo_tag}] 无调试目录"
 
