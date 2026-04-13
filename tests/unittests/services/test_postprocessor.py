@@ -220,10 +220,9 @@ class TestRibContinuityStitch:
     def test_delegates_to_process_rib_continuity(self):
         """验证委托给 process_rib_continuity"""
         conf = {"continuity_mode": "none"}
-        with patch('services.postprocessor.process_rib_continuity' if False else 'rules.rule12_16_17.process_rib_continuity') as mock_fn:
+        with patch('rules.rule12_16_17.process_rib_continuity') as mock_fn:
             mock_fn.return_value = (True, {"task_id": self.task_id, "output_dir": "rule12_16_17", "directories": {}})
-            with patch('rules.rule12_16_17.process_rib_continuity', mock_fn):
-                flag, details = _rib_continuity_stitch(self.task_id, conf)
+            flag, details = _rib_continuity_stitch(self.task_id, conf)
         assert flag is True
         mock_fn.assert_called_once_with(self.task_id, conf)
 
