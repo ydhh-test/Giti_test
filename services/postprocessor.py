@@ -163,10 +163,16 @@ def postprocessor(task_id: str, user_conf: Union[dict, str]) -> tuple[bool, dict
         return False, {**details, "failed_stage": "vertical_stitch", "task_id": task_id}
 
     # Stage 5: 横图拼接
-    horizontal_stitch_conf = merged_conf.get("horizontal_stitch_conf", {})
-    flag, details = _horizontal_stitch(task_id, horizontal_stitch_conf)
-    if not flag:
-        return False, {**details, "failed_stage": "horizontal_stitch", "task_id": task_id}
+    if merged_conf.get("enable_rib_continuity"):
+        rule12_16_17_conf = merged_conf.get("rib_continuity_conf", {})
+        flag, details = _rib_continuity_stitch(task_id, rule12_16_17_conf)
+        if not flag:
+            return False, {**details, "failed_stage": "rib_continuity_stitch", "task_id": task_id}
+    else:
+        horizontal_stitch_conf = merged_conf.get("horizontal_stitch_conf", {})
+        flag, details = _horizontal_stitch(task_id, horizontal_stitch_conf)
+        if not flag:
+            return False, {**details, "failed_stage": "horizontal_stitch", "task_id": task_id}
 
     # Stage 6: 横图打分
     horizontal_image_score_conf = merged_conf.get("horizontal_image_score_conf", {})
@@ -403,6 +409,22 @@ def _horizontal_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
 
     # conf 已经是扁平配置，直接传递给中间层
     return process_horizontal_stitch(task_id, conf)
+
+
+def _rib_continuity_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
+    """
+    RIB 横向连续性拼接阶段（rule12/16/17）
+
+    Args:
+        task_id: 任务 ID
+        conf: rule12_16_17 配置字典
+
+    Returns:
+        tuple[bool, dict]: (是否成功，详情字典)
+    """
+    from rules.rule12_16_17 import process_rib_continuity
+
+    return process_rib_continuity(task_id, conf)
 
 
 def _horizontal_image_score(task_id: str, conf: dict) -> tuple[bool, dict]:

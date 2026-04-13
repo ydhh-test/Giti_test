@@ -32,6 +32,7 @@ from services.postprocessor import (
     _small_image_score,
     _vertical_stitch,
     _horizontal_stitch,
+    _rib_continuity_stitch,
     _horizontal_image_score,
     _add_decoration_borders,
     _calculate_total_score,
@@ -209,6 +210,32 @@ class TestStageFunctions:
         assert details == input_details
 
 
+class TestRibContinuityStitch:
+    """测试 _rib_continuity_stitch 函数"""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.task_id = "test_rib_task"
+
+    def test_delegates_to_process_rib_continuity(self):
+        """验证委托给 process_rib_continuity"""
+        conf = {"continuity_mode": "none"}
+        with patch('services.postprocessor.process_rib_continuity' if False else 'rules.rule12_16_17.process_rib_continuity') as mock_fn:
+            mock_fn.return_value = (True, {"task_id": self.task_id, "output_dir": "rule12_16_17", "directories": {}})
+            with patch('rules.rule12_16_17.process_rib_continuity', mock_fn):
+                flag, details = _rib_continuity_stitch(self.task_id, conf)
+        assert flag is True
+        mock_fn.assert_called_once_with(self.task_id, conf)
+
+    def test_returns_failure_on_error(self):
+        """验证失败时透传错误信息"""
+        conf = {}
+        with patch('rules.rule12_16_17.process_rib_continuity', return_value=(False, {"err_msg": "拼接失败", "task_id": self.task_id})):
+            flag, details = _rib_continuity_stitch(self.task_id, conf)
+        assert flag is False
+        assert details["err_msg"] == "拼接失败"
+
+
 class TestAddDecorationBorders(unittest.TestCase):
     """测试 _add_decoration_borders 函数"""
 
@@ -371,13 +398,55 @@ class TestPostprocessorIntegration(unittest.TestCase):
                                       mock_add_decoration_borders, mock_horizontal_image_score,
                                       mock_horizontal_stitch, mock_vertical_stitch,
                                       mock_small_image_score, mock_small_image_filter):
-        """测试成功返回格式"""
+        """测试成功返回格式（默认走横图拼接分支）"""
         user_conf = {}
         flag, details = postprocessor(self.task_id, user_conf)
 
         self.assertTrue(flag)
         self.assertIsInstance(details, dict)
         self.assertIn("image_gen_number", details)
+        mock_horizontal_stitch.assert_called_once()
+
+    @patch('services.postprocessor._small_image_filter', return_value=(True, {"image_gen_number": 0}))
+    @patch('services.postprocessor._small_image_score', return_value=(True, {"image_gen_number": 0}))
+    @patch('services.postprocessor._vertical_stitch', return_value=(True, {"image_gen_number": 0}))
+    @patch('services.postprocessor._rib_continuity_stitch', return_value=(True, {"task_id": "t", "output_dir": "rule12_16_17", "directories": {}}))
+    @patch('services.postprocessor._horizontal_image_score', return_value=(True, {"image_gen_number": 0}))
+    @patch('services.postprocessor._add_decoration_borders', return_value=(True, {"image_gen_number": 1, "0": {"image_score": 85.0, "image_path": "/test.png", "image_score_details": None}}))
+    @patch('services.postprocessor._calculate_total_score', return_value=(True, {"total_score": 85.0}))
+    @patch('services.postprocessor._standard_input', return_value=(True, {"image_gen_number": 1, "0": {"image_score": 85.0, "image_path": "/test.png", "image_score_details": None}}))
+    def test_enable_rib_continuity_branch(self, mock_standard_input, mock_calculate_total_score,
+                                          mock_add_decoration_borders, mock_horizontal_image_score,
+                                          mock_rib_continuity_stitch, mock_vertical_stitch,
+                                          mock_small_image_score, mock_small_image_filter):
+        """测试 enable_rib_continuity=True 时走 _rib_continuity_stitch 分支"""
+        user_conf = {
+            "enable_rib_continuity": True,
+            "rib_continuity_conf": {"continuity_mode": "RIB2-RIB3"}
+        }
+        flag, details = postprocessor(self.task_id, user_conf)
+
+        self.assertTrue(flag)
+        mock_rib_continuity_stitch.assert_called_once()
+        # 验证传入了正确的 conf
+        call_args = mock_rib_continuity_stitch.call_args
+        self.assertEqual(call_args[0][0], self.task_id)
+        self.assertEqual(call_args[0][1].get("continuity_mode"), "RIB2-RIB3")
+
+    @patch('services.postprocessor._small_image_filter', return_value=(True, {"image_gen_number": 0}))
+    @patch('services.postprocessor._small_image_score', return_value=(True, {"image_gen_number": 0}))
+    @patch('services.postprocessor._vertical_stitch', return_value=(True, {"image_gen_number": 0}))
+    @patch('services.postprocessor._rib_continuity_stitch', return_value=(False, {"err_msg": "RIB拼接失败", "task_id": "t"}))
+    def test_rib_continuity_failure_propagation(self, mock_rib_continuity_stitch,
+                                                 mock_vertical_stitch, mock_small_image_score,
+                                                 mock_small_image_filter):
+        """测试 _rib_continuity_stitch 失败时正确返回错误"""
+        user_conf = {"enable_rib_continuity": True}
+        flag, details = postprocessor(self.task_id, user_conf)
+
+        self.assertFalse(flag)
+        self.assertEqual(details["failed_stage"], "rib_continuity_stitch")
+        self.assertIn("err_msg", details)
 
     def test_user_conf_dict_input(self):
         """测试 dict 类型 user_conf 输入"""

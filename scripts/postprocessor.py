@@ -22,6 +22,8 @@ import json
 from pathlib import Path
 from typing import Union
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from services.postprocessor import postprocessor
 from utils.logger import get_logger
 
