@@ -164,7 +164,9 @@ def postprocessor(task_id: str, user_conf: Union[dict, str]) -> tuple[bool, dict
 
     # Stage 5: 横图拼接
     if merged_conf.get("enable_rib_continuity"):
-        rule12_16_17_conf = merged_conf.get("rib_continuity_conf", {})
+        rule12_16_17_conf = dict(merged_conf.get("rib_continuity_conf", {}))
+        # 强制对齐输出目录，确保 Stage 6/7 能从 combine_horizontal 读取
+        rule12_16_17_conf["output_dir"] = "combine_horizontal"
         flag, details = _rib_continuity_stitch(task_id, rule12_16_17_conf)
         if not flag:
             return False, {**details, "failed_stage": "rib_continuity_stitch", "task_id": task_id}

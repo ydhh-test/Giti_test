@@ -428,10 +428,11 @@ class TestPostprocessorIntegration(unittest.TestCase):
 
         self.assertTrue(flag)
         mock_rib_continuity_stitch.assert_called_once()
-        # 验证传入了正确的 conf
+        # 验证传入了正确的 conf，且 output_dir 被强制对齐为 combine_horizontal
         call_args = mock_rib_continuity_stitch.call_args
         self.assertEqual(call_args[0][0], self.task_id)
         self.assertEqual(call_args[0][1].get("continuity_mode"), "RIB2-RIB3")
+        self.assertEqual(call_args[0][1].get("output_dir"), "combine_horizontal")
 
     @patch('services.postprocessor._small_image_filter', return_value=(True, {"image_gen_number": 0}))
     @patch('services.postprocessor._small_image_score', return_value=(True, {"image_gen_number": 0}))
