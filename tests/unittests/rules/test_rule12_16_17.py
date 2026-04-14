@@ -14,7 +14,7 @@ import shutil
 import pytest
 from pathlib import Path
 
-from rules.rule12_16_17 import process_rib_continuity
+from rules.rule12_16_17 import process_rib_continuity_from_horizontal
 
 
 # ── 全组合参数 ──────────────────────────────────────────
@@ -54,16 +54,15 @@ _BASE_PATH = ".results"
 
 _DATASETS_DIR = Path(__file__).resolve().parent.parent.parent / "datasets"
 _SRC_TASK_DIR = _DATASETS_DIR / f"task_id_{_TASK_ID}"
-_SRC_CENTER_DIR = _SRC_TASK_DIR / "center_vertical"
-_SRC_SIDE_DIR = _SRC_TASK_DIR / "side_vertical"
+_SRC_COMBINE_DIR = _SRC_TASK_DIR / "combine_horizontal"
 
 _SKIP_REASON = (
-    f"测试数据集不存在: 需要 {_SRC_CENTER_DIR} 和 {_SRC_SIDE_DIR}"
+    f"测试数据集不存在: 需要 {_SRC_COMBINE_DIR}"
 )
 
 
 @pytest.mark.skipif(
-    not (_SRC_CENTER_DIR.exists() and _SRC_SIDE_DIR.exists()),
+    not _SRC_COMBINE_DIR.exists(),
     reason=_SKIP_REASON,
 )
 class TestRule12_16_17:
@@ -84,6 +83,8 @@ class TestRule12_16_17:
         """通用执行器，edge 用 1.0/0.0 强制确定性"""
         conf = {
             "base_path": self.BASE_PATH,
+            "input_dir": "combine_horizontal",
+            "output_dir": f"rib_continuity_{suffix}",
             "continuity_mode": mode,
             "groove_width_mm": 10.0,
             "pixel_per_mm": 1.2,
@@ -92,9 +93,9 @@ class TestRule12_16_17:
                 "RIB1-RIB2": 1.0 if e12 else 0.0,
                 "RIB4-RIB5": 1.0 if e45 else 0.0,
             },
-            "output_dir": f"rule12_16_17_{suffix}",
+            "debug": True,
         }
-        flag, result = process_rib_continuity(self.TASK_ID, conf)
+        flag, result = process_rib_continuity_from_horizontal(self.TASK_ID, conf)
         return flag, result, conf
 
     # ========== 16 种全组合 ==========
@@ -117,23 +118,30 @@ class TestRule12_16_17:
         assert flag is True, f"[{combo_tag}] flag={flag}, result={result}"
         assert result["task_id"] == self.TASK_ID
 
-        dir_key = f"rule12_16_17_{combo_tag}"
+        dir_key = f"rib_continuity_{combo_tag}"
         stats = result["directories"][dir_key]
         assert stats["success_count"] > 0, f"[{combo_tag}] 无成功图像"
 
         # 验证输出文件与调试目录
         task_dir = Path(self.BASE_PATH) / f"task_id_{self.TASK_ID}"
-        output_dir = task_dir / f"rule12_16_17_{combo_tag}"
+        output_dir = task_dir / f"rib_continuity_{combo_tag}"
         assert output_dir.exists(), f"输出目录不存在: {output_dir}"
 
-        result_files = list(output_dir.glob("tread_*.png"))
-        assert len(result_files) == 1, f"[{combo_tag}] 期望1张结果图，实际{len(result_files)}张"
-        debug_dir = output_dir / "debug"
-        assert debug_dir.is_dir(), f"[{combo_tag}] 无调试目录"
+        result_files = list(output_dir.glob("*.png"))
+        n_input = stats["total_count"]
+        assert len(result_files) == n_input, (
+            f"[{combo_tag}] 期望{n_input}张结果图，实际{len(result_files)}张"
+        )
 
+        # 验证调试目录（debug=True 时才有）
+        # debug 子目录基于输入文件 stem（去掉输出时追加的 _{mode} 后缀）
+        first_img = sorted(result_files)[0]
+        input_stem = first_img.stem[: -(len(mode) + 1)]  # 去掉 "_{mode}" 后缀
+        debug_dir = output_dir / "debug" / input_stem
+        assert debug_dir.is_dir(), f"[{combo_tag}] 无调试目录: {debug_dir}"
         assert (debug_dir / "debug_annotated.png").exists(), f"缺失调试图: {debug_dir}"
         assert (debug_dir / "debug_info.json").exists(), f"缺失调试JSON: {debug_dir}"
-        assert (debug_dir / "input").exists(), f"缺失input目录: {debug_dir}"
+        assert (debug_dir / "split_ribs").exists(), f"缺失split_ribs目录: {debug_dir}"
 
         # 验证每张图像的元数据
         expected_center = EXPECTED_CENTER[mode]

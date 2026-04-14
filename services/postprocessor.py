@@ -3,16 +3,17 @@
 """
 后处理模块
 
-后处理主逻辑包括 9 个阶段：
+后处理主逻辑包括 10 个阶段：
 1. Conf 处理
 2. 小图筛选
 3. 小图打分
 4. 纵图拼接
 5. 横图拼接
-6. 横图打分
-7. 装饰边框
-8. 统计总分
-9. 整理输出
+6. RIB 连续性处理（可选，由用户配置 enable_rib_continuity 控制）
+7. 横图打分
+8. 装饰边框
+9. 统计总分
+10. 整理输出
 """
 
 import json
@@ -167,39 +168,45 @@ def postprocessor(task_id: str, user_conf: Union[dict, str]) -> tuple[bool, dict
     if not flag:
         return False, {**details, "failed_stage": "vertical_stitch", "task_id": task_id}
 
-    # Stage 5: 横图拼接
+    # Stage 5: 横图拼接（始终执行）
+    horizontal_stitch_conf = merged_conf.get("horizontal_stitch_conf", {})
+    flag, details = _horizontal_stitch(task_id, horizontal_stitch_conf)
+    if not flag:
+        return False, {**details, "failed_stage": "horizontal_stitch", "task_id": task_id}
+
+    # Stage 6: RIB 连续性处理（可选，由用户配置控制）
+    # 后续阶段的输入目录取决于本阶段是否执行
+    horizontal_output_dir = "combine_horizontal"
     if merged_conf.get("enable_rib_continuity"):
         rib_continuity_conf = dict(merged_conf.get("rib_continuity_conf", {}))
-        # 强制对齐输出目录，确保 Stage 6/7 能从 combine_horizontal 读取
-        rib_continuity_conf["output_dir"] = "combine_horizontal"
+        rib_continuity_conf["input_dir"] = "combine_horizontal"
+        rib_continuity_conf["output_dir"] = "rib_continuity"
         flag, details = _rib_continuity_stitch(task_id, rib_continuity_conf)
         if not flag:
             return False, {**details, "failed_stage": "rib_continuity_stitch", "task_id": task_id}
-    else:
-        horizontal_stitch_conf = merged_conf.get("horizontal_stitch_conf", {})
-        flag, details = _horizontal_stitch(task_id, horizontal_stitch_conf)
-        if not flag:
-            return False, {**details, "failed_stage": "horizontal_stitch", "task_id": task_id}
+        horizontal_output_dir = "rib_continuity"
 
-    # Stage 6: 横图打分
+    # Stage 7: 横图打分
     horizontal_image_score_conf = merged_conf.get("horizontal_image_score_conf", {})
+    horizontal_image_score_conf["input_dir"] = horizontal_output_dir
     flag, details = _horizontal_image_score(task_id, horizontal_image_score_conf)
     if not flag:
         return False, {**details, "failed_stage": "horizontal_image_score", "task_id": task_id}
 
-    # Stage 7: 装饰边框
+    # Stage 8: 装饰边框
     decoration_conf = merged_conf.get("decoration_conf", {})
+    decoration_conf["input_dir"] = horizontal_output_dir
     flag, details = _add_decoration_borders(task_id, decoration_conf)
     if not flag:
         return False, {**details, "failed_stage": "decoration_borders", "task_id": task_id}
 
-    # Stage 8: 统计总分
+    # Stage 9: 统计总分
     calculate_total_score_conf = merged_conf.get("calculate_total_score_conf", {})
     flag, details = _calculate_total_score(task_id, calculate_total_score_conf)
     if not flag:
         return False, {**details, "failed_stage": "calculate_total_score", "task_id": task_id}
 
-    # Stage 9: 整理输出
+    # Stage 10: 整理输出
     standard_input_conf = merged_conf.get("standard_input_conf", {})
     flag, details = _standard_input(task_id, standard_input_conf, details)
     if not flag:
@@ -420,18 +427,21 @@ def _horizontal_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
 
 def _rib_continuity_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
     """
-    RIB 横向连续性拼接阶段（rule12/16/17）
+    RIB 连续性处理阶段（从横图拼接结果切分 RIB 后重新拼接）
 
     Args:
         task_id: 任务 ID
-        conf: rule12_16_17 配置字典
+        conf: rib_continuity 配置字典
+            - input_dir: 横图拼接输出目录（默认 "combine_horizontal"）
+            - output_dir: 输出目录（默认 "rib_continuity"）
+            - continuity_mode, groove_width_mm, pixel_per_mm, blend_width, edge_continuity
 
     Returns:
         tuple[bool, dict]: (是否成功，详情字典)
     """
-    from rules.rule12_16_17 import process_rib_continuity
+    from rules.rule12_16_17 import process_rib_continuity_from_horizontal
 
-    return process_rib_continuity(task_id, conf)
+    return process_rib_continuity_from_horizontal(task_id, conf)
 
 
 def _horizontal_image_score(task_id: str, conf: dict) -> tuple[bool, dict]:

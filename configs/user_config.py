@@ -41,8 +41,8 @@ DEFAULT_HORIZONTAL_STITCH_CONF = {
 
 # RIB 横向连续性拼接默认配置（rule12/16/17）
 DEFAULT_RIB_CONTINUITY_CONF = {
-    "center_dir": "center_vertical",
-    "side_dir": "side_vertical",
+    "input_dir": "combine_horizontal",
+    "output_dir": "rib_continuity",
     "continuity_mode": "none",
     "groove_width_mm": 10.0,
     "pixel_per_mm": 2.0,

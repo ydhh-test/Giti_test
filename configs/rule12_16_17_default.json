@@ -1,8 +1,7 @@
 {
   "base_path": ".results",
-  "center_dir": "center_vertical",
-  "side_dir": "side_vertical",
-  "output_dir": "rule12_16_17",
+  "input_dir": "combine_horizontal",
+  "output_dir": "rib_continuity",
   "continuity_mode": "none",
   "groove_width_mm": 10.0,
   "pixel_per_mm": 2.0,
