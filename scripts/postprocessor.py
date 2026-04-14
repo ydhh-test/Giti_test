@@ -3,7 +3,7 @@
 """
 后处理独立脚本
 
-用于开发调试时手动执行完整的后处理流程（所有 9 个阶段）。
+用于开发调试时手动执行完整的后处理流程（10 个阶段）。
 调用 postprocessor 中的 postprocessor 函数。
 
 使用方法:
@@ -14,6 +14,41 @@
     python scripts/postprocessor.py --task-id test_rule6_1
     python scripts/postprocessor.py --task-id test_rule6_1 --config config.json
     python scripts/postprocessor.py --task-id test_rule6_1 --log info
+
+流程说明:
+    Stage 5 横图拼接（rule1to5）始终执行，输出到 combine_horizontal/。
+    如果启用 enable_rib_continuity，Stage 6 会从 combine_horizontal/ 中切分 RIB，
+    按用户指定的连续性重新拼接，输出到 rib_continuity/。
+    后续阶段（打分、装饰边框等）会自动从正确的目录读取。
+
+启用 RIB 连续性处理（Stage 6）:
+    在 --config 指定的 JSON 文件中设置以下字段，即可在横图拼接后追加 RIB 连续性处理：
+
+    {
+        "enable_rib_continuity": true,
+        "rib_continuity_conf": {
+            "continuity_mode": "RIB2-RIB3",
+            "groove_width_mm": 10.0,
+            "pixel_per_mm": 2.0,
+            "blend_width": 10,
+            "edge_continuity": {
+                "RIB1-RIB2": 0.5,
+                "RIB4-RIB5": 0.5
+            }
+        }
+    }
+
+    continuity_mode 可选值:
+        "none"            - 所有 RIB 独立（不做连续性处理）
+        "RIB2-RIB3"       - RIB2 与 RIB3 连续
+        "RIB3-RIB4"       - RIB3 与 RIB4 连续
+        "RIB2-RIB3-RIB4"  - RIB2/RIB3/RIB4 全部连续
+
+    edge_continuity 为边缘概率配置，0.0~1.0；不传则边缘随机独立。
+    不传 enable_rib_continuity 或设为 false 时，仅执行 Stage 5 横图拼接。
+
+    运行脚本：
+    python scripts/postprocessor.py --task-id your_task_id --config rib_conf.json
 """
 
 import argparse
@@ -21,6 +56,10 @@ import sys
 import json
 from pathlib import Path
 from typing import Union
+
+project_root = str(Path(__file__).resolve().parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from services.postprocessor import postprocessor
 from utils.logger import get_logger
