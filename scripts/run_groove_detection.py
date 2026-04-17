@@ -4,7 +4,7 @@
 
 用法::
 
-    python scripts/run_groove_detection.py <image_path> [--type center|side]
+    python scripts/run_groove_detection.py --image_path <image_path> [--type center|side]
                                             [--groove-width 0.34] [--ppm 11.81]
                                             [--save-debug <output_path>]
 
@@ -15,8 +15,8 @@
 
 示例::
 
-    python scripts/run_groove_detection.py tests/datasets/task_id_1778457600/images/center.png
-    python scripts/run_groove_detection.py side.png --type side --save-debug debug_out.png
+    python scripts/run_groove_detection.py --image_path tests/datasets/task_id_1778457600/images/center.png
+    python scripts/run_groove_detection.py --image_path side.png --type side --save-debug debug_out.png
 """
 
 import argparse
@@ -34,7 +34,11 @@ def _parse_args() -> argparse.Namespace:
         description="检测轮胎小图中的纵向细沟数量与评分",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("image", help="输入图像路径（BGR，典型尺寸 128×128）")
+    parser.add_argument(
+        "--image_path",
+        required=True,
+        help="输入图像路径（BGR，典型尺寸 128×128）",
+    )
     parser.add_argument(
         "--type",
         dest="image_type",
@@ -78,7 +82,7 @@ def main() -> None:
     from algorithms.detection.longitudinal_groove import detect_longitudinal_grooves
 
     # ── 读取图像 ──────────────────────────────────────────────────
-    img_path = pathlib.Path(args.image)
+    img_path = pathlib.Path(args.image_path)
     if not img_path.exists():
         print(f"ERROR: 文件不存在：{img_path}", file=sys.stderr)
         sys.exit(1)
