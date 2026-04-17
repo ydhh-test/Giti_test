@@ -9,8 +9,6 @@ rule12_16_17 单元测试
 共 4 × 2 × 2 = 16 种组合
 """
 
-import os
-import stat
 import shutil
 
 import pytest
@@ -78,17 +76,7 @@ class TestRule12_16_17:
         """测试类启动前拷贝一次，16种组合的输出子目录全部保留"""
         dst = Path(_BASE_PATH) / f"task_id_{_TASK_ID}"
         if dst.exists():
-            def _on_rm_error(func, path, excinfo):
-                """Windows 下目录/文件被占用时，尝试去掉只读属性后重试删除"""
-                try:
-                    os.chmod(path, stat.S_IWRITE)
-                except Exception:
-                    pass
-                try:
-                    func(path)
-                except Exception:
-                    pass
-            shutil.rmtree(dst, onerror=_on_rm_error)
+            shutil.rmtree(dst)
         shutil.copytree(_SRC_TASK_DIR, dst)
 
     def _run(self, mode: str, e12: bool, e45: bool, suffix: str):
