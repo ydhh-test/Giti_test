@@ -24,7 +24,7 @@ import pathlib
 import sys
 
 # 确保项目根目录在路径中（无论从何处调用脚本）
-_ROOT = pathlib.Path(__file__).resolve().parents[1]
+_ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 

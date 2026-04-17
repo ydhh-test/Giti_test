@@ -19,7 +19,7 @@ import sys
 import pathlib
 import random
 
-_ROOT = pathlib.Path(__file__).parents[1]
+_ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 

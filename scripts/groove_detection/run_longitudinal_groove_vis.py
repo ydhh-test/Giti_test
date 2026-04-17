@@ -13,7 +13,7 @@ import sys
 import pathlib
 
 # 确保项目根目录在 sys.path 中
-_ROOT = pathlib.Path(__file__).parents[1]
+_ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
