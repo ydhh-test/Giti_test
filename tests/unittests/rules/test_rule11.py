@@ -147,6 +147,87 @@ class TestRule11ProcessSingleImage:
         assert result["rib_type"] == "RIB1/5"
 
 
+# ──────────────────────────────────────────────────────────────
+# 真实数据集测试：pieces → rule11 → 持久化输出
+# ──────────────────────────────────────────────────────────────
+
+# 项目根目录（test 文件位于 tests/unittests/rules/，往上三层）
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+_REAL_TASK_DIR   = _PROJECT_ROOT / ".results" / "task_id_1778457600"
+_REAL_PIECES_DIR = _REAL_TASK_DIR / "pieces"
+
+_SKIP_REAL_REASON = f"真实数据集不存在: 需要 {_REAL_PIECES_DIR}"
+
+
+@pytest.mark.skipif(
+    not _REAL_PIECES_DIR.exists(),
+    reason=_SKIP_REAL_REASON,
+)
+class TestRule11WithPieces:
+    """
+    使用 .results/task_id_1778457600/pieces 下的真实图片运行 rule11，
+    输出持久化到固定目录：
+      调试图  → .results/task_id_1778457600/rule11/{center|side}/
+      指标JSON → .results/task_id_1778457600/scores/rule11/
+    """
+
+    # 输入子目录 → image_type 映射
+    _INPUT_DIRS = {
+        "center": "center",
+        "side":   "side",
+    }
+
+    @pytest.fixture(autouse=True)
+    def prepare_output_dirs(self):
+        """确保输出目录存在"""
+        for image_type in self._INPUT_DIRS.values():
+            (_REAL_TASK_DIR / "rule11" / image_type).mkdir(parents=True, exist_ok=True)
+        (_REAL_TASK_DIR / "scores" / "rule11").mkdir(parents=True, exist_ok=True)
+
+    def test_process_all_pieces(self):
+        """
+        遍历 pieces/center 和 pieces/side 下所有图片，
+        调用 _process_single_image，
+        将调试图保存到 rule11/{image_type}/，
+        将每张图的指标保存到 scores/rule11/{stem}.json。
+        """
+        scores_dir = _REAL_TASK_DIR / "scores" / "rule11"
+        processed_total = 0
+
+        for subdir, image_type in self._INPUT_DIRS.items():
+            input_path  = _REAL_PIECES_DIR / subdir
+            output_path = _REAL_TASK_DIR / "rule11" / image_type
+
+            if not input_path.exists():
+                continue
+
+            image_files = _get_image_files(input_path)
+            assert image_files, f"pieces/{subdir} 目录为空，请检查数据集"
+
+            for fpath in image_files:
+                ok, result = _process_single_image(fpath, image_type, output_path, {})
+
+                # 每张图的指标单独写一个 JSON
+                metric = {k: v for k, v in result.items() if k != "debug_image"}
+                metric["source_dir"] = subdir
+                json_path = scores_dir / f"{fpath.stem}.json"
+                json_path.write_text(
+                    json.dumps(metric, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+
+                processed_total += 1
+
+        assert processed_total > 0, "没有图片被处理，请检查 pieces 目录"
+
+        # 验证输出文件确实存在
+        json_files = list(scores_dir.glob("*.json"))
+        assert len(json_files) == processed_total, (
+            f"期望 {processed_total} 个 JSON，实际 {len(json_files)} 个"
+        )
+
+
 @pytest.mark.skipif(
     not _SRC_TASK_DIR.exists(),
     reason=_SKIP_REASON,

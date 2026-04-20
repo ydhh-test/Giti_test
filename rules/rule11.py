@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Tuple
 
 import cv2
+import numpy as np
 
 from utils.logger import get_logger
 
@@ -140,7 +141,9 @@ def _process_single_image(
     from algorithms.detection.longitudinal_groove import detect_longitudinal_grooves
 
     try:
-        img = cv2.imread(str(fpath))
+        # 使用 np.fromfile + imdecode 支持含中文字符的路径（Windows 兼容）
+        raw = np.fromfile(str(fpath), dtype=np.uint8)
+        img = cv2.imdecode(raw, cv2.IMREAD_COLOR)
         if img is None:
             return False, {"file": fpath.name, "status": "failed", "err_msg": "图片读取失败"}
 
@@ -169,11 +172,13 @@ def _process_single_image(
                 "err_msg": details.get("err_msg", "检测返回 None"),
             }
 
-        # 保存调试标注图
+        # 保存调试标注图（使用 imencode + tofile 支持含中文字符的路径）
         debug_fname = f"{fpath.stem}_debug.png"
         debug_image = details.get("debug_image")
         if debug_image is not None:
-            cv2.imwrite(str(output_dir / debug_fname), debug_image)
+            ok_enc, buf = cv2.imencode(".png", debug_image)
+            if ok_enc:
+                buf.tofile(str(output_dir / debug_fname))
 
         return True, {
             "file":             fpath.name,

@@ -53,6 +53,7 @@ def detect_longitudinal_grooves(
     edge_margin_ratio: float = 0.10,
     min_segment_length_ratio: float = 0.12,
     max_angle_deg: float = 30.0,
+    max_width_factor: float = 3.0,
 ) -> Tuple[float, Dict[str, Any]]:
     """
     检测纵向细线条（纵向细沟 / 纵向钢片）的位置和数量。
@@ -82,6 +83,10 @@ def detect_longitudinal_grooves(
         相邻行允许的最大偏转角度（度）。超过此值则在该处将连通域切割为子段，
         仅保留近竖直子段参与计数。通过 7 点滑动均值消除像素量化误差。
         默认 30.0°。
+    max_width_factor : float
+        宽度上限倍数（相对名义宽度）。子段逐行均值宽度超过
+        ``nominal_px × max_width_factor`` 时被判定为非纵沟特征并排除。
+        默认 3.0（约 12px @ 4px 名义宽度）。
 
     Returns
     -------
@@ -126,7 +131,9 @@ def detect_longitudinal_grooves(
         # ── 参数准备 ───────────────────────────────────────────────────
         nominal_px = groove_width_mm * pixel_per_mm
         min_w_px          = max(1, int(round(nominal_px)) - min_width_offset_px)
-        narrow_cluster_px = max(min_w_px + 1, int(round(nominal_px * 2)))  # 仅用于行内窄簇筛选
+        max_w_px          = max(int(round(nominal_px * max_width_factor)), min_w_px + 2)
+        narrow_cluster_px = max(min_w_px + 1, int(round(nominal_px * 3)))  # 仅用于行内窄簇筛选
+        dedup_dist_px     = nominal_px * 2.0  # 去重距离（中心 x 差 < 此值则合并）
         rib_type   = _DEFAULT_CFG.rib_label[image_type]
         max_count  = _DEFAULT_CFG.max_count[image_type]
         img_h, img_w = image.shape[:2]
@@ -134,8 +141,8 @@ def detect_longitudinal_grooves(
         edge_margin_px = max(0, int(img_w * edge_margin_ratio))
         min_segment_len_px = max(1, int(np.ceil(img_w * min_segment_length_ratio)))
         logger.debug(
-            "rib_type=%s, nominal_px=%.1f, min_w_px=%dpx（无上限）, min_segment_len_px=%d, max_count=%d, edge_margin_px=%d, max_angle_deg=%.0f",
-            rib_type, nominal_px, min_w_px, min_segment_len_px, max_count, edge_margin_px, max_angle_deg,
+            "rib_type=%s, nominal_px=%.1f, w_range=[%d,%d]px, min_seg=%d, max_count=%d, edge=%d, angle=%.0f",
+            rib_type, nominal_px, min_w_px, max_w_px, min_segment_len_px, max_count, edge_margin_px, max_angle_deg,
         )
 
         # ── Step 1: 灰度转换 + 高斯模糊降噪 ─────────────────────────
@@ -154,7 +161,7 @@ def detect_longitudinal_grooves(
         # ── Step 3: 连通域分析识别纵向线条 ──────────────────────────
         positions, count, line_mask, widths = _analyze_vertical_lines(
             binary, min_w_px, narrow_cluster_px, img_h, edge_margin_px,
-            min_segment_len_px, max_angle_deg,
+            min_segment_len_px, max_angle_deg, max_w_px, dedup_dist_px,
         )
         logger.debug("纵向线条数量=%d, 位置=%s", count, positions)
 
@@ -267,6 +274,77 @@ def _split_row_data_by_angle(
     return [s for s in segments if s]
 
 
+def _build_groove_tracks(
+    all_row_clusters: List[Tuple[int, List[Tuple[int, int]]]],
+    max_dx: float = 8.0,
+    max_gap_rows: int = 5,
+) -> List[List[Tuple[int, float, float]]]:
+    """
+    从逐行窄簇数据构建多条平行沟槽轨迹。
+
+    对每一行的窄簇，尝试与已有活动轨迹匹配（按中心 x 最近原则贪心）。
+    未匹配的簇启动新轨迹；超过 *max_gap_rows* 行未匹配的轨迹关闭。
+
+    Parameters
+    ----------
+    all_row_clusters : list of (row, [(c0, c1), ...])
+        每行的窄簇列表（绝对列坐标），按行升序。
+    max_dx : float
+        匹配容差（像素），簇中心与轨迹末端中心差 ≤ max_dx 才匹配。
+    max_gap_rows : int
+        轨迹允许的最大行间隙。
+
+    Returns
+    -------
+    list of tracks, 每条轨迹为 [(row, center_x, width), ...]
+    """
+    active: List[dict] = []          # {"data": [...], "last_row": int, "last_cx": float}
+    finished: List[List[Tuple[int, float, float]]] = []
+
+    for row, clusters in all_row_clusters:
+        cluster_info = [((c0 + c1) / 2.0, float(c1 - c0 + 1)) for c0, c1 in clusters]
+
+        # 关闭超时轨迹
+        still_active: List[dict] = []
+        for trk in active:
+            if row - trk["last_row"] > max_gap_rows:
+                finished.append(trk["data"])
+            else:
+                still_active.append(trk)
+        active = still_active
+
+        # 贪心匹配（按距离排序，距离最近者优先配对）
+        candidates = []
+        for ti, trk in enumerate(active):
+            for ci, (cx, _w) in enumerate(cluster_info):
+                dist = abs(cx - trk["last_cx"])
+                if dist <= max_dx:
+                    candidates.append((dist, ti, ci))
+        candidates.sort()
+
+        matched_tracks: set = set()
+        matched_clusters: set = set()
+        for dist, ti, ci in candidates:
+            if ti in matched_tracks or ci in matched_clusters:
+                continue
+            cx, w = cluster_info[ci]
+            active[ti]["data"].append((row, cx, w))
+            active[ti]["last_row"] = row
+            active[ti]["last_cx"] = cx
+            matched_tracks.add(ti)
+            matched_clusters.add(ci)
+
+        # 未匹配簇 → 新轨迹
+        for ci, (cx, w) in enumerate(cluster_info):
+            if ci not in matched_clusters:
+                active.append({"data": [(row, cx, w)], "last_row": row, "last_cx": cx})
+
+    # 收尾：关闭所有剩余活动轨迹
+    for trk in active:
+        finished.append(trk["data"])
+    return finished
+
+
 def _analyze_vertical_lines(
     binary: np.ndarray,
     min_w_px: int,
@@ -275,20 +353,20 @@ def _analyze_vertical_lines(
     edge_margin_px: int = 0,
     min_segment_len_px: int = 1,
     max_angle_deg: float = 30.0,
+    max_w_px: int = 12,
+    dedup_dist_px: float = 8.0,
 ) -> Tuple[List[float], int, np.ndarray, List[float]]:
     """
-    通过连通域分析识别纵向线条（支持轻微倾斜，可从混合型连通域中提取竖直子段）。
+    通过连通域分析识别纵向线条（多路径追踪 + 宽度上限 + 去重）。
 
     核心流程
     --------
-    对每个连通域按行扫描，提取逐行中心 x 和宽度，然后调用
-    ``_split_row_data_by_angle`` 在角度突变处切割，把"竖线 + 斜线"型
-    连通域拆分为若干「近竖直子段」。每个子段独立判定：
-
-    1. 子段实际高度（末行 - 首行 + 1）≥ ``min_segment_len_px``
-    2. 逐行水平跨度均值 ≥ ``min_w_px``（无上限约束）
-
-    同时满足以上条件的子段计为 1 条纵沟。
+    1. 屏蔽边缘 → 桥接小间隙 → 连通域分析
+    2. 对每个连通域，逐行提取 **所有** 窄簇（≤ narrow_cluster_px）
+    3. 调用 ``_build_groove_tracks`` 同时追踪多条平行沟槽轨迹
+    4. 每条轨迹经 ``_split_row_data_by_angle`` 角度切割
+    5. 子段通过高度、宽度下限和上限过滤后，计为有效纵沟
+    6. 最后对中心位置过近的结果去重合并
 
     Parameters
     ----------
@@ -297,22 +375,24 @@ def _analyze_vertical_lines(
     min_w_px : int
         纵向线条最小宽度（像素，逐行均值）。
     narrow_cluster_px : int
-        行内窄簇筛选上限（像素）。仅用于从混合型连通域逐行选取"纵沟候选簇"，
-        通常设为 2 × nominal_px，防止跳到斜线/宽干扰域。
-        不作为最终计数的宽度上限。
+        行内窄簇筛选上限（像素）。
     img_h : int
-        图像高度（像素），保留供后续扩展使用。
+        图像高度（像素）。
     edge_margin_px : int
-        左右边缘各排除的列数。默认 0（不排除）。
+        左右边缘各排除的列数。
     min_segment_len_px : int
         连续线段的最小纵向长度阈值（像素）。
     max_angle_deg : float
-        允许相邻行偏转的最大角度（度）；超出则切割子段。
+        允许相邻行偏转的最大角度（度）。
+    max_w_px : int
+        纵向线条最大宽度（像素，逐行均值）。超过则判定为非纵沟特征。
+    dedup_dist_px : float
+        去重距离（像素）。中心 x 差 < 此值的结果合并为一条。
 
     Returns
     -------
     (positions, count, line_mask, widths)
-        positions : list[float]   各线条子段逐行中心 X 均值（升序）
+        positions : list[float]   各线条中心 X 均值（升序）
         count     : int           有效线条数量
         line_mask : np.ndarray    纵向线条掩码（255=线条，0=背景）
         widths    : list[float]   各线条逐行均值宽度（与 positions 对应）
@@ -328,12 +408,27 @@ def _analyze_vertical_lines(
     # ── 桥接交替明暗纹理造成的小竖向断点 ─────────────────────────────
     bridged = _bridge_small_vertical_gaps(work_binary, max_gap_px=4)
 
+    # ── 形态学垂直开运算：桥接后去除散乱纹理噪声 ─────────────────────
+    # 先桥接修复纵向线条中的小间隙，再用较高的垂直核做开运算，
+    # 要求特征在单列内有足够连续的垂直前景像素才能存活，
+    # 有效将大面积噪声 CC 中的纵沟信号分离出来。
+    # 核高度自适应：取 min_seg/2 与"最大允许倾斜角线条的单列垂直跨度"的较小值，
+    # 保证不会因形态学操作而误杀仍在角度容差范围内的倾斜线条。
+    if 0 < max_angle_deg < 85:
+        _max_tilt_vert = int(min_w_px / np.tan(np.radians(max_angle_deg)))
+    else:
+        _max_tilt_vert = min_segment_len_px
+    _vert_open_h = max(3, min(_max_tilt_vert, min_segment_len_px // 2))
+    _open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, _vert_open_h))
+    bridged = cv2.morphologyEx(bridged, cv2.MORPH_OPEN, _open_kernel)
+
     n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
         (bridged > 0).astype(np.uint8), connectivity=8
     )
 
     line_mask = np.zeros_like(binary)
-    pairs: List[Tuple[float, float]] = []
+    # (center_x, mean_w, first_row, last_row) — 包含行范围用于智能去重
+    raw_segments: List[Tuple[float, float, int, int]] = []
 
     for label_id in range(1, n_labels):
         left       = int(stats[label_id, cv2.CC_STAT_LEFT])
@@ -345,14 +440,8 @@ def _analyze_vertical_lines(
         if height < min_segment_len_px:
             continue
 
-        # ── 逐行提取 (row, center_x, row_width) ──────────────────────
-        # 若一行内同时存在多个像素簇（纵沟与斜线共存于同一连通域），
-        # 优先使用宽度 ≤ narrow_cluster_px 的窄簇计算 center_x 和 row_width，
-        # 避免斜线像素将行跨度拉宽，导致 center_x 偏移触发误切割。
-        # 多个窄簇时，追踪与上一行 center_x 最近的一个（位置连续性），
-        # 而非选最窄的（防止跳变到对角线产生的细小右侧簇）。
-        row_data: List[Tuple[int, float, float]] = []
-        prev_groove_cx: Optional[float] = None
+        # ── 逐行提取所有窄簇 ──────────────────────────────────────
+        all_row_clusters: List[Tuple[int, List[Tuple[int, int]]]] = []
         for row in range(top, top + height):
             cols = np.where(
                 labels[row, left : left + bbox_width + 1] == label_id
@@ -360,88 +449,104 @@ def _analyze_vertical_lines(
             if len(cols) == 0:
                 continue
             # 将行内像素按列切割为连续簇（相邻列间隙 > 2px 则分割）
-            row_clusters: List[Tuple[int, int]] = []  # (abs_col_left, abs_col_right)
+            row_clusters: List[Tuple[int, int]] = []
             seg_c = int(cols[0])
             for i in range(1, len(cols)):
                 if int(cols[i]) - int(cols[i - 1]) > 2:
                     row_clusters.append((seg_c + left, int(cols[i - 1]) + left))
                     seg_c = int(cols[i])
             row_clusters.append((seg_c + left, int(cols[-1]) + left))
-            # 筛选宽度 ≤ narrow_cluster_px 的窄簇（防止跳到斜线/宽干扰域）
-            narrow_clusters = [
+            # 筛选宽度 ≤ narrow_cluster_px 的窄簇
+            narrow = [
                 (c0, c1) for c0, c1 in row_clusters if (c1 - c0 + 1) <= narrow_cluster_px
             ]
-            if narrow_clusters:
-                if prev_groove_cx is not None and len(narrow_clusters) > 1:
-                    # 多窄簇：选中心 x 最接近上一行的（保持位置连续性）
-                    c0, c1 = min(
-                        narrow_clusters,
-                        key=lambda c: abs((c[0] + c[1]) / 2.0 - prev_groove_cx),
-                    )
-                else:
-                    # 单窄簇或首行：取最左侧（cols 已按列升序）
-                    c0, c1 = narrow_clusters[0]
-            else:
-                # 全部过宽：退化为整行跨度（后续宽度过滤会拒绝此行）
-                c0, c1 = row_clusters[0][0], row_clusters[-1][1]
-            cx = float(c0 + c1) / 2.0
-            rw = float(c1 - c0 + 1)
-            prev_groove_cx = cx
-            row_data.append((row, cx, rw))
+            if narrow:
+                all_row_clusters.append((row, narrow))
 
-        if not row_data:
+        if not all_row_clusters:
             continue
 
-        # ── 按局部坡度切割为若干近竖直子段 ──────────────────────────
-        sub_segs = _split_row_data_by_angle(row_data, max_angle_deg)
+        # ── 多路径追踪：同时追踪同一连通域内的多条平行沟槽 ──────────
+        tracks = _build_groove_tracks(
+            all_row_clusters, max_dx=narrow_cluster_px, max_gap_rows=5,
+        )
 
-        for seg in sub_segs:
-            if not seg:
-                continue
+        for track_data in tracks:
+            # 按局部坡度切割为若干近竖直子段
+            sub_segs = _split_row_data_by_angle(track_data, max_angle_deg)
 
-            first_row, last_row = seg[0][0], seg[-1][0]
-            seg_height = last_row - first_row + 1
+            for seg in sub_segs:
+                if not seg:
+                    continue
 
-            # ① 子段高度过滤
-            if seg_height < min_segment_len_px:
+                first_row, last_row = seg[0][0], seg[-1][0]
+                seg_height = last_row - first_row + 1
+
+                # ① 子段高度过滤
+                if seg_height < min_segment_len_px:
+                    logger.debug(
+                        "label=%d 子段 rows=[%d,%d] 高度 %dpx < min %dpx，跳过",
+                        label_id, first_row, last_row, seg_height, min_segment_len_px,
+                    )
+                    continue
+
+                # ② 逐行均值宽度过滤（下限）
+                mean_w = float(np.mean([rw for (_, _, rw) in seg]))
+                if mean_w < min_w_px:
+                    logger.debug(
+                        "label=%d 子段 rows=[%d,%d] 均值宽 %.1fpx < 下限 %dpx，跳过",
+                        label_id, first_row, last_row, mean_w, min_w_px,
+                    )
+                    continue
+
+                # ③ 逐行均值宽度过滤（上限，排除花纹边缘等宽特征）
+                if mean_w > max_w_px:
+                    logger.debug(
+                        "label=%d 子段 rows=[%d,%d] 均值宽 %.1fpx > 上限 %dpx，跳过",
+                        label_id, first_row, last_row, mean_w, max_w_px,
+                    )
+                    continue
+
                 logger.debug(
-                    "label=%d 子段 rows=[%d,%d] 高度 %dpx < min %dpx，跳过",
-                    label_id, first_row, last_row, seg_height, min_segment_len_px,
+                    "接受 label=%d 子段 rows=[%d,%d] h=%d mean_row_w=%.1fpx",
+                    label_id, first_row, last_row, seg_height, mean_w,
                 )
-                continue
 
-            # ② 逐行均值宽度过滤（仅下限，无上限约束）
-            mean_w = float(np.mean([rw for (_, _, rw) in seg]))
-            if mean_w < min_w_px:
-                logger.debug(
-                    "label=%d 子段 rows=[%d,%d] 均值宽 %.1fpx < 下限 %dpx，跳过",
-                    label_id, first_row, last_row, mean_w, min_w_px,
-                )
-                continue
+                # 标记 line_mask
+                for row, cx, rw in seg:
+                    c0 = max(0, int(round(cx - rw / 2.0)))
+                    c1 = min(line_mask.shape[1] - 1, int(round(cx + rw / 2.0)))
+                    line_mask[row, c0 : c1 + 1] = 255
 
-            logger.debug(
-                "接受 label=%d 子段 rows=[%d,%d] h=%d mean_row_w=%.1fpx",
-                label_id, first_row, last_row, seg_height, mean_w,
-            )
+                center_x = float(np.mean([cx for (_, cx, _) in seg]))
+                raw_segments.append((center_x, float(mean_w), first_row, last_row))
 
-            # 标记 line_mask（仅标记该子段各行的纵沟窄簇位置）
-            for row, cx, rw in seg:
-                c0 = max(0, int(round(cx - rw / 2.0)))
-                c1 = min(line_mask.shape[1] - 1, int(round(cx + rw / 2.0)))
-                line_mask[row, c0 : c1 + 1] = 255
+    # ── 排序 + 智能去重（仅合并 x 相近 且 行范围重叠 的结果）───────────
+    # 同一 x 位置不同行范围的子段视为不同沟槽分别计数。
+    raw_segments.sort(key=lambda item: item[0])
+    deduped: List[Tuple[float, float, int, int]] = []
+    for cx, w, r0, r1 in raw_segments:
+        merged = False
+        for i, (dcx, dw, dr0, dr1) in enumerate(deduped):
+            if abs(cx - dcx) < dedup_dist_px:
+                # 行范围重叠比 > 50% 才视为重复
+                overlap = max(0, min(r1, dr1) - max(r0, dr0) + 1)
+                min_span = min(r1 - r0 + 1, dr1 - dr0 + 1)
+                if min_span > 0 and overlap / min_span > 0.5:
+                    deduped[i] = ((dcx + cx) / 2.0, max(dw, w),
+                                  min(dr0, r0), max(dr1, r1))
+                    merged = True
+                    break
+        if not merged:
+            deduped.append((cx, w, r0, r1))
 
-            # 线条位置：子段各行中心 x 均值
-            center_x = float(np.mean([cx for (_, cx, _) in seg]))
-            pairs.append((center_x, float(mean_w)))
-
-    pairs.sort(key=lambda item: item[0])
-    if pairs:
-        positions = [p for p, _ in pairs]
-        widths    = [w for _, w in pairs]
+    if deduped:
+        positions = [p for p, _, _, _ in deduped]
+        widths    = [w for _, w, _, _ in deduped]
     else:
         positions, widths = [], []
 
-    return positions, len(pairs), line_mask, widths
+    return positions, len(deduped), line_mask, widths
 
 
 def _compute_score(count: int, max_count: int, max_score: int) -> int:
