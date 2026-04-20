@@ -156,8 +156,8 @@ def postprocessor(task_id: str, user_conf: Union[dict, str]) -> tuple[bool, dict
     if not flag:
         return False, {**details, "failed_stage": "small_image_filter", "task_id": task_id}
 
-    # Stage 3: 小图打分
-    small_image_score_conf = merged_conf.get("small_image_score_conf", {})
+    # Stage 3: 小图打分（Rule 11 纵向细沟 & 纵向钢片检测）
+    small_image_score_conf = merged_conf.get("longitudinal_grooves_conf", {})
     flag, details = _small_image_score(task_id, small_image_score_conf)
     if not flag:
         return False, {**details, "failed_stage": "small_image_score", "task_id": task_id}
@@ -353,17 +353,18 @@ def _copy_images(src_dir: Path, dst_dir: Path) -> None:
 
 def _small_image_score(task_id: str, conf: dict) -> tuple[bool, dict]:
     """
-    小图打分阶段
+    小图打分阶段（Rule 11 纵向细沟 & 纵向钢片检测）
 
     Args:
         task_id: 任务 ID
-        conf: 小图打分配置
+        conf: 纵向细沟检测配置（来自 LongitudinalGroovesConfig）
 
     Returns:
         tuple[bool, dict]: (是否成功，详情字典)
     """
-    # TODO: 实现小图打分逻辑
-    return True, {"image_gen_number": 0, "task_id": task_id}
+    from rules.rule11 import process_longitudinal_grooves
+
+    return process_longitudinal_grooves(task_id, conf)
 
 
 def _vertical_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:
