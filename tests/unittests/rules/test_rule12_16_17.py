@@ -173,4 +173,3 @@ class TestRule12_16_17:
             assert len(img_info["main_groove_positions"]) == 4, "5RIB应有4条主沟"
             assert len(img_info["actual_rib_widths"]) == 5, "应有5条RIB宽度"
             assert img_info["groove_width_px"] >= 1
-            
