@@ -418,6 +418,72 @@ class TransverseGroovesConfig:
 
 
 @dataclass
+class LongitudinalGroovesConfig:
+    """纵向细沟 & 纵向钢片检测配置（Rule 11）"""
+
+    # 纵向线条名义宽度（mm）
+    # 客户新需求（2026-04）：名义宽度约 4px @ 11.81px/mm → 0.34mm
+    groove_width_mm: float = 0.34
+
+    # 像素密度（px/mm），客户标准：11.81 px/mm
+    # （后续若改用 DPI 公式：mm * dpi/25.4，只需改此字段）
+    pixel_per_mm: float = 11.81
+
+    # 宽度下限偏移（像素）：最小可接受宽度 = round(nominal_px) - min_width_offset_px
+    # 业务规则：宽度只设下限，不设上限（主沟残留已由 edge_margin 在图像边缘排除）
+    # 默认 1，即 nominal≈4px 时，最小可接受宽度为 3px
+    min_width_offset_px: int = 1
+
+    # 左右边缘排除比例：小图左右各排除 edge_margin_ratio 的列
+    # 目的：避免检测到小图边缘的主沟残留（从轮胎平面图大图截取时的主沟切边）
+    # 默认 0.10，即 128px 图像左右各约 13 列不参与检测
+    edge_margin_ratio: float = 0.10
+
+    # 连续线段最小长度比例：候选线段纵向长度需超过图片宽度的该比例
+    # 业务规则：宽度达标是主条件，高度阈值仅用于滤除噪声，保持宽泛
+    # 默认 0.12，即 128px 图像中长度至少 16px
+    min_segment_length_ratio: float = 0.12
+
+    # 纵向线条主轴偏离竖直方向的最大允许角度（度）
+    # 业务规则：现实纵沟可能出现"拐弯"或轻微倾斜，允许 ±30° 内的竖线计为纵沟
+    max_angle_from_vertical: float = 30.0
+
+    # 满足数量约束时的得分
+    score: int = 4
+
+    # 各小图类型允许的最大纵向线条数量
+    # center → RIB2/3/4：允许 0-2 条
+    # side   → RIB1/5  ：允许 0-1 条
+    max_count: Dict[str, int] = field(
+        default_factory=lambda: {"center": 2, "side": 1}
+    )
+
+    # image_type → RIB 标签（用于合规判定分支）
+    rib_label: Dict[str, str] = field(
+        default_factory=lambda: {"center": "RIB2/3/4", "side": "RIB1/5"}
+    )
+
+    @classmethod
+    def from_dict(cls, conf: Dict[str, Any]) -> 'LongitudinalGroovesConfig':
+        """从配置字典创建对象"""
+        return cls(**{k: v for k, v in conf.items() if k in cls.__dataclass_fields__})
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            'groove_width_mm':          self.groove_width_mm,
+            'pixel_per_mm':             self.pixel_per_mm,
+            'min_width_offset_px':      self.min_width_offset_px,
+            'edge_margin_ratio':        self.edge_margin_ratio,
+            'min_segment_length_ratio': self.min_segment_length_ratio,
+            'max_angle_from_vertical':  self.max_angle_from_vertical,
+            'score':                    self.score,
+            'max_count':                dict(self.max_count),
+            'rib_label':                dict(self.rib_label),
+        }
+
+
+@dataclass
 class BusinessRules:
     """业务规则汇总配置，整合所有规则配置"""
 
@@ -426,6 +492,9 @@ class BusinessRules:
 
     # 横沟检测规则
     transverse_grooves: TransverseGroovesConfig = field(default_factory=TransverseGroovesConfig)
+
+    # 纵向细沟 & 钢片检测规则（Rule 11）
+    longitudinal_grooves: LongitudinalGroovesConfig = field(default_factory=LongitudinalGroovesConfig)
 
     # 小图筛选规则
     small_image_filter: SmallImageFilterRules = field(default_factory=SmallImageFilterRules)
@@ -457,6 +526,9 @@ class BusinessRules:
             transverse_grooves=TransverseGroovesConfig.from_dict(
                 conf.get('transverse_grooves', {})
             ),
+            longitudinal_grooves=LongitudinalGroovesConfig.from_dict(
+                conf.get('longitudinal_grooves', {})
+            ),
             small_image_filter=SmallImageFilterRules.from_dict(
                 conf.get('small_image_filter', {})
             ),
@@ -481,6 +553,7 @@ class BusinessRules:
         return {
             'pattern_continuity': self.pattern_continuity.to_dict(),
             'transverse_grooves': self.transverse_grooves.to_dict(),
+            'longitudinal_grooves': self.longitudinal_grooves.to_dict(),
             'small_image_filter': self.small_image_filter.to_dict(),
             'vertical_stitch': self.vertical_stitch.to_dict(),
             'horizontal_stitch': self.horizontal_stitch.to_dict(),

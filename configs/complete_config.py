@@ -206,6 +206,12 @@ class CompleteConfig:
         if 'horizontal_stitch' in merged_conf:
             merged_conf['horizontal_stitch_conf'] = merged_conf['horizontal_stitch']
             del merged_conf['horizontal_stitch']
+        if 'longitudinal_grooves' in merged_conf:
+            merged_conf['longitudinal_grooves_conf'] = merged_conf['longitudinal_grooves']
+            del merged_conf['longitudinal_grooves']
+        if 'transverse_grooves' in merged_conf:
+            merged_conf['transverse_grooves_conf'] = merged_conf['transverse_grooves']
+            del merged_conf['transverse_grooves']
 
         return merged_conf
 
