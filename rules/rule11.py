@@ -11,8 +11,8 @@ rule11: 纵向细沟 & 纵向钢片 检测中间层（需求11）
 目录关系:
 - 输入：.results/task_id_{task_id}/center_inf/*.png
         .results/task_id_{task_id}/side_inf/*.png
-- 输出：.results/task_id_{task_id}/detect_longitudinal_grooves/center/
-        .results/task_id_{task_id}/detect_longitudinal_grooves/side/
+- 输出：.results/task_id_{task_id}/rule11/center/
+        .results/task_id_{task_id}/rule11/side/
 
 每张图片输出：
 - ``{stem}_debug.png``  : 带标注的调试图
@@ -25,13 +25,14 @@ from pathlib import Path
 from typing import Dict, Any, List, Tuple
 
 import cv2
+import numpy as np
 
 from utils.logger import get_logger
 
 logger = get_logger("rule11")
 
 # 输出根目录名
-_DETECTOR_DIR = "detect_longitudinal_grooves"
+_DETECTOR_DIR = "rule11"
 
 # 默认输入目录列表：目录名 → image_type
 _DEFAULT_INPUT_DIRS: Dict[str, str] = {
@@ -140,7 +141,9 @@ def _process_single_image(
     from algorithms.detection.longitudinal_groove import detect_longitudinal_grooves
 
     try:
-        img = cv2.imread(str(fpath))
+        # 使用 np.fromfile + imdecode 支持含中文字符的路径（Windows 兼容）
+        raw = np.fromfile(str(fpath), dtype=np.uint8)
+        img = cv2.imdecode(raw, cv2.IMREAD_COLOR)
         if img is None:
             return False, {"file": fpath.name, "status": "failed", "err_msg": "图片读取失败"}
 
@@ -169,11 +172,13 @@ def _process_single_image(
                 "err_msg": details.get("err_msg", "检测返回 None"),
             }
 
-        # 保存调试标注图
+        # 保存调试标注图（使用 imencode + tofile 支持含中文字符的路径）
         debug_fname = f"{fpath.stem}_debug.png"
         debug_image = details.get("debug_image")
         if debug_image is not None:
-            cv2.imwrite(str(output_dir / debug_fname), debug_image)
+            ok_enc, buf = cv2.imencode(".png", debug_image)
+            if ok_enc:
+                buf.tofile(str(output_dir / debug_fname))
 
         return True, {
             "file":             fpath.name,

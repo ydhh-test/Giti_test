@@ -513,7 +513,8 @@ class TestTransverseGroovesFull(unittest.TestCase):
             if f.suffix.lower() in (".png", ".jpg", ".jpeg")
         )
         for fpath in prod_files:
-            img = cv2.imread(str(fpath))
+            raw = np.fromfile(str(fpath), dtype=np.uint8)
+            img = cv2.imdecode(raw, cv2.IMREAD_COLOR)
             self.assertIsNotNone(img, f"无法读取图片：{fpath}")
 
             score, details = self._run(img, image_type)

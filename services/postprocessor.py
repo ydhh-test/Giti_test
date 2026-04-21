@@ -361,10 +361,25 @@ def _small_image_score(task_id: str, conf: dict) -> tuple[bool, dict]:
 
     Returns:
         tuple[bool, dict]: (是否成功，详情字典)
+        详情字典包含 ``image_gen_number``（成功处理的图片数）以与其他阶段接口保持一致。
     """
     from rules.rule11 import process_longitudinal_grooves
 
-    return process_longitudinal_grooves(task_id, conf)
+    flag, details = process_longitudinal_grooves(task_id, conf)
+
+    if not flag:
+        return False, {
+            "err_msg": details.get("err_msg", "纵向细沟检测失败"),
+            "task_id": task_id,
+        }
+
+    summary = details.get("summary", {})
+    return True, {
+        "task_id": task_id,
+        "longitudinal_groove_stats": details,
+        "image_gen_number": summary.get("total_success", 0),
+        "total_score": summary.get("total_score", 0),
+    }
 
 
 def _vertical_stitch(task_id: str, conf: dict) -> tuple[bool, dict]:

@@ -147,6 +147,96 @@ class TestRule11ProcessSingleImage:
         assert result["rib_type"] == "RIB1/5"
 
 
+# ──────────────────────────────────────────────────────────────
+# 真实数据集测试：task_longitudinal_groove_vis → rule11 → 持久化输出
+# ──────────────────────────────────────────────────────────────
+
+# 项目根目录（test 文件位于 tests/unittests/rules/，往上三层）
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+_RESULTS_TASK_DIR = _PROJECT_ROOT / ".results" / "task_longitudinal_groove_vis"
+
+
+@pytest.mark.skipif(
+    not _SRC_TASK_DIR.exists(),
+    reason=_SKIP_REASON,
+)
+class TestRule11WithPieces:
+    """
+    将 tests/datasets/task_longitudinal_groove_vis 复制到 .results/，
+    对 center_inf/ 和 side_inf/ 下的图片逐一运行 rule11，
+    输出持久化到固定目录：
+      调试图  → .results/task_longitudinal_groove_vis/rule11/{center|side}/
+      指标JSON → .results/task_longitudinal_groove_vis/scores/rule11/
+    """
+
+    # 输入子目录 → image_type 映射
+    _INPUT_DIRS = {
+        "center_inf": "center",
+        "side_inf":   "side",
+    }
+
+    @pytest.fixture(autouse=True)
+    def prepare_dirs(self):
+        """将数据集复制到 .results，并确保输出目录存在"""
+        # 若目标已存在则先清理，保证每次都是干净的输入
+        if _RESULTS_TASK_DIR.exists():
+            shutil.rmtree(_RESULTS_TASK_DIR)
+        shutil.copytree(_SRC_TASK_DIR, _RESULTS_TASK_DIR)
+
+        # 创建输出目录
+        for image_type in self._INPUT_DIRS.values():
+            (_RESULTS_TASK_DIR / "rule11" / image_type).mkdir(parents=True, exist_ok=True)
+        (_RESULTS_TASK_DIR / "scores" / "rule11").mkdir(parents=True, exist_ok=True)
+
+        yield
+
+        # 测试完毕后清理复制的目录（注释掉以保留输出产物供查看）
+        # shutil.rmtree(_RESULTS_TASK_DIR, ignore_errors=True)
+
+    def test_process_all_pieces(self):
+        """
+        遍历 center_inf 和 side_inf 下所有图片，
+        调用 _process_single_image，
+        将调试图保存到 rule11/{image_type}/，
+        将每张图的指标保存到 scores/rule11/{stem}.json。
+        """
+        scores_dir = _RESULTS_TASK_DIR / "scores" / "rule11"
+        processed_total = 0
+
+        for subdir, image_type in self._INPUT_DIRS.items():
+            input_path  = _RESULTS_TASK_DIR / subdir
+            output_path = _RESULTS_TASK_DIR / "rule11" / image_type
+
+            if not input_path.exists():
+                continue
+
+            image_files = _get_image_files(input_path)
+            assert image_files, f"{subdir} 目录为空，请检查数据集"
+
+            for fpath in image_files:
+                ok, result = _process_single_image(fpath, image_type, output_path, {})
+
+                # 每张图的指标单独写一个 JSON
+                metric = {k: v for k, v in result.items() if k != "debug_image"}
+                metric["source_dir"] = subdir
+                json_path = scores_dir / f"{fpath.stem}.json"
+                json_path.write_text(
+                    json.dumps(metric, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+
+                processed_total += 1
+
+        assert processed_total > 0, "没有图片被处理，请检查数据集目录"
+
+        # 验证输出文件确实存在
+        json_files = list(scores_dir.glob("*.json"))
+        assert len(json_files) == processed_total, (
+            f"期望 {processed_total} 个 JSON，实际 {len(json_files)} 个"
+        )
+
+
 @pytest.mark.skipif(
     not _SRC_TASK_DIR.exists(),
     reason=_SKIP_REASON,
@@ -179,8 +269,8 @@ class TestRule11Integration:
         process_longitudinal_grooves(self.TASK_ID, conf)
 
         task_dir = self.output_base / f"task_id_{self.TASK_ID}"
-        center_out = task_dir / "detect_longitudinal_grooves" / "center"
-        side_out   = task_dir / "detect_longitudinal_grooves" / "side"
+        center_out = task_dir / "rule11" / "center"
+        side_out   = task_dir / "rule11" / "side"
         assert center_out.exists()
         assert side_out.exists()
 
@@ -191,7 +281,7 @@ class TestRule11Integration:
 
         task_dir = self.output_base / f"task_id_{self.TASK_ID}"
         for sub in ("center", "side"):
-            rpath = task_dir / "detect_longitudinal_grooves" / sub / "results.json"
+            rpath = task_dir / "rule11" / sub / "results.json"
             assert rpath.exists()
             data = json.loads(rpath.read_text(encoding="utf-8"))
             assert len(data) > 0
@@ -202,7 +292,7 @@ class TestRule11Integration:
         process_longitudinal_grooves(self.TASK_ID, conf)
 
         task_dir = self.output_base / f"task_id_{self.TASK_ID}"
-        center_out = task_dir / "detect_longitudinal_grooves" / "center"
+        center_out = task_dir / "rule11" / "center"
         debug_files = list(center_out.glob("*_debug.png"))
         assert len(debug_files) > 0
 
