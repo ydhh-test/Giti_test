@@ -150,6 +150,12 @@ def detect_horizontal_sipes(
             blockSize=31, C=5,
         )
 
+        # ── Step 2.5: 屏蔽左右边缘残留的主沟纵向黑条 ─────────────────
+        # 纵向主沟（图像边界的竖向暗带）会贯穿整张图，导致横沟与钢片
+        # 通过它串成一个连通域，干扰后续投影/连通分析。此处将该残留
+        # 的列直接置 0，仅在图像左右两侧 ``img_w/6`` 宽范围内查找。
+        binary = _mask_vertical_residuals(binary, img_w)
+
         # ── Step 3: 横沟检测（复用 groove_intersection._analyze_grooves）
         groove_positions_raw, _, _ = _analyze_grooves(
             binary, groove_min_px, img_w,
@@ -208,8 +214,19 @@ def detect_horizontal_sipes(
             if sipe_positions and abs(sp - sipe_positions[-1]) < 8:
                 continue
             sipe_positions.append(sp)
+        logger.debug("钢片检测合计（过滤前）: count=%d, positions=%s",
+                      len(sipe_positions), sipe_positions)
+
+        # ── Step 4e: 过滤与横沟相交的钢片 ─────────────────────────────
+        # 若钢片与横沟共用同一黑色连通块（即同一处暗斑贯穿钢片行与
+        # 横沟行），视为两者交叉，不予统计。
+        sipe_positions = _filter_sipes_crossing_grooves(
+            sipe_positions, groove_positions, binary,
+            groove_min_px, sipe_min_px, img_w,
+        )
         sipe_count = len(sipe_positions)
-        logger.debug("钢片检测合计: count=%d, positions=%s", sipe_count, sipe_positions)
+        logger.debug("钢片检测合计（过滤后）: count=%d, positions=%s",
+                      sipe_count, sipe_positions)
 
         # ── Step 5: 评分 ──────────────────────────────────────────────
         score_9 = _score_sipe_count(sipe_count, max_count)
@@ -250,6 +267,71 @@ def detect_horizontal_sipes(
 # ============================================================
 # 内部辅助函数
 # ============================================================
+
+def _mask_vertical_residuals(
+    binary: np.ndarray,
+    img_w: int,
+    edge_ratio: float = 1.0 / 6.0,
+    fill_ratio: float = 0.7,
+) -> np.ndarray:
+    """
+    屏蔽左右边缘残留主沟的纵向黑条。
+
+    在图像左右各 ``edge_ratio * img_w`` 宽的范围内，找到列方向
+    前景像素占比 ``>= fill_ratio`` 的列（即贯穿大部分高度的纵向
+    暗带），以及与其相邻的连续高占比列，统一将这些列清零。
+
+    Parameters
+    ----------
+    binary : np.ndarray
+        二值图（前景 = 255）。
+    img_w : int
+        图像宽度。
+    edge_ratio : float
+        仅在两侧该比例宽度内查找残留。
+    fill_ratio : float
+        判定为纵向残留的列高占比阈值。
+
+    Returns
+    -------
+    np.ndarray
+        清零残留列后的二值图（返回新数组，不修改原输入）。
+    """
+    img_h = binary.shape[0]
+    edge_w = max(2, int(round(img_w * edge_ratio)))
+    col_fg = (binary > 0).sum(axis=0)
+    fill_thr = int(round(img_h * fill_ratio))
+
+    # 纵向残留必须紧贴边界，向内连续扩展
+    to_clear: List[int] = []
+
+    # 左侧：从 x=0 向内扩展
+    for x in range(edge_w):
+        if col_fg[x] >= fill_thr:
+            to_clear.append(x)
+        else:
+            # 允许 1 列间隔
+            if x + 1 < edge_w and col_fg[x + 1] >= fill_thr:
+                continue
+            break
+
+    # 右侧：从 x=img_w-1 向内扩展
+    for x in range(img_w - 1, img_w - 1 - edge_w, -1):
+        if col_fg[x] >= fill_thr:
+            to_clear.append(x)
+        else:
+            if x - 1 >= img_w - edge_w and col_fg[x - 1] >= fill_thr:
+                continue
+            break
+
+    if not to_clear:
+        return binary
+
+    result = binary.copy()
+    result[:, to_clear] = 0
+    logger.debug("屏蔽纵向残留主沟列: %s", sorted(to_clear))
+    return result
+
 
 def _verify_grooves(
     groove_positions: List[float],
@@ -298,7 +380,7 @@ def _verify_grooves(
             bands.append([r])
 
     max_thick = max((len(b) for b in bands), default=0)
-    threshold = max(groove_min_px // 2, int(0.5 * max_thick)) \
+    threshold = max(5, groove_min_px // 3, int(0.4 * max_thick)) \
         if max_thick > 0 else groove_min_px
 
     verified: List[float] = []
@@ -569,6 +651,91 @@ def _detect_sipes_pass3(
     return positions, len(positions)
 
 
+def _filter_sipes_crossing_grooves(
+    sipe_positions: List[float],
+    groove_positions: List[float],
+    binary: np.ndarray,
+    groove_min_px: int,
+    sipe_min_px: int,
+    img_w: int,
+) -> List[float]:
+    """
+    过滤与横沟相交的钢片。
+
+    判定模型
+    --------
+    若一块黑色连通域既在横沟行带占据较大水平跨度，又在钢片所在行
+    出现，则认为该钢片与横沟共用同一暗斑（即出现交叉/贯穿），
+    该钢片应被剔除。
+
+    Parameters
+    ----------
+    sipe_positions : list[float]
+        候选钢片中心 Y 坐标（升序）。
+    groove_positions : list[float]
+        已确认的横沟中心 Y 坐标（升序）。
+    binary : np.ndarray
+        自适应二值化图（暗沟槽 → 白色前景）。
+    groove_min_px : int
+        横沟最小厚度（像素），决定横沟行带宽度。
+    sipe_min_px : int
+        钢片最小厚度（像素），决定钢片行带宽度。
+    img_w : int
+        图像宽度（像素）。
+
+    Returns
+    -------
+    list[float]
+        过滤后保留的钢片中心 Y 坐标。
+    """
+    if not sipe_positions or not groove_positions:
+        return list(sipe_positions)
+
+    img_h = binary.shape[0]
+    _, labels = cv2.connectedComponents(binary, connectivity=8)
+
+    def _dominant_label(y_center: int, half_band: int, min_pixels: int) -> int:
+        """返回行带 [y-half, y+half] 内像素数最多的 CC 标签，若不足 min_pixels 返回 -1。"""
+        y0 = max(0, y_center - half_band)
+        y1 = min(img_h, y_center + half_band + 1)
+        band = labels[y0:y1]
+        unique, counts = np.unique(band, return_counts=True)
+        best_lbl, best_cnt = -1, 0
+        for lbl, cnt in zip(unique.tolist(), counts.tolist()):
+            if lbl == 0:
+                continue
+            if cnt > best_cnt:
+                best_lbl, best_cnt = int(lbl), int(cnt)
+        return best_lbl if best_cnt >= min_pixels else -1
+
+    # Step 1：取每根横沟的主导 CC 标签
+    half_g = max(1, groove_min_px // 2)
+    min_groove_span = max(3, img_w // 6)
+    groove_ccs: set = set()
+    for gp in groove_positions:
+        lbl = _dominant_label(int(round(gp)), half_g, min_groove_span)
+        if lbl > 0:
+            groove_ccs.add(lbl)
+
+    if not groove_ccs:
+        return list(sipe_positions)
+
+    # Step 2：对每根钢片判断其主导 CC 是否与某根横沟重合
+    half_s = max(1, sipe_min_px)
+    min_sipe_span = max(3, img_w // 8)
+    filtered: List[float] = []
+    for sp in sipe_positions:
+        lbl = _dominant_label(int(round(sp)), half_s, min_sipe_span)
+        if lbl in groove_ccs:
+            logger.debug(
+                "钢片 y=%.1f 与横沟共用连通域 #%d，予以剔除", sp, lbl,
+            )
+            continue
+        filtered.append(sp)
+
+    return filtered
+
+
 def _score_sipe_count(sipe_count: int, max_count: int) -> int:
     """
     需求9评分：钢片数量是否在 [0, max_count] 范围内。
@@ -599,20 +766,34 @@ def _score_sipe_position(
     tolerance: float,
 ) -> int:
     """
-    需求10评分：钢片位置是否均分花纹块。
+    需求10评分：两横沟 & 块内钢片共同均分花纹块。
 
-    花纹块由横沟和图像上下边缘界定。每个块内的钢片应均分块高度。
-    所有块均满足 → 满分；任一不满足 → 0 分。
-    0 根钢片 → 满分。
+    评分模型
+    --------
+    对每一对相邻横沟构成的花纹块 ``[g_top, g_bot]``，设块内钢片
+    (升序)为 ``s_1 ... s_k``，把两侧横沟与钢片合并为分割点序列::
+
+        features = [g_top, s_1, s_2, ..., s_k, g_bot]
+
+    计算相邻分割点间距 ``gap_i = features[i+1] - features[i]``，
+    共 ``k+1`` 个。理想间距 ``μ = (g_bot - g_top) / (k + 1)``。
+    当所有 ``|gap_i - μ| ≤ μ · tolerance`` 时该块通过，否则 0 分。
+
+    判定规则
+    --------
+    * 0 根钢片 → 直接满分（无需均分）。
+    * < 2 根横沟 → 无法构成完整花纹块，若存在钢片则 0 分，否则满分。
+    * 任一钢片落在相邻横沟对之外 → 0 分（无法归入某花纹块）。
+    * 所有块均通过 → 满分。
 
     Parameters
     ----------
     sipe_positions : list[float]
         各钢片中心 Y 坐标（升序）。
     groove_positions : list[float]
-        各横沟中心 Y 坐标（升序），作为花纹块分区锚点。
+        各横沟中心 Y 坐标（升序），作为花纹块上下边界。
     img_h : int
-        图像高度（像素）。
+        图像高度（像素，当前实现未使用，保留接口兼容）。
     tolerance : float
         位置偏差容忍比例（偏差 ≤ 理想间距 × tolerance）。
 
@@ -621,39 +802,57 @@ def _score_sipe_position(
     int
         得分（0 或 score_sipe_position 满分）。
     """
+    del img_h  # 新评分仅以横沟为边界，不再使用图像上下边缘
+
+    full_score = _DEFAULT_CFG.score_sipe_position
+
     if len(sipe_positions) == 0:
-        return _DEFAULT_CFG.score_sipe_position
+        return full_score
 
-    # 构建花纹块边界：[0, groove1, groove2, ..., img_h]
-    boundaries = [0.0] + sorted(groove_positions) + [float(img_h)]
+    grooves_sorted = sorted(groove_positions)
+    # 至少需要 2 根横沟才能构成一个花纹块
+    if len(grooves_sorted) < 2:
+        return 0
 
-    # 将每根钢片归入花纹块
+    sipes_sorted = sorted(sipe_positions)
+
+    # 全部钢片必须位于最外两条横沟之间
+    if sipes_sorted[0] < grooves_sorted[0] or \
+       sipes_sorted[-1] > grooves_sorted[-1]:
+        return 0
+
+    # 将每根钢片归入相邻横沟对构成的花纹块
     blocks: Dict[int, List[float]] = {}
-    for sp in sipe_positions:
-        for i in range(len(boundaries) - 1):
-            if boundaries[i] <= sp <= boundaries[i + 1]:
+    for sp in sipes_sorted:
+        placed = False
+        for i in range(len(grooves_sorted) - 1):
+            if grooves_sorted[i] <= sp <= grooves_sorted[i + 1]:
                 blocks.setdefault(i, []).append(sp)
+                placed = True
                 break
+        if not placed:
+            return 0  # 未能归入任何花纹块
 
-    # 逐块检查均分
+    # 逐块检查：分割点（两横沟 + 块内钢片）相邻间距是否均匀
     for block_idx, block_sipes in blocks.items():
-        block_top = boundaries[block_idx]
-        block_bottom = boundaries[block_idx + 1]
-        block_height = block_bottom - block_top
-
+        g_top = grooves_sorted[block_idx]
+        g_bot = grooves_sorted[block_idx + 1]
+        block_height = g_bot - g_top
         if block_height <= 0:
-            continue
+            return 0
 
         k = len(block_sipes)
         ideal_spacing = block_height / (k + 1)
+        if ideal_spacing <= 0:
+            return 0
 
-        for j, sp in enumerate(sorted(block_sipes)):
-            expected_y = block_top + ideal_spacing * (j + 1)
-            deviation = abs(sp - expected_y)
-            if deviation > ideal_spacing * tolerance:
-                return 0
+        features = [g_top] + block_sipes + [g_bot]
+        gaps = [features[i + 1] - features[i] for i in range(len(features) - 1)]
+        max_dev = max(abs(g - ideal_spacing) for g in gaps)
+        if max_dev > ideal_spacing * tolerance:
+            return 0
 
-    return _DEFAULT_CFG.score_sipe_position
+    return full_score
 
 
 def _draw_debug_image(

@@ -66,65 +66,79 @@ class TestSipeDetectionSimple(unittest.TestCase):
         """side (max=3): 4 根钢片 → 0 分"""
         assert _score_sipe_count(4, 3) == 0
 
-    # ── 需求10：位置均分评分 ─────────────────────────────────────────
+    # ── 需求10：两横沟 + 块内钢片均分花纹块 ─────────────────────────
 
     def test_req10_no_sipes_pass(self):
-        """0 根钢片 → 满分 4 分"""
+        """0 根钢片 → 满分（无需均分）"""
         assert _score_sipe_position([], [], 128, 0.3) == self._MAX_REQ10
+        # 即使没有横沟，只要没有钢片也满分
+        assert _score_sipe_position([], [20.0, 100.0], 128, 0.3) == self._MAX_REQ10
 
-    def test_req10_one_sipe_center_of_image_pass(self):
-        """1 根钢片位于图像正中（无横沟） → 满分"""
-        # 图高 128，1 根钢片理想位置 = 128/2 = 64.0
-        assert _score_sipe_position([64.0], [], 128, 0.3) == self._MAX_REQ10
+    def test_req10_no_grooves_with_sipes_fail(self):
+        """有钢片但横沟不足 2 根 → 无法构成花纹块 → 0 分"""
+        # 新规则：必须有 ≥2 根横沟才能形成夹持花纹块
+        assert _score_sipe_position([64.0], [], 128, 0.3) == 0
+        assert _score_sipe_position([40.0, 80.0], [64.0], 128, 0.3) == 0
+
+    def test_req10_sipe_outside_groove_span_fail(self):
+        """钢片落在最外两条横沟之外 → 0 分"""
+        # 横沟 [20, 100]，钢片 10 在上边外
+        assert _score_sipe_position([10.0], [20.0, 100.0], 128, 0.3) == 0
+        # 钢片 110 在下边外
+        assert _score_sipe_position([110.0], [20.0, 100.0], 128, 0.3) == 0
+
+    def test_req10_one_sipe_center_pass(self):
+        """两横沟 + 1 根钢片在正中 → 满分"""
+        # 横沟 20, 100，块高 80，1 根钢片 μ=40，位置 60.0 → gap=[40,40]
+        assert _score_sipe_position([60.0], [20.0, 100.0], 128, 0.3) == self._MAX_REQ10
 
     def test_req10_one_sipe_offset_within_tolerance(self):
         """1 根钢片偏移在容忍范围内 → 满分"""
-        # 图高 128，理想位置 64.0，理想间距 64.0，30% 容忍 = 19.2
-        # 位置 83.0，偏差 = 19.0 < 19.2 → 通过
-        assert _score_sipe_position([83.0], [], 128, 0.3) == self._MAX_REQ10
+        # 块 [20,100] 高 80，μ=40，容忍 12
+        # 位置 70.0 → gap=[50,30] → |gap-μ|=10 ≤ 12 → 通过
+        assert _score_sipe_position([70.0], [20.0, 100.0], 128, 0.3) == self._MAX_REQ10
 
     def test_req10_one_sipe_offset_exceeds_tolerance(self):
         """1 根钢片偏移超出容忍范围 → 0 分"""
-        # 图高 128，理想位置 64.0，理想间距 64.0，30% 容忍 = 19.2
-        # 位置 84.0，偏差 = 20.0 > 19.2 → 不通过
-        assert _score_sipe_position([84.0], [], 128, 0.3) == 0
+        # 块 [20,100] 高 80，μ=40，容忍 12
+        # 位置 73.0 → gap=[53,27] → |gap-μ|=13 > 12 → 不通过
+        assert _score_sipe_position([73.0], [20.0, 100.0], 128, 0.3) == 0
 
     def test_req10_two_sipes_evenly_spaced_pass(self):
-        """2 根钢片在图像中均分 → 满分"""
-        # 图高 120，理想间距 = 120/3 = 40，位置 40.0, 80.0
-        assert _score_sipe_position([40.0, 80.0], [], 120, 0.3) == self._MAX_REQ10
+        """两横沟 + 2 根钢片均分 → 满分"""
+        # 横沟 0, 120，块高 120，3 段 μ=40，钢片 40, 80 → gap=[40,40,40]
+        assert _score_sipe_position([40.0, 80.0], [0.0, 120.0], 128, 0.3) == self._MAX_REQ10
 
     def test_req10_two_sipes_uneven_fail(self):
         """2 根钢片不均分 → 0 分"""
-        # 图高 120，理想间距 40，位置 30.0 偏差 10，容忍 12 → OK
-        # 位置 60.0，理想 80.0，偏差 20 > 12 → NG
-        assert _score_sipe_position([30.0, 60.0], [], 120, 0.3) == 0
+        # 横沟 0, 120，μ=40，容忍 12
+        # 钢片 30, 60 → gap=[30,30,60] → |60-40|=20 > 12 → 不通过
+        assert _score_sipe_position([30.0, 60.0], [0.0, 120.0], 128, 0.3) == 0
 
-    def test_req10_with_groove_splits_blocks(self):
-        """横沟将图像分为 2 个花纹块，每块内钢片独立判定"""
-        # 图高 128，横沟在 64.0 → 块1 [0, 64]，块2 [64, 128]
-        # 块1 内 1 根钢片在 32.0（理想 32.0）→ OK
-        # 块2 内 1 根钢片在 96.0（理想 96.0）→ OK
-        assert _score_sipe_position([32.0, 96.0], [64.0], 128, 0.3) == self._MAX_REQ10
+    def test_req10_three_grooves_per_block_check(self):
+        """3 根横沟分 2 个花纹块，每块独立判定"""
+        # 块1 [0, 60] 1 根钢片在 30 → gap=[30,30] → OK
+        # 块2 [60, 120] 1 根钢片在 90 → gap=[30,30] → OK
+        assert _score_sipe_position([30.0, 90.0], [0.0, 60.0, 120.0], 128, 0.3) \
+            == self._MAX_REQ10
 
-    def test_req10_with_groove_one_block_fails(self):
-        """横沟分 2 块，其中 1 块不均分 → 0 分"""
-        # 图高 128，横沟在 64.0
-        # 块1 [0, 64]：钢片在 40.0，理想 32.0，偏差 8，容忍 9.6 → OK
-        # 块2 [64, 128]：钢片在 120.0，理想 96.0，偏差 24，容忍 9.6 → NG
-        assert _score_sipe_position([40.0, 120.0], [64.0], 128, 0.3) == 0
+    def test_req10_three_grooves_one_block_fails(self):
+        """3 根横沟分 2 块，其中 1 块不均分 → 0 分"""
+        # 块1 [0, 60] 钢片 30 → OK
+        # 块2 [60, 120] 钢片 115 → gap=[55,5] vs μ=30，|55-30|=25 > 9 → NG
+        assert _score_sipe_position([30.0, 115.0], [0.0, 60.0, 120.0], 128, 0.3) == 0
 
     def test_req10_tolerance_boundary_pass(self):
-        """偏差恰好等于 tolerance × 理想间距 → 0 分（严格不等式）"""
-        # 图高 100，1 根钢片，理想间距 50，30% 容忍 = 15
-        # 位置 65.0，偏差 15.0 → 不超出 → 通过
-        assert _score_sipe_position([65.0], [], 100, 0.3) == self._MAX_REQ10
+        """偏差恰好等于 tolerance × 理想间距 → 通过（非严格不等式）"""
+        # 横沟 [0,100] 块高 100，1 根钢片 μ=50，容忍 15
+        # 位置 65.0 → gap=[65,35] → |gap-μ|=15 ≤ 15 → 通过
+        assert _score_sipe_position([65.0], [0.0, 100.0], 128, 0.3) == self._MAX_REQ10
 
     def test_req10_tolerance_boundary_fail(self):
         """偏差刚超过 tolerance × 理想间距 → 0 分"""
-        # 图高 100，1 根钢片，理想间距 50，30% 容忍 = 15
-        # 位置 65.1，偏差 15.1 > 15.0 → 不通过
-        assert _score_sipe_position([65.1], [], 100, 0.3) == 0
+        # 横沟 [0,100] 块高 100，μ=50，容忍 15
+        # 位置 65.1 → gap=[65.1, 34.9] → |gap-μ|=15.1 > 15 → 不通过
+        assert _score_sipe_position([65.1], [0.0, 100.0], 128, 0.3) == 0
 
 
 # ============================================================
