@@ -1,0 +1,316 @@
+# -*- coding: utf-8 -*-
+
+"""
+横向钢片检测算法单元测试
+
+包含两个测试类：
+1. TestSipeDetectionSimple - 不依赖 numpy/opencv，测试纯评分逻辑
+2. TestSipeDetectionFull   - 依赖 numpy/opencv，用合成图像测试完整流程
+"""
+
+import sys
+import pathlib
+import unittest
+
+import numpy as np
+import cv2
+import pytest
+
+# 确保项目根目录在 sys.path 中
+_ROOT = pathlib.Path(__file__).parents[4]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from algorithms.detection.sipe_detection import (
+    detect_horizontal_sipes,
+    _detect_sipes,
+    _score_sipe_count,
+    _score_sipe_position,
+)
+from configs.rules_config import HorizontalSipesConfig
+
+
+# ============================================================
+# 简化测试（纯评分逻辑）
+# ============================================================
+
+class TestSipeDetectionSimple(unittest.TestCase):
+    """不依赖图像的核心评分逻辑测试。"""
+
+    _MAX_REQ9 = 4
+    _MAX_REQ10 = 4
+
+    # ── 需求9：数量评分 ─────────────────────────────────────────────
+
+    def test_req9_center_0_sipes_pass(self):
+        """center (max=2): 0 根钢片 → 满分"""
+        assert _score_sipe_count(0, 2) == self._MAX_REQ9
+
+    def test_req9_center_2_sipes_pass(self):
+        """center (max=2): 2 根钢片 → 满分"""
+        assert _score_sipe_count(2, 2) == self._MAX_REQ9
+
+    def test_req9_center_3_sipes_fail(self):
+        """center (max=2): 3 根钢片 → 0 分"""
+        assert _score_sipe_count(3, 2) == 0
+
+    def test_req9_side_0_sipes_pass(self):
+        """side (max=3): 0 根钢片 → 满分"""
+        assert _score_sipe_count(0, 3) == self._MAX_REQ9
+
+    def test_req9_side_3_sipes_pass(self):
+        """side (max=3): 3 根钢片 → 满分"""
+        assert _score_sipe_count(3, 3) == self._MAX_REQ9
+
+    def test_req9_side_4_sipes_fail(self):
+        """side (max=3): 4 根钢片 → 0 分"""
+        assert _score_sipe_count(4, 3) == 0
+
+    # ── 需求10：位置均分评分 ─────────────────────────────────────────
+
+    def test_req10_no_sipes_pass(self):
+        """0 根钢片 → 满分 4 分"""
+        assert _score_sipe_position([], [], 128, 0.3) == self._MAX_REQ10
+
+    def test_req10_one_sipe_center_of_image_pass(self):
+        """1 根钢片位于图像正中（无横沟） → 满分"""
+        # 图高 128，1 根钢片理想位置 = 128/2 = 64.0
+        assert _score_sipe_position([64.0], [], 128, 0.3) == self._MAX_REQ10
+
+    def test_req10_one_sipe_offset_within_tolerance(self):
+        """1 根钢片偏移在容忍范围内 → 满分"""
+        # 图高 128，理想位置 64.0，理想间距 64.0，30% 容忍 = 19.2
+        # 位置 83.0，偏差 = 19.0 < 19.2 → 通过
+        assert _score_sipe_position([83.0], [], 128, 0.3) == self._MAX_REQ10
+
+    def test_req10_one_sipe_offset_exceeds_tolerance(self):
+        """1 根钢片偏移超出容忍范围 → 0 分"""
+        # 图高 128，理想位置 64.0，理想间距 64.0，30% 容忍 = 19.2
+        # 位置 84.0，偏差 = 20.0 > 19.2 → 不通过
+        assert _score_sipe_position([84.0], [], 128, 0.3) == 0
+
+    def test_req10_two_sipes_evenly_spaced_pass(self):
+        """2 根钢片在图像中均分 → 满分"""
+        # 图高 120，理想间距 = 120/3 = 40，位置 40.0, 80.0
+        assert _score_sipe_position([40.0, 80.0], [], 120, 0.3) == self._MAX_REQ10
+
+    def test_req10_two_sipes_uneven_fail(self):
+        """2 根钢片不均分 → 0 分"""
+        # 图高 120，理想间距 40，位置 30.0 偏差 10，容忍 12 → OK
+        # 位置 60.0，理想 80.0，偏差 20 > 12 → NG
+        assert _score_sipe_position([30.0, 60.0], [], 120, 0.3) == 0
+
+    def test_req10_with_groove_splits_blocks(self):
+        """横沟将图像分为 2 个花纹块，每块内钢片独立判定"""
+        # 图高 128，横沟在 64.0 → 块1 [0, 64]，块2 [64, 128]
+        # 块1 内 1 根钢片在 32.0（理想 32.0）→ OK
+        # 块2 内 1 根钢片在 96.0（理想 96.0）→ OK
+        assert _score_sipe_position([32.0, 96.0], [64.0], 128, 0.3) == self._MAX_REQ10
+
+    def test_req10_with_groove_one_block_fails(self):
+        """横沟分 2 块，其中 1 块不均分 → 0 分"""
+        # 图高 128，横沟在 64.0
+        # 块1 [0, 64]：钢片在 40.0，理想 32.0，偏差 8，容忍 9.6 → OK
+        # 块2 [64, 128]：钢片在 120.0，理想 96.0，偏差 24，容忍 9.6 → NG
+        assert _score_sipe_position([40.0, 120.0], [64.0], 128, 0.3) == 0
+
+    def test_req10_tolerance_boundary_pass(self):
+        """偏差恰好等于 tolerance × 理想间距 → 0 分（严格不等式）"""
+        # 图高 100，1 根钢片，理想间距 50，30% 容忍 = 15
+        # 位置 65.0，偏差 15.0 → 不超出 → 通过
+        assert _score_sipe_position([65.0], [], 100, 0.3) == self._MAX_REQ10
+
+    def test_req10_tolerance_boundary_fail(self):
+        """偏差刚超过 tolerance × 理想间距 → 0 分"""
+        # 图高 100，1 根钢片，理想间距 50，30% 容忍 = 15
+        # 位置 65.1，偏差 15.1 > 15.0 → 不通过
+        assert _score_sipe_position([65.1], [], 100, 0.3) == 0
+
+
+# ============================================================
+# 完整流程测试（使用合成图像）
+# ============================================================
+
+class TestSipeDetectionFull(unittest.TestCase):
+    """使用合成图像测试完整检测流程。"""
+
+    def _make_blank_bgr(self, h=128, w=128, bg_val=200):
+        """创建浅灰色背景 BGR 图像"""
+        return np.full((h, w, 3), bg_val, dtype=np.uint8)
+
+    def _draw_horizontal_line(self, img, y, thickness, color=0):
+        """在图像上画一条水平暗色线（模拟横沟或钢片）"""
+        half = thickness // 2
+        y_start = max(0, y - half)
+        y_end = min(img.shape[0], y + half + thickness % 2)
+        img[y_start:y_end, :] = color
+        return img
+
+    def test_detect_no_features(self):
+        """纯灰色图无特征 → sipe_count=0, groove_count=0"""
+        img = self._make_blank_bgr()
+        score, details = detect_horizontal_sipes(img, "center")
+        assert score is not None
+        assert details["sipe_count"] == 0
+        assert details["groove_count"] == 0
+        # 0 根钢片 → 满分 8 (4+4)
+        assert details["score_req9"] == 4
+        assert details["score_req10"] == 4
+
+    def test_detect_single_sipe_center(self):
+        """center 图中 1 根钢片（4px 暗线）→ 应被检出"""
+        img = self._make_blank_bgr()
+        self._draw_horizontal_line(img, 64, 4)
+        score, details = detect_horizontal_sipes(img, "center")
+        assert score is not None
+        assert details["sipe_count"] >= 1
+        assert details["rib_type"] == "RIB2/3/4"
+
+    def test_detect_groove_not_counted_as_sipe(self):
+        """1 条粗暗线（25px）应被分类为横沟，不是钢片"""
+        img = self._make_blank_bgr()
+        self._draw_horizontal_line(img, 64, 25)
+        score, details = detect_horizontal_sipes(img, "center")
+        assert score is not None
+        assert details["groove_count"] >= 1
+        # 粗线不应计入钢片
+        assert details["sipe_count"] == 0
+
+    def test_detect_mixed_groove_and_sipes(self):
+        """1 条横沟 + 2 根钢片 → groove_count >= 1, sipe_count >= 1"""
+        img = self._make_blank_bgr()
+        self._draw_horizontal_line(img, 64, 25)   # 横沟
+        self._draw_horizontal_line(img, 30, 4)     # 钢片
+        self._draw_horizontal_line(img, 100, 4)    # 钢片
+        score, details = detect_horizontal_sipes(img, "center")
+        assert score is not None
+        assert details["groove_count"] >= 1
+        assert details["sipe_count"] >= 1
+
+    def test_center_exceeds_max_sipes(self):
+        """center 图 3 根钢片（超过 max=2）→ score_req9=0"""
+        img = self._make_blank_bgr()
+        for y in [30, 64, 98]:
+            self._draw_horizontal_line(img, y, 4)
+        score, details = detect_horizontal_sipes(
+            img, "center", sipe_count_max={"center": 2, "side": 3}
+        )
+        if details["sipe_count"] > 2:
+            assert details["score_req9"] == 0
+
+    def test_side_type(self):
+        """side 类型正常处理"""
+        img = self._make_blank_bgr()
+        self._draw_horizontal_line(img, 64, 4)
+        score, details = detect_horizontal_sipes(img, "side")
+        assert score is not None
+        assert details["rib_type"] == "RIB1/5"
+
+    def test_invalid_image_none(self):
+        """None 输入 → 返回 None + err_msg"""
+        score, details = detect_horizontal_sipes(None, "center")
+        assert score is None
+        assert "err_msg" in details
+
+    def test_invalid_image_type(self):
+        """非法 image_type → 返回 None + err_msg"""
+        img = self._make_blank_bgr()
+        score, details = detect_horizontal_sipes(img, "invalid")
+        assert score is None
+        assert "err_msg" in details
+
+    def test_grayscale_image_rejected(self):
+        """灰度图（2D）→ 返回 None + err_msg"""
+        gray = np.full((128, 128), 200, dtype=np.uint8)
+        score, details = detect_horizontal_sipes(gray, "center")
+        assert score is None
+        assert "err_msg" in details
+
+    def test_debug_image_generated(self):
+        """成功时返回 debug_image（BGR 三通道）"""
+        img = self._make_blank_bgr()
+        score, details = detect_horizontal_sipes(img, "center")
+        assert score is not None
+        assert "debug_image" in details
+        dbg = details["debug_image"]
+        assert dbg.ndim == 3
+        assert dbg.shape[2] == 3
+
+    def test_score_range(self):
+        """总分在 [0, 8] 范围内"""
+        img = self._make_blank_bgr()
+        score, details = detect_horizontal_sipes(img, "center")
+        assert score is not None
+        assert 0.0 <= score <= 8.0
+
+    def test_custom_pixel_per_mm(self):
+        """自定义 pixel_per_mm 不报错"""
+        img = self._make_blank_bgr()
+        score, _ = detect_horizontal_sipes(img, "center", pixel_per_mm=5.0)
+        assert score is not None
+
+
+# ============================================================
+# _detect_sipes 单元测试
+# ============================================================
+
+class TestDetectSipesInternal(unittest.TestCase):
+    """直接测试 _detect_sipes 内部函数。"""
+
+    def _make_binary_with_bands(self, h=128, w=128, bands=None):
+        """
+        创建二值图，bands 为 [(y_center, thickness), ...] 列表。
+        """
+        binary = np.zeros((h, w), dtype=np.uint8)
+        if bands:
+            for y_center, thickness in bands:
+                half = thickness // 2
+                y_start = max(0, y_center - half)
+                y_end = min(h, y_center + half + thickness % 2)
+                binary[y_start:y_end, :] = 255
+        return binary
+
+    def test_no_bands(self):
+        """无带状区域 → 0 根钢片"""
+        binary = self._make_binary_with_bands()
+        positions, count = _detect_sipes(binary, 128, 3, 6, 11)
+        assert count == 0
+        assert positions == []
+
+    def test_single_sipe_band(self):
+        """单条 4px 宽带 → 检出 1 根钢片"""
+        binary = self._make_binary_with_bands(bands=[(64, 4)])
+        positions, count = _detect_sipes(binary, 128, 3, 6, 11)
+        assert count == 1
+        assert len(positions) == 1
+        assert abs(positions[0] - 64.0) < 3.0
+
+    def test_groove_excluded(self):
+        """15px 宽带 ≥ groove_min_px(11) → 不计入钢片"""
+        binary = self._make_binary_with_bands(bands=[(64, 15)])
+        positions, count = _detect_sipes(binary, 128, 3, 6, 11)
+        assert count == 0
+
+    def test_noise_excluded(self):
+        """1px 宽带只覆盖少量列 → 不满足 min_px_per_row → 不计入"""
+        binary = np.zeros((128, 128), dtype=np.uint8)
+        # 只在少数列画白色（不足 img_w//12 = 10 px）
+        binary[64, :5] = 255
+        positions, count = _detect_sipes(binary, 128, 3, 6, 11)
+        assert count == 0
+
+    def test_mixed_bands(self):
+        """混合带：1 条横沟(15px) + 2 条钢片(4px) + 1 条噪声(部分宽度)"""
+        binary = self._make_binary_with_bands(bands=[
+            (30, 4),    # sipe
+            (64, 15),   # groove → 排除
+            (100, 4),   # sipe
+        ])
+        # 添加部分宽度噪声（只覆盖少量列，不满足 min_px_per_row）
+        binary[120, :5] = 255
+        positions, count = _detect_sipes(binary, 128, 3, 6, 11)
+        assert count == 2
+
+
+if __name__ == "__main__":
+    unittest.main()

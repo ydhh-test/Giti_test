@@ -163,7 +163,7 @@ def build_center_ribs(
         rib3_w = min(c0_right.shape[1], c1_left.shape[1])
         c0_r = c0_right[:, :rib3_w].astype(np.float32)
         c1_l = c1_left[:, c1_left.shape[1] - rib3_w:].astype(np.float32)
-        alpha = np.linspace(1, 0, rib3_w).reshape(1, rib3_w, 1)
+        alpha = np.linspace(1, 0, rib3_w, dtype=np.float32).reshape(1, rib3_w, 1)
         rib3 = (c0_r * alpha + c1_l * (1 - alpha)).astype(np.uint8)
 
         rib2 = c0_left
@@ -235,7 +235,7 @@ def build_edge_ribs(
             # RIB2：在左侧融合widened的额外部分
             extra_part = widened_h[:, side_left.shape[1]:side_left.shape[1] + overlap].astype(np.float32)
             center_left = rib2_h[:, :overlap].astype(np.float32)
-            alpha = np.linspace(1, 0, overlap).reshape(1, overlap, 1)
+            alpha = np.linspace(1, 0, overlap, dtype=np.float32).reshape(1, overlap, 1)
             blended = (extra_part * alpha + center_left * (1 - alpha)).astype(np.uint8)
             rib2 = np.hstack([blended, rib2_h[:, overlap:]])
 
@@ -262,7 +262,7 @@ def build_edge_ribs(
             # RIB4：在右侧融合widened的额外部分
             center_right = rib4_h[:, rib4_h.shape[1] - overlap:].astype(np.float32)
             extra_part = widened_h[:, :overlap].astype(np.float32)
-            alpha = np.linspace(1, 0, overlap).reshape(1, overlap, 1)
+            alpha = np.linspace(1, 0, overlap, dtype=np.float32).reshape(1, overlap, 1)
             blended = (center_right * alpha + extra_part * (1 - alpha)).astype(np.uint8)
             rib4 = np.hstack([rib4_h[:, :rib4_h.shape[1] - overlap], blended])
 
