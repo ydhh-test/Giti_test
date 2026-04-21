@@ -269,8 +269,8 @@ class TestRule11Integration:
         process_longitudinal_grooves(self.TASK_ID, conf)
 
         task_dir = self.output_base / f"task_id_{self.TASK_ID}"
-        center_out = task_dir / "detect_longitudinal_grooves" / "center"
-        side_out   = task_dir / "detect_longitudinal_grooves" / "side"
+        center_out = task_dir / "rule11" / "center"
+        side_out   = task_dir / "rule11" / "side"
         assert center_out.exists()
         assert side_out.exists()
 
@@ -281,7 +281,7 @@ class TestRule11Integration:
 
         task_dir = self.output_base / f"task_id_{self.TASK_ID}"
         for sub in ("center", "side"):
-            rpath = task_dir / "detect_longitudinal_grooves" / sub / "results.json"
+            rpath = task_dir / "rule11" / sub / "results.json"
             assert rpath.exists()
             data = json.loads(rpath.read_text(encoding="utf-8"))
             assert len(data) > 0
@@ -292,7 +292,7 @@ class TestRule11Integration:
         process_longitudinal_grooves(self.TASK_ID, conf)
 
         task_dir = self.output_base / f"task_id_{self.TASK_ID}"
-        center_out = task_dir / "detect_longitudinal_grooves" / "center"
+        center_out = task_dir / "rule11" / "center"
         debug_files = list(center_out.glob("*_debug.png"))
         assert len(debug_files) > 0
 

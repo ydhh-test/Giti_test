@@ -11,8 +11,8 @@ rule11: 纵向细沟 & 纵向钢片 检测中间层（需求11）
 目录关系:
 - 输入：.results/task_id_{task_id}/center_inf/*.png
         .results/task_id_{task_id}/side_inf/*.png
-- 输出：.results/task_id_{task_id}/detect_longitudinal_grooves/center/
-        .results/task_id_{task_id}/detect_longitudinal_grooves/side/
+- 输出：.results/task_id_{task_id}/rule11/center/
+        .results/task_id_{task_id}/rule11/side/
 
 每张图片输出：
 - ``{stem}_debug.png``  : 带标注的调试图
@@ -32,7 +32,7 @@ from utils.logger import get_logger
 logger = get_logger("rule11")
 
 # 输出根目录名
-_DETECTOR_DIR = "detect_longitudinal_grooves"
+_DETECTOR_DIR = "rule11"
 
 # 默认输入目录列表：目录名 → image_type
 _DEFAULT_INPUT_DIRS: Dict[str, str] = {
