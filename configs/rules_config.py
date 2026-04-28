@@ -484,6 +484,69 @@ class LongitudinalGroovesConfig:
 
 
 @dataclass
+class HorizontalSipesConfig:
+    """横向钢片检测配置（需求9 & 需求10）"""
+
+    # POC 阶段钢片宽度（mm）
+    sipe_width_mm: Dict[str, float] = field(
+        default_factory=lambda: {"center": 0.6, "side": 0.6}
+    )
+
+    # 钢片宽度范围（mm）[min, max]
+    sipe_width_range_mm: List[float] = field(
+        default_factory=lambda: [0.4, 0.8]
+    )
+
+    # 横沟最小宽度（mm），用于分类锚点
+    # center → RIB1/5 以 3.5mm 计算；side → RIB2/3/4 以 1.8mm 计算
+    groove_min_width_mm: Dict[str, float] = field(
+        default_factory=lambda: {"center": 3.5, "side": 1.8}
+    )
+
+    # 像素密度（px/mm）
+    pixel_per_mm: float = 7.1
+
+    # 每个 RIB 类型的最大钢片数
+    # center → RIB1/5: 0-2 个；side → RIB2/3/4: 0-3 个
+    sipe_count_max: Dict[str, int] = field(
+        default_factory=lambda: {"center": 2, "side": 3}
+    )
+
+    # 需求9满分（钢片数量合规）
+    score_sipe_count: int = 4
+
+    # 需求10满分（钢片位置均分）
+    score_sipe_position: int = 4
+
+    # 位置均分偏差容忍比例（偏差 ≤ 理想间距 × tolerance）
+    position_tolerance: float = 0.3
+
+    # image_type → RIB 标签
+    rib_label: Dict[str, str] = field(
+        default_factory=lambda: {"center": "RIB2/3/4", "side": "RIB1/5"}
+    )
+
+    @classmethod
+    def from_dict(cls, conf: Dict[str, Any]) -> 'HorizontalSipesConfig':
+        """从配置字典创建对象"""
+        return cls(**{k: v for k, v in conf.items() if k in cls.__dataclass_fields__})
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            'sipe_width_mm':       dict(self.sipe_width_mm),
+            'sipe_width_range_mm': list(self.sipe_width_range_mm),
+            'groove_min_width_mm': dict(self.groove_min_width_mm),
+            'pixel_per_mm':        self.pixel_per_mm,
+            'sipe_count_max':      dict(self.sipe_count_max),
+            'score_sipe_count':    self.score_sipe_count,
+            'score_sipe_position': self.score_sipe_position,
+            'position_tolerance':  self.position_tolerance,
+            'rib_label':           dict(self.rib_label),
+        }
+
+
+@dataclass
 class BusinessRules:
     """业务规则汇总配置，整合所有规则配置"""
 
@@ -495,6 +558,9 @@ class BusinessRules:
 
     # 纵向细沟 & 钢片检测规则（Rule 11）
     longitudinal_grooves: LongitudinalGroovesConfig = field(default_factory=LongitudinalGroovesConfig)
+
+    # 横向钢片检测规则
+    horizontal_sipes: HorizontalSipesConfig = field(default_factory=HorizontalSipesConfig)
 
     # 小图筛选规则
     small_image_filter: SmallImageFilterRules = field(default_factory=SmallImageFilterRules)
@@ -529,6 +595,9 @@ class BusinessRules:
             longitudinal_grooves=LongitudinalGroovesConfig.from_dict(
                 conf.get('longitudinal_grooves', {})
             ),
+            horizontal_sipes=HorizontalSipesConfig.from_dict(
+                conf.get('horizontal_sipes', {})
+            ),
             small_image_filter=SmallImageFilterRules.from_dict(
                 conf.get('small_image_filter', {})
             ),
@@ -554,6 +623,7 @@ class BusinessRules:
             'pattern_continuity': self.pattern_continuity.to_dict(),
             'transverse_grooves': self.transverse_grooves.to_dict(),
             'longitudinal_grooves': self.longitudinal_grooves.to_dict(),
+            'horizontal_sipes': self.horizontal_sipes.to_dict(),
             'small_image_filter': self.small_image_filter.to_dict(),
             'vertical_stitch': self.vertical_stitch.to_dict(),
             'horizontal_stitch': self.horizontal_stitch.to_dict(),

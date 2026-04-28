@@ -19,6 +19,7 @@ import numpy as np
 from typing import Dict, Any, List, Optional, Tuple
 
 from utils.logger import get_logger
+from utils.exceptions import PatternDetectionError, ImageDimensionError
 from configs.rules_config import TransverseGroovesConfig
 
 logger = get_logger("detect_transverse_grooves")
