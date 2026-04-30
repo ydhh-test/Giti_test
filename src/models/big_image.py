@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import BaseModel, Field
 
-@dataclass
-class BigImage:
+
+class BigImage(BaseModel):
     """Placeholder model for a stitched big image and related outputs."""
 
     image_id: str | None = None
     image_data: Any = None
-    lineage: dict[str, Any] = field(default_factory=dict)
-    scores: dict[str, Any] = field(default_factory=dict)
+    lineage: dict[str, Any] = Field(default_factory=dict)
+    scores: dict[str, Any] = Field(default_factory=dict)

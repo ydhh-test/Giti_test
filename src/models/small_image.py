@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import BaseModel, Field
 
-@dataclass
-class SmallImage:
+
+class SmallImage(BaseModel):
     """Placeholder model for a small image and its metadata."""
 
     image_id: str | None = None
     image_data: Any = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
