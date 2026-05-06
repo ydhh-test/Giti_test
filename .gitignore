@@ -211,3 +211,19 @@ __marimo__/
 
 # local shell
 .setup_env.sh
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Temp files
+.tmp
+*.tmp
+*.temp
