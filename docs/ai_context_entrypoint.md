@@ -52,7 +52,23 @@
 
 ---
 
-### 3.3 涉及架构边界、模型/API 设计调整
+### 3.4 涉及数据模型、数据结构、规则配置、拼接方案
+额外阅读：
+- `docs/models_usage.md`（使用指南）
+
+适用场景：
+- 使用 TireStruct、SmallImage、BigImage 等数据类
+- 使用 RuleConfig、RuleFeature、RuleScore 等规则类
+- 需要理解 Pipeline 数据流转
+- 运行时填充 evaluation
+
+说明：
+- 如果需要生成数据类代码，阅读 `docs/plans/models/dataclass_design.md`
+- 如果只是使用数据类，阅读 `docs/models_usage.md`
+
+---
+
+### 3.5 涉及架构边界、模型/API 设计调整
 额外阅读：
 - 相关专题设计文档
 - 相关 plan 文档
