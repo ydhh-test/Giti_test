@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from dataclasses import dataclass
 from itertools import product
-from typing import List, NamedTuple, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import logging
 from src.common.exceptions import InputDataError, RuntimeProcessError
@@ -20,18 +20,7 @@ logger = logging.getLogger(__name__)
 
 PatternEnd = Tuple[int, int, str]
 
-
-class PatternContinuityResult(NamedTuple):
-    """图案连续性检测的显式输出。"""
-
-    is_continuous: bool
-    vis_name: str
-    vis_image: Optional[np.ndarray]
-    top_ends: List[PatternEnd]
-    bottom_ends: List[PatternEnd]
-    matches: List[Tuple[int, int]]
-    unmatched_top: List[int]
-    unmatched_bottom: List[int]
+_VIS_NAME = "pattern_continuity.png"
 
 
 # ============================================================
@@ -54,26 +43,11 @@ class PatternContinuityConfig:
     # 细线匹配的最大距离（像素）
     fine_match_distance: int = 4
 
-    # 粗线匹配的最小重合比例
-    coarse_overlap_ratio: float = 0.67
-
-    # 是否使用自适应阈值
-    use_adaptive_threshold: bool = False
-
-    # 自适应方法：'otsu' 或 'adaptive'
-    adaptive_method: str = 'otsu'
-
     # 最小线条宽度（过滤噪声）
     min_line_width: int = 1
 
-    # 连通性判定（4 或 8）
-    connectivity: int = 4
-
     # 可视化线条宽度
     vis_line_width: int = 2
-
-    # 可视化字体大小
-    vis_font_scale: float = 0.5
 
     # 可视化矩形高度（像素）
     vis_rectangle_height: int = 3
@@ -88,19 +62,8 @@ def detect_pattern_continuity(
     edge_height: int = 4,
     coarse_threshold: int = 5,
     fine_match_distance: int = 4,
-    coarse_overlap_ratio: float = 0.67,
-    use_adaptive_threshold: bool = False,
-    adaptive_method: str = 'otsu',
-    min_line_width: int = 1,
-    connectivity: int = 4,
-    method: str = 'B',
     is_debug: bool = False,
-    debug_name: str = 'pattern_continuity',
-    vis_line_width: int = 2,
-    vis_font_scale: float = 0.5,
-    vis_rectangle_height: int = 3,
-    vis_rectangle_bottom_offset: int = 4,
-) -> PatternContinuityResult:
+) -> Tuple[bool, str, Optional[np.ndarray]]:
     """
     检测图案上下边缘的连续性
 
@@ -110,21 +73,12 @@ def detect_pattern_continuity(
     - edge_height: 边缘区域高度（像素）
     - coarse_threshold: 粗细线宽度阈值（像素）
     - fine_match_distance: 细线匹配的最大距离（像素）
-    - coarse_overlap_ratio: 粗线匹配的最小重合比例
-    - use_adaptive_threshold: 是否使用自适应阈值
-    - adaptive_method: 自适应方法，'otsu' 或 'adaptive'
-    - min_line_width: 最小线条宽度（过滤噪声）
-    - connectivity: 连通性判定（4 或 8）
-    - method: 检测方法，'A'（纯像素操作）或 'B'（OpenCV 轮廓检测）
     - is_debug: 是否输出 debug 可视化图
-    - debug_name: debug 可视化建议文件名，不负责保存路径
-    - vis_line_width: 可视化线条宽度
-    - vis_font_scale: 可视化字体大小
-    - vis_rectangle_height: 可视化矩形高度（像素）
-    - vis_rectangle_bottom_offset: 可视化矩形底部偏移（像素）
 
     Returns:
-    - PatternContinuityResult: 显式输出连续性、debug 图名称、debug 图像和端点匹配明细
+    - is_continuous: 是否连续
+    - vis_name: debug 可视化建议文件名；非 debug 模式为空字符串
+    - vis_image: debug 可视化图像；非 debug 模式为 None
 
     注意：算法层不保存文件；当 is_debug=True 时只返回 vis_name 和 vis_image，保存由调用方负责。
 
@@ -146,28 +100,13 @@ def detect_pattern_continuity(
         edge_height=edge_height,
         coarse_threshold=coarse_threshold,
         fine_match_distance=fine_match_distance,
-        coarse_overlap_ratio=coarse_overlap_ratio,
-        use_adaptive_threshold=use_adaptive_threshold,
-        adaptive_method=adaptive_method,
-        min_line_width=min_line_width,
-        connectivity=connectivity,
-        vis_line_width=vis_line_width,
-        vis_font_scale=vis_font_scale,
-        vis_rectangle_height=vis_rectangle_height,
-        vis_rectangle_bottom_offset=vis_rectangle_bottom_offset,
     )
-    logger.debug(f"配置加载完成，方法: {method}")
+    logger.debug("配置加载完成")
 
     # 提取边缘端点
     try:
-        if method.upper() == 'A':
-            logger.debug("使用方法A（纯像素操作）检测边缘")
-            top_ends, bottom_ends = _detect_with_method_a(image, config)
-        elif method.upper() == 'B':
-            logger.debug("使用方法B（OpenCV轮廓检测）检测边缘")
-            top_ends, bottom_ends = _detect_with_method_b(image, config)
-        else:
-            raise InputDataError("method", "value", "must be 'A' or 'B'", method)
+        logger.debug("使用OpenCV轮廓检测边缘")
+        top_ends, bottom_ends = _detect_with_method_b(image, config)
 
         logger.debug(f"边缘端点提取完成: 上边缘{len(top_ends)}个，下边缘{len(bottom_ends)}个")
 
@@ -189,6 +128,11 @@ def detect_pattern_continuity(
     # 判定连续性
     is_continuous = len(unmatched_bottom) == 0
     logger.info(f"连续性判定结果: {'连续' if is_continuous else '不连续'}")
+    logger.debug(
+        "连续性检测明细: top_ends=%s, bottom_ends=%s, matches=%s, "
+        "unmatched_top=%s, unmatched_bottom=%s",
+        top_ends, bottom_ends, matches, unmatched_top, unmatched_bottom
+    )
 
     vis_name = ""
     vis_image = None
@@ -198,60 +142,12 @@ def detect_pattern_continuity(
                 image, top_ends, bottom_ends, matches,
                 unmatched_top, unmatched_bottom, config
             )
-            vis_name = _normalize_vis_name(debug_name)
+            vis_name = _VIS_NAME
             logger.debug(f"生成debug可视化结果: {vis_name}")
         except Exception as e:
             raise RuntimeProcessError("_visualize_detection", "可视化处理失败", e)
 
-    return PatternContinuityResult(
-        is_continuous=is_continuous,
-        vis_name=vis_name,
-        vis_image=vis_image,
-        top_ends=top_ends,
-        bottom_ends=bottom_ends,
-        matches=matches,
-        unmatched_top=unmatched_top,
-        unmatched_bottom=unmatched_bottom,
-    )
-
-
-def _normalize_vis_name(debug_name: str) -> str:
-    name = debug_name.strip() if debug_name else "pattern_continuity"
-    if name.lower().endswith(".png"):
-        return name
-    return f"{name}.png"
-
-
-def get_adaptive_threshold(image: np.ndarray, config: PatternContinuityConfig) -> int:
-    """
-    计算自适应阈值
-
-    Parameters:
-    - image: 输入灰度图
-    - config: 配置对象
-
-    Returns:
-    - threshold: 计算得到的阈值
-
-    Raises:
-        PatternDetectionError: 当阈值计算失败时
-    """
-    try:
-        if config.adaptive_method == 'otsu':
-            # 使用Otsu算法
-            threshold, _ = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            logger.debug(f"Otsu阈值: {threshold}")
-            return int(threshold)
-        elif config.adaptive_method == 'adaptive':
-            # 使用中位数或平均值
-            threshold = int(np.median(image))
-            logger.debug(f"自适应阈值(中位数): {threshold}")
-            return threshold
-        else:
-            raise InputDataError("adaptive_method", "value", "must be 'otsu' or 'adaptive'", config.adaptive_method)
-
-    except Exception as e:
-        raise RuntimeProcessError("get_adaptive_threshold", "自适应阈値计算失败", e)
+    return is_continuous, vis_name, vis_image
 
 
 def _detect_with_method_a(
@@ -282,11 +178,8 @@ def _detect_with_method_a(
             )
 
         # 计算阈值
-        if config.use_adaptive_threshold:
-            threshold = get_adaptive_threshold(image, config)
-        else:
-            threshold = config.threshold
-            logger.debug(f"使用固定阈值: {threshold}")
+        threshold = config.threshold
+        logger.debug(f"使用固定阈值: {threshold}")
 
         # 提取上边缘端点
         top_region = image[0:config.edge_height, :]
@@ -391,11 +284,8 @@ def _detect_with_method_b(
             )
 
         # 计算阈值
-        if config.use_adaptive_threshold:
-            threshold = get_adaptive_threshold(image, config)
-        else:
-            threshold = config.threshold
-            logger.debug(f"使用固定阈值: {threshold}")
+        threshold = config.threshold
+        logger.debug(f"使用固定阈值: {threshold}")
 
         # 二值化
         try:

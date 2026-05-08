@@ -3,12 +3,17 @@
 图案连续性检测算法单元测试（新架构 dev2）
 
 测试目标：src.core.detection.pattern_continuity
-API 注意：detect_pattern_continuity() 使用显式参数，返回 PatternContinuityResult。
+API 注意：detect_pattern_continuity() 使用显式参数，返回显式 tuple。
 PatternContinuityConfig 仅作为算法内部配置数据类，不作为函数入参。
 
 主要变更（相对 dev 分支）：
 - import 路径：algorithms.detection.* → src.core.detection.*
-- 输入输出：dict 进出 → 显式参数和显式返回对象
+- 输入输出：dict 进出 → 显式参数和显式 tuple 返回
+
+最重要的测试验证逻辑：
+- 使用真实连续轮胎小图验证算法主判断：center_inf 与 side_inf 正例都应返回 is_continuous=True。
+- 使用合成图验证基础层 API 边界：只返回 (is_continuous, vis_name, vis_image)，不返回 score 或端点细节。
+- 使用 is_debug=True 验证算法只产出 debug 图像和建议名称，不在算法层保存文件。
 """
 
 import sys
@@ -33,8 +38,7 @@ class TestMatchEndsLogic(unittest.TestCase):
     不依赖 numpy/opencv；逻辑自包含。
     """
 
-    def _can_match(self, top_end, bottom_end, fine_match_distance=4,
-                   coarse_overlap_ratio=0.67):
+    def _can_match(self, top_end, bottom_end, fine_match_distance=4):
         top_min, top_max, top_type = top_end
         bot_min, bot_max, bot_type = bottom_end
         if top_type == 'fine' and bot_type == 'fine':
@@ -45,17 +49,15 @@ class TestMatchEndsLogic(unittest.TestCase):
             return top_min <= bot_min <= top_max
         # coarse-coarse
         overlap = min(top_max, bot_max) - max(top_min, bot_min) + 1
-        shorter = min(top_max - top_min + 1, bot_max - bot_min + 1)
-        return shorter > 0 and (overlap / shorter) >= coarse_overlap_ratio
+        return overlap > 0
 
-    def _match_ends(self, top_ends, bottom_ends,
-                    fine_match_distance=4, coarse_overlap_ratio=0.67):
+    def _match_ends(self, top_ends, bottom_ends, fine_match_distance=4):
         unmatched_bottom = set(range(len(bottom_ends)))
         matches = []
         for ti, bi in product(range(len(top_ends)), range(len(bottom_ends))):
             if bi in unmatched_bottom:
                 if self._can_match(top_ends[ti], bottom_ends[bi],
-                                   fine_match_distance, coarse_overlap_ratio):
+                                   fine_match_distance):
                     unmatched_bottom.remove(bi)
                     matches.append((ti, bi))
         matched_top = {ti for ti, _ in matches}
@@ -126,7 +128,7 @@ class TestPatternContinuityFull(unittest.TestCase):
     """
     使用合成灰度图验证 detect_pattern_continuity 完整流程。
 
-    API：返回 PatternContinuityResult，不再在 core 层计算 score。
+    API：返回 (is_continuous, vis_name, vis_image)，不再在 core 层计算 score。
     """
 
     def _run(self, img, **kwargs):
@@ -151,66 +153,54 @@ class TestPatternContinuityFull(unittest.TestCase):
     # ── 输出结构 ────────────────────────────────────────────────────
 
     def test_output_fields(self):
-        """输出 PatternContinuityResult 包含所有必需字段"""
+        """输出显式 tuple 包含所有必需字段"""
         img = _gray_image()
         result = self._run(img)
-        self.assertIsInstance(result.is_continuous, bool)
-        self.assertIsInstance(result.top_ends, list)
-        self.assertIsInstance(result.bottom_ends, list)
-        self.assertIsInstance(result.matches, list)
-        self.assertIsInstance(result.unmatched_top, list)
-        self.assertIsInstance(result.unmatched_bottom, list)
-        self.assertEqual(result.vis_name, "")
-        self.assertIsNone(result.vis_image)
+        self.assertEqual(len(result), 3)
+        is_continuous, vis_name, vis_image = result
+        self.assertIsInstance(is_continuous, bool)
+        self.assertEqual(vis_name, "")
+        self.assertIsNone(vis_image)
 
     def test_output_has_no_score(self):
         """core 层只输出特征，不输出评分字段"""
         img = _gray_image()
         result = self._run(img)
-        self.assertFalse(hasattr(result, "score"))
+        self.assertEqual(len(result), 3)
 
     def test_is_continuous_is_bool(self):
         """is_continuous 应为 bool"""
         img = _gray_image()
-        result = self._run(img)
-        self.assertIsInstance(result.is_continuous, bool)
+        is_continuous, _, _ = self._run(img)
+        self.assertIsInstance(is_continuous, bool)
 
     def test_debug_returns_visualization_without_saving(self):
         """is_debug=True 时返回建议文件名和可视化图像，不在算法层保存文件"""
         img = _gray_image()
-        result = self._run(img, is_debug=True, debug_name="pattern_continuity")
-        self.assertEqual(result.vis_name, "pattern_continuity.png")
-        self.assertIsNotNone(result.vis_image)
-        self.assertEqual(result.vis_image.shape[:2], img.shape)
-
-    # ── PatternContinuityConfig 本地定义正确性 ─────────────────────
-
-    def test_config_local_definition(self):
-        """PatternContinuityConfig 应可从 src.core.detection.pattern_continuity 导入"""
-        from src.core.detection.pattern_continuity import PatternContinuityConfig
-        cfg = PatternContinuityConfig()
-        self.assertEqual(cfg.edge_height, 4)
-        self.assertFalse(cfg.use_adaptive_threshold)
+        _, vis_name, vis_image = self._run(img, is_debug=True)
+        self.assertEqual(vis_name, "pattern_continuity.png")
+        self.assertIsNotNone(vis_image)
+        self.assertEqual(vis_image.shape[:2], img.shape)
 
     def test_explicit_parameter_override(self):
         """显式参数应可覆盖默认检测参数"""
         img = _gray_image()
-        result = self._run(img, threshold=180, edge_height=8)
-        self.assertIsInstance(result.is_continuous, bool)
+        is_continuous, _, _ = self._run(img, threshold=180, edge_height=8)
+        self.assertIsInstance(is_continuous, bool)
 
     # ── 全白图（无线条）────────────────────────────────────────────
 
     def test_all_white_image_no_crash(self):
         """全白图（无深色线条）：不崩溃，输出结构完整"""
         img = _gray_image(value=255)
-        result = self._run(img)
-        self.assertIsInstance(result.is_continuous, bool)
+        is_continuous, _, _ = self._run(img)
+        self.assertIsInstance(is_continuous, bool)
 
     def test_all_black_image_no_crash(self):
         """全黑图：不崩溃，输出结构完整"""
         img = _gray_image(value=0)
-        result = self._run(img)
-        self.assertIsInstance(result.is_continuous, bool)
+        is_continuous, _, _ = self._run(img)
+        self.assertIsInstance(is_continuous, bool)
 
 
 # ============================================================
@@ -252,36 +242,39 @@ class TestPatternContinuityRealImages(unittest.TestCase):
         for p in self._iter_images("center_inf"):
             with self.subTest(img=p.name):
                 result = self._run(p)
-                self.assertIsInstance(result.is_continuous, bool)
+                is_continuous, _, _ = result
+                self.assertIsInstance(is_continuous, bool)
 
     def test_center_inf_no_score_key(self):
         """center_inf → core 层真实图片输出不包含 score 字段"""
         for p in self._iter_images("center_inf"):
             with self.subTest(img=p.name):
                 result = self._run(p)
-                self.assertFalse(hasattr(result, "score"))
+                self.assertEqual(len(result), 3)
 
     def test_side_inf_no_score_key(self):
         """side_inf → core 层真实图片输出不包含 score 字段"""
         for p in self._iter_images("side_inf"):
             with self.subTest(img=p.name):
                 result = self._run(p)
-                self.assertFalse(hasattr(result, "score"))
+                self.assertEqual(len(result), 3)
 
     def test_center_inf_is_continuous_is_bool(self):
         """center_inf → is_continuous 为 bool"""
         for p in self._iter_images("center_inf"):
             with self.subTest(img=p.name):
                 result = self._run(p)
-                self.assertIsInstance(result.is_continuous, bool)
+                is_continuous, _, _ = result
+                self.assertIsInstance(is_continuous, bool)
 
     def test_center_inf_continuous_images_pass(self):
         """center_inf 真实连续图片应被判定为 is_continuous=True"""
         for p in self._iter_images("center_inf"):
             with self.subTest(img=p.name):
                 result = self._run(p)
+                is_continuous, _, _ = result
                 self.assertTrue(
-                    result.is_continuous,
+                    is_continuous,
                     f"{p.name} 应为连续图案（is_continuous=False）"
                 )
 
@@ -292,15 +285,17 @@ class TestPatternContinuityRealImages(unittest.TestCase):
         for p in self._iter_images("side_inf"):
             with self.subTest(img=p.name):
                 result = self._run(p)
-                self.assertIsInstance(result.is_continuous, bool)
+                is_continuous, _, _ = result
+                self.assertIsInstance(is_continuous, bool)
 
     def test_side_inf_continuous_images_pass(self):
         """side_inf 真实连续图片应被判定为 is_continuous=True"""
         for p in self._iter_images("side_inf"):
             with self.subTest(img=p.name):
                 result = self._run(p)
+                is_continuous, _, _ = result
                 self.assertTrue(
-                    result.is_continuous,
+                    is_continuous,
                     f"{p.name} 应为连续图案（is_continuous=False）"
                 )
 
