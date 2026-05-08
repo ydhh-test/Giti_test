@@ -29,12 +29,19 @@
 ### 3.1 涉及异常处理、错误映射、校验分层
 额外阅读：
 - `docs/exception_handling_design.md`
+- `docs/exceptions_usage.md`
 
 适用场景：
 - 设计或修改异常分类
-- 设计或修改错误码映射
+- 设计或修改错误码映射  
 - 设计或修改 API 边界的异常处理
 - 设计或修改模型层 / 业务层 / API 层的异常职责分工
+- 实现新的数据模型校验逻辑
+- 编写API边界层的类型检查
+
+说明：
+- `docs/exception_handling_design.md` 提供异常处理的架构设计
+- `docs/exceptions_usage.md` 提供异常类的具体使用指南和最佳实践
 
 ---
 
@@ -45,10 +52,30 @@
 适用场景：
 - 某个功能、协议、接口、fake API 的具体落地
 - 某个已形成方案文档的实现任务
+- 异常类相关实现（参考 `docs/plans/common/exceptions_design.md`）
 
 说明：
 - 如果 plan 文档已存在，必须阅读对应 plan 文档
 - 不允许绕过具体方案文档，仅凭全局规范直接实现
+- 异常相关任务必须参考 `docs/plans/common/exceptions_design.md`
+
+---
+  
+### 3.3 涉及日志记录、调试信息、监控
+额外阅读：
+- `docs/logger_usage.md`
+
+适用场景：
+- 在新模块中添加日志记录功能
+- 修改现有日志级别或格式
+- 实现类中的日志功能
+- 配置日志文件输出
+- 调试信息记录和异常上下文记录
+
+说明：
+- `docs/logger_usage.md` 提供日志模块的完整使用指南和最佳实践
+- 日志应与异常处理体系配合使用
+- 遵循分层日志策略（API层、业务层等）
 
 ---
 
@@ -131,6 +158,11 @@
 
 如果任务涉及异常分类、错误映射、边界校验，也应额外阅读：
 - `docs/exception_handling_design.md`
+- `docs/exceptions_usage.md`  
+- `docs/plans/common/exceptions_design.md`
+
+如果任务涉及日志记录、调试或监控，应额外阅读：
+- `docs/logger_usage.md`
 
 ---
 
