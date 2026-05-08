@@ -90,4 +90,14 @@ class RuntimeProcessError(ProjectError):
             cause=original_error,
         )
         self.stage = stage
+        self.high_level_failure = high_level_failure
         self.original_error = original_error
+        # 显式设置 __cause__ 以支持 Python 异常链
+        self.__cause__ = original_error
+
+    def __reduce__(self):
+        """支持 pickle 序列化"""
+        return (
+            self.__class__,
+            (self.stage, self.high_level_failure, self.original_error),
+        )
