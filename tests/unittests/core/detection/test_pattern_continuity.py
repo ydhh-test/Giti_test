@@ -14,12 +14,23 @@ PatternContinuityConfig 仅作为算法内部配置数据类，不作为函数�
 - 使用真实连续轮胎小图验证算法主判断：center_inf 与 side_inf 正例都应返回 is_continuous=True。
 - 使用合成图验证基础层 API 边界：只返回 (is_continuous, vis_name, vis_image)，不返回 score 或端点细节。
 - 使用 is_debug=True 验证算法只产出 debug 图像和建议名称，不在算法层保存文件。
+
+人工设计的覆盖性测试逻辑：
+- 针对公开 API：覆盖正常连续、不连续、输入维度错误、边缘检测失败、匹配失败、debug 可视化失败。
+    这些分支对应调用方最关心的成功/失败边界，能验证算法层不会吞掉下层异常。
+- 针对边缘提取：覆盖像素扫描方法 A、OpenCV 轮廓方法 B、细线/粗线、噪声过滤和高度不足。
+    这些分支决定端点是否被正确识别，是连续性判断的前置基础。
+- 针对匹配逻辑：覆盖细线-细线、细线-粗线、粗线-细线、粗线-粗线和未知类型。
+    这些组合直接决定 is_continuous 的真假，属于 Rule 6_1 最核心的人工白盒用例。
+- 针对debug图：覆盖未匹配端点高亮、细线圆点、粗线矩形、匹配连线和颜色生成。
+    debug 图虽不参与评分，但用于人工排查误判，必须保证关键绘制路径可运行。
 """
 
 import sys
 import pathlib
 import unittest
 from itertools import product
+from unittest import mock
 
 _ROOT = pathlib.Path(__file__).parents[4]
 if str(_ROOT) not in sys.path:
@@ -188,6 +199,52 @@ class TestPatternContinuityFull(unittest.TestCase):
         is_continuous, _, _ = self._run(img, threshold=180, edge_height=8)
         self.assertIsInstance(is_continuous, bool)
 
+    def test_unmatched_bottom_returns_false(self):
+        """仅底边缘出现线条时应判定为不连续"""
+        img = _gray_image(h=32, w=32, value=255)
+        img[-4:, 12] = 0
+        is_continuous, vis_name, vis_image = self._run(img)
+        self.assertFalse(is_continuous)
+        self.assertEqual(vis_name, "")
+        self.assertIsNone(vis_image)
+
+    def test_too_short_image_raises_input_error(self):
+        """高度不足时应由底层检测抛出 InputDataError"""
+        from src.common.exceptions import InputDataError
+        img = _gray_image(h=4, w=32, value=255)
+        with self.assertRaises(InputDataError):
+            self._run(img)
+
+    def test_edge_detection_unexpected_error_is_wrapped(self):
+        """边缘检测的未知异常应包装为 RuntimeProcessError"""
+        import src.core.detection.pattern_continuity as pc
+        from src.common.exceptions import RuntimeProcessError
+
+        img = _gray_image()
+        with mock.patch.object(pc, "_detect_with_method_b", side_effect=ValueError("boom")):
+            with self.assertRaises(RuntimeProcessError):
+                self._run(img)
+
+    def test_match_error_is_wrapped(self):
+        """端点匹配异常应包装为 RuntimeProcessError"""
+        import src.core.detection.pattern_continuity as pc
+        from src.common.exceptions import RuntimeProcessError
+
+        img = _gray_image()
+        with mock.patch.object(pc, "_match_ends", side_effect=ValueError("boom")):
+            with self.assertRaises(RuntimeProcessError):
+                self._run(img)
+
+    def test_debug_visualization_error_is_wrapped(self):
+        """debug 可视化异常应包装为 RuntimeProcessError"""
+        import src.core.detection.pattern_continuity as pc
+        from src.common.exceptions import RuntimeProcessError
+
+        img = _gray_image()
+        with mock.patch.object(pc, "_visualize_detection", side_effect=ValueError("boom")):
+            with self.assertRaises(RuntimeProcessError):
+                self._run(img, is_debug=True)
+
     # ── 全白图（无线条）────────────────────────────────────────────
 
     def test_all_white_image_no_crash(self):
@@ -201,6 +258,168 @@ class TestPatternContinuityFull(unittest.TestCase):
         img = _gray_image(value=0)
         is_continuous, _, _ = self._run(img)
         self.assertIsInstance(is_continuous, bool)
+
+
+@unittest.skipUnless(_HAS_CV2, "需要 numpy 和 opencv-python")
+class TestPatternContinuityInternalBranches(unittest.TestCase):
+    """人工设计的白盒分支测试，覆盖核心 if/else。"""
+
+    def test_method_a_extracts_fine_and_coarse_ends(self):
+        """方法 A 应同时识别细线点和粗线区间"""
+        from src.core.detection.pattern_continuity import (
+            PatternContinuityConfig,
+            _detect_with_method_a,
+        )
+
+        img = _gray_image(h=12, w=12, value=255)
+        img[0, 1] = 0
+        img[0, 4:7] = 0
+        img[-1, 2] = 0
+        img[-1, 8:11] = 0
+        cfg = PatternContinuityConfig(edge_height=2, coarse_threshold=3)
+
+        top_ends, bottom_ends = _detect_with_method_a(img, cfg)
+
+        self.assertEqual(top_ends, [(1, 1, 'fine'), (4, 6, 'coarse')])
+        self.assertEqual(bottom_ends, [(2, 2, 'fine'), (8, 10, 'coarse')])
+
+    def test_method_a_too_short_image_raises_input_error(self):
+        """方法 A 高度不足时应走 InputDataError 分支"""
+        from src.common.exceptions import InputDataError
+        from src.core.detection.pattern_continuity import (
+            PatternContinuityConfig,
+            _detect_with_method_a,
+        )
+
+        img = _gray_image(h=3, w=12, value=255)
+        with self.assertRaises(InputDataError):
+            _detect_with_method_a(img, PatternContinuityConfig(edge_height=2))
+
+    def test_method_a_unexpected_error_is_wrapped(self):
+        """方法 A 内部未知异常应包装为 RuntimeProcessError"""
+        import src.core.detection.pattern_continuity as pc
+        from src.common.exceptions import RuntimeProcessError
+
+        img = _gray_image(h=12, w=12, value=255)
+        with mock.patch.object(pc, "_extract_ends_from_region", side_effect=ValueError("boom")):
+            with self.assertRaises(RuntimeProcessError):
+                pc._detect_with_method_a(img, pc.PatternContinuityConfig())
+
+    def test_extract_region_filters_short_noise(self):
+        """短于 min_line_width 的像素段应被当成噪声过滤"""
+        from src.core.detection.pattern_continuity import (
+            PatternContinuityConfig,
+            _extract_ends_from_region,
+        )
+
+        region = np.full((2, 8), 255, dtype=np.uint8)
+        region[-1, 3] = 0
+        cfg = PatternContinuityConfig(min_line_width=2)
+
+        self.assertEqual(_extract_ends_from_region(region, 200, cfg, is_top=False), [])
+
+    def test_method_b_threshold_error_is_wrapped(self):
+        """OpenCV 二值化异常应包装为 RuntimeProcessError"""
+        import src.core.detection.pattern_continuity as pc
+        from src.common.exceptions import RuntimeProcessError
+
+        img = _gray_image(h=12, w=12, value=255)
+        with mock.patch.object(pc.cv2, "threshold", side_effect=ValueError("boom")):
+            with self.assertRaises(RuntimeProcessError):
+                pc._detect_with_method_b(img, pc.PatternContinuityConfig())
+
+    def test_method_b_unexpected_error_is_wrapped(self):
+        """方法 B 轮廓提取未知异常应包装为 RuntimeProcessError"""
+        import src.core.detection.pattern_continuity as pc
+        from src.common.exceptions import RuntimeProcessError
+
+        img = _gray_image(h=12, w=12, value=255)
+        with mock.patch.object(pc, "_extract_ends_from_contours", side_effect=ValueError("boom")):
+            with self.assertRaises(RuntimeProcessError):
+                pc._detect_with_method_b(img, pc.PatternContinuityConfig())
+
+    def test_extract_contours_fine_coarse_and_noise(self):
+        """轮廓提取应覆盖细线、粗线和噪声过滤分支"""
+        from src.core.detection.pattern_continuity import (
+            PatternContinuityConfig,
+            _extract_ends_from_contours,
+        )
+
+        fine_region = np.zeros((4, 12), dtype=np.uint8)
+        fine_region[:, 2] = 255
+        coarse_region = np.zeros((4, 12), dtype=np.uint8)
+        coarse_region[:, 5:10] = 255
+        noise_region = np.zeros((4, 12), dtype=np.uint8)
+        noise_region[:, 1] = 255
+
+        self.assertEqual(
+            _extract_ends_from_contours(fine_region, PatternContinuityConfig()),
+            [(2, 2, 'fine')]
+        )
+        self.assertEqual(
+            _extract_ends_from_contours(coarse_region, PatternContinuityConfig()),
+            [(5, 9, 'coarse')]
+        )
+        self.assertEqual(
+            _extract_ends_from_contours(noise_region, PatternContinuityConfig(min_line_width=2)),
+            []
+        )
+
+    def test_actual_can_match_all_type_pairs(self):
+        """实际匹配函数应覆盖所有线型组合和未知类型兜底"""
+        from src.core.detection.pattern_continuity import PatternContinuityConfig, _can_match
+
+        cfg = PatternContinuityConfig(fine_match_distance=4)
+        self.assertTrue(_can_match((10, 10, 'fine'), (14, 14, 'fine'), cfg))
+        self.assertFalse(_can_match((10, 10, 'fine'), (15, 15, 'fine'), cfg))
+        self.assertTrue(_can_match((10, 10, 'fine'), (8, 12, 'coarse'), cfg))
+        self.assertTrue(_can_match((8, 12, 'coarse'), (10, 10, 'fine'), cfg))
+        self.assertTrue(_can_match((8, 12, 'coarse'), (11, 14, 'coarse'), cfg))
+        self.assertFalse(_can_match((8, 10, 'coarse'), (11, 14, 'coarse'), cfg))
+        self.assertFalse(_can_match((8, 10, 'unknown'), (8, 10, 'fine'), cfg))
+
+    def test_actual_match_skips_already_matched_bottom(self):
+        """多个 top 竞争同一 bottom 时，应只匹配一次并留下未匹配 top"""
+        from src.core.detection.pattern_continuity import PatternContinuityConfig, _match_ends
+
+        matches, unmatched_top, unmatched_bottom = _match_ends(
+            [(10, 10, 'fine'), (11, 11, 'fine')],
+            [(10, 10, 'fine')],
+            PatternContinuityConfig(),
+        )
+
+        self.assertEqual(matches, [(0, 0)])
+        self.assertEqual(unmatched_top, [1])
+        self.assertEqual(unmatched_bottom, [])
+
+    def test_visualize_detection_draws_all_key_branches(self):
+        """debug 图应覆盖细线/粗线、未匹配高亮和匹配连线绘制"""
+        from src.core.detection.pattern_continuity import (
+            PatternContinuityConfig,
+            _visualize_detection,
+        )
+
+        img = _gray_image(h=24, w=24, value=255)
+        vis = _visualize_detection(
+            image=img,
+            top_ends=[(2, 2, 'fine'), (6, 10, 'coarse')],
+            bottom_ends=[(3, 3, 'fine'), (7, 11, 'coarse')],
+            matches=[(0, 0), (1, 1)],
+            unmatched_top=[0],
+            unmatched_bottom=[0],
+            config=PatternContinuityConfig(edge_height=4),
+        )
+
+        self.assertEqual(vis.shape, (24, 24, 3))
+        self.assertGreater(int(vis.sum()), int(img.sum()))
+
+    def test_generate_colors_count(self):
+        """颜色生成应返回指定数量的 RGB 颜色"""
+        from src.core.detection.pattern_continuity import _generate_colors
+
+        colors = _generate_colors(3)
+        self.assertEqual(len(colors), 3)
+        self.assertTrue(all(len(color) == 3 for color in colors))
 
 
 # ============================================================
