@@ -32,7 +32,7 @@ import sys
 import os
 import unittest
 
-from core.split.validation import _validate_vertical_parts_to_keep
+from src.core.split.validation import _validate_vertical_parts_to_keep
 
 
 # ===================== 4主沟情况（num_segments_to_remove=4） =====================

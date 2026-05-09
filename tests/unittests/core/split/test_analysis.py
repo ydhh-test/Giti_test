@@ -34,7 +34,7 @@ import unittest
 import numpy as np
 import cv2
 
-from core.split.analysis import (
+from src.core.split.analysis import (
     analyze_dominant_color,
     remove_vertical_lines_center,
     analyze_single_image_abnormalities,
