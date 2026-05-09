@@ -441,6 +441,9 @@ _EXPECTED_REAL_IMAGE_CONTINUITY = {
         "0.png": True,
     },
 }
+_WISE_IMAGE_DEV1 = _DATASET_PC / "wise_image_dev1"
+_WISE_IMAGE_DEV2 = _DATASET_PC / "wise_image_dev2"
+_HAS_WISE_DEV1 = bool(list(_WISE_IMAGE_DEV1.glob("*.png"))) if _WISE_IMAGE_DEV1.exists() else False
 
 
 @unittest.skipUnless(_HAS_CV2 and _HAS_DATASET_PC,
@@ -558,6 +561,113 @@ class TestPatternContinuityRealImages(unittest.TestCase):
                     is_continuous,
                     expected[p.name],
                     f"{p.name} 连续性结果与原图预期不一致"
+                )
+
+
+# ============================================================
+# 染色图等价性测试（dev2 vs dev1 老架构）
+# ============================================================
+
+@unittest.skipUnless(_HAS_CV2 and _HAS_DATASET_PC,
+                     "需要 opencv 和 tests/datasets/test_pattern_continuity 数据集")
+class TestPatternContinuityVisualizationEquivalence(unittest.TestCase):
+    """
+    验证 dev2 新架构的 debug 染色图与 dev1 老架构（feature/dev）完全一致。
+
+    工作流：
+    1. test_generate_and_save_dev2_visualizations —— 始终运行，生成 dev2 染色图并写入
+       wise_image_dev2/，供人工比对。
+    2. test_dev2_visualizations_equal_dev1 —— 仅当 wise_image_dev1/ 中存在老架构染色图时
+       才运行，对每张图做 np.array 像素级精确比对，以证明算法等价。
+
+    wise_image_dev1/ 中的图片由开发者在 feature/dev 分支上运行老架构后手动存入，
+    命名规则为 {subdir}_{stem}.png（如 center_inf_0.png、side_inf_0.png）。
+    """
+
+    # ── 工具方法 ────────────────────────────────────────────────────
+
+    def _load_gray(self, path: pathlib.Path) -> np.ndarray:
+        buf = np.fromfile(str(path), dtype=np.uint8)
+        img = cv2.imdecode(buf, cv2.IMREAD_GRAYSCALE)
+        self.assertIsNotNone(img, f"无法读取灰度图: {path}")
+        return img
+
+    def _load_color(self, path: pathlib.Path) -> np.ndarray:
+        buf = np.fromfile(str(path), dtype=np.uint8)
+        img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+        self.assertIsNotNone(img, f"无法读取染色图: {path}")
+        return img
+
+    def _save_image(self, path: pathlib.Path, img: np.ndarray) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        success, buf = cv2.imencode(".png", img)
+        self.assertTrue(success, f"图片编码失败: {path}")
+        path.write_bytes(buf.tobytes())
+
+    @staticmethod
+    def _wise_name(subdir: str, stem: str) -> str:
+        """统一命名规则：{subdir}_{stem}.png，如 center_inf_0.png"""
+        return f"{subdir}_{stem}.png"
+
+    def _iter_real_images(self):
+        """遍历所有真实输入图片，yield (subdir, path)"""
+        for subdir in _EXPECTED_REAL_IMAGE_CONTINUITY:
+            for p in sorted((_DATASET_PC / subdir).glob("*.png")):
+                yield subdir, p
+
+    def _run_debug(self, gray_path: pathlib.Path) -> np.ndarray:
+        """读取灰度图并运行 detect_pattern_continuity(is_debug=True)，返回染色图"""
+        from src.core.detection.pattern_continuity import detect_pattern_continuity
+        img = self._load_gray(gray_path)
+        _, _, vis_image = detect_pattern_continuity(img, is_debug=True)
+        return vis_image
+
+    # ── 测试：生成并保存 dev2 染色图 ───────────────────────────────
+
+    def test_generate_and_save_dev2_visualizations(self):
+        """
+        对所有真实图片运行新架构（dev2），将染色图保存到 wise_image_dev2/ 供人工比对。
+        命名规则：{subdir}_{stem}.png（如 center_inf_0.png）。
+        """
+        for subdir, p in self._iter_real_images():
+            with self.subTest(img=f"{subdir}/{p.name}"):
+                vis_image = self._run_debug(p)
+                self.assertIsNotNone(vis_image, f"{subdir}/{p.name} 未生成染色图")
+                save_path = _WISE_IMAGE_DEV2 / self._wise_name(subdir, p.stem)
+                self._save_image(save_path, vis_image)
+
+    # ── 测试：像素级等价性比对 ──────────────────────────────────────
+
+    @unittest.skipUnless(_HAS_WISE_DEV1,
+                         "wise_image_dev1/ 为空，跳过等价性比对"
+                         "（请先在 feature/dev 分支用老架构生成染色图并存入该目录）")
+    def test_dev2_visualizations_equal_dev1(self):
+        """
+        dev2 新架构生成的染色图与 wise_image_dev1/ 中的 dev1 老架构染色图完全像素等价。
+
+        任意一张图存在差异即视为算法不等价，测试失败。
+        若 wise_image_dev1/ 中缺少某张图，该子用例跳过（不算失败）。
+        """
+        for subdir, p in self._iter_real_images():
+            with self.subTest(img=f"{subdir}/{p.name}"):
+                wise_name = self._wise_name(subdir, p.stem)
+                dev1_path = _WISE_IMAGE_DEV1 / wise_name
+
+                if not dev1_path.exists():
+                    self.skipTest(
+                        f"wise_image_dev1/{wise_name} 不存在，跳过该图比对"
+                    )
+
+                vis_image = self._run_debug(p)
+                self.assertIsNotNone(vis_image, f"{subdir}/{p.name} 未生成染色图")
+
+                dev1_img = self._load_color(dev1_path)
+
+                self.assertTrue(
+                    np.array_equal(vis_image, dev1_img),
+                    f"{subdir}/{p.name} 染色图与 dev1 老架构不完全一致\n"
+                    f"  dev2 shape={vis_image.shape}, dev1 shape={dev1_img.shape}\n"
+                    f"  最大像素差={int(np.abs(vis_image.astype(int) - dev1_img.astype(int)).max())}"
                 )
 
 
