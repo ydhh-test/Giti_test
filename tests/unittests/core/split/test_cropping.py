@@ -41,8 +41,6 @@ import unittest
 import numpy as np
 import cv2
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'src'))
-
 from core.split.cropping import (
     remove_black_and_split_segments,
     remove_side_white,

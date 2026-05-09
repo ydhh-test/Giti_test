@@ -32,8 +32,6 @@ import sys
 import os
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'src'))
-
 from core.split.validation import _validate_vertical_parts_to_keep
 
 

@@ -34,8 +34,6 @@ import unittest
 import numpy as np
 import cv2
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'src'))
-
 from core.split.analysis import (
     analyze_dominant_color,
     remove_vertical_lines_center,
