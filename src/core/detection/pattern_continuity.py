@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 PatternEnd = Tuple[int, int, str]
 
-_VIS_NAME = "pattern_continuity"
+_VIS_NAME = "pattern_continuity.png"
 
 
 # ============================================================
