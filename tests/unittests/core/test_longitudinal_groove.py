@@ -1,5 +1,15 @@
-import numpy as np
+"""
+纵向细沟 core 算法测试说明。
 
+这些测试只验证算法层是否能从 128×128 小图中提取纵向细沟特征，不验证规则层打分。
+测试图像使用白底黑色竖条合成，便于明确期望的细沟数量、中心位置和边缘过滤行为。
+同时覆盖调试模式输出和输入异常，确保算法边界清晰、调用失败时使用项目异常类直接暴露问题。
+"""
+
+import numpy as np
+import pytest
+
+from src.common.exceptions import InputDataError, InputTypeError
 from src.core.longitudinal_groove import detect_longitudinal_grooves
 
 
@@ -17,81 +27,83 @@ def make_small_image_with_grooves(center_columns: list[int], line_width: int = 4
 
 
 class TestDetectLongitudinalGrooves:
-    """Rule 11 longitudinal groove core algorithm tests."""
+    """纵向细沟 core 算法测试。"""
 
-    def test_center_image_with_two_grooves_scores_full(self):
-        """Center small images allow up to two longitudinal grooves."""
+    def test_center_image_with_two_grooves_detects_two_lines(self):
+        """center 小图中的两条纵向细沟应被完整检测出来。"""
         image = make_small_image_with_grooves([40, 86])
 
-        score, details = detect_longitudinal_grooves(image, "center")
+        result = detect_longitudinal_grooves(image, "center")
 
-        assert score == 4.0
-        assert details["score"] == 4.0
-        assert details["is_valid"] is True
-        assert details["rib_type"] == "RIB2/3/4"
-        assert details["groove_count"] == 2
-        assert len(details["groove_positions"]) == 2
-        assert np.allclose(details["groove_positions"], [39.5, 85.5], atol=2.0)
-        assert details["line_mask"].shape == (IMAGE_SIZE, IMAGE_SIZE)
-        assert details["debug_image"].shape == image.shape
+        assert result.image_type == "center"
+        assert result.groove_count == 2
+        assert len(result.groove_positions_px) == 2
+        assert np.allclose(result.groove_positions_px, [39.5, 85.5], atol=2.0)
+        assert result.line_mask is None
+        assert result.debug_image is None
 
-    def test_side_image_with_one_groove_scores_full(self):
-        """Side small images allow one longitudinal groove."""
-        image = make_small_image_with_grooves([64])
-
-        score, details = detect_longitudinal_grooves(image, "side")
-
-        assert score == 4.0
-        assert details["is_valid"] is True
-        assert details["rib_type"] == "RIB1/5"
-        assert details["groove_count"] == 1
-
-    def test_side_image_with_two_grooves_scores_zero(self):
-        """Side small images fail when longitudinal groove count exceeds one."""
+    def test_side_image_with_two_grooves_only_reports_features(self):
+        """side 小图中出现两条纵向细沟时，算法只报告特征，不在 core 层扣分。"""
         image = make_small_image_with_grooves([40, 86])
 
-        score, details = detect_longitudinal_grooves(image, "side")
+        result = detect_longitudinal_grooves(image, "side")
 
-        assert score == 0.0
-        assert details["score"] == 0.0
-        assert details["is_valid"] is False
-        assert details["groove_count"] == 2
+        assert result.image_type == "side"
+        assert result.groove_count == 2
+        assert len(result.groove_widths_px) == 2
 
     def test_edge_residual_is_ignored(self):
-        """Groove-like dark lines in the left edge margin are ignored."""
+        """靠左边缘的主沟残留应被边缘忽略参数过滤。"""
         image = make_small_image_with_grooves([5])
 
-        score, details = detect_longitudinal_grooves(image, "side")
+        result = detect_longitudinal_grooves(image, "side")
 
-        assert score == 4.0
-        assert details["is_valid"] is True
-        assert details["groove_count"] == 0
-        assert details["groove_positions"] == []
+        assert result.groove_count == 0
+        assert result.groove_positions_px == []
+        assert result.groove_widths_px == []
 
-    def test_invalid_image_type_returns_input_data_error(self):
-        """Invalid image_type preserves the legacy non-raising return contract."""
+    def test_debug_mode_returns_mask_and_debug_image(self):
+        """is_debug=True 时应返回纵向细沟掩码和调试标注图。"""
         image = make_small_image_with_grooves([64])
 
-        score, details = detect_longitudinal_grooves(image, "middle")
+        result = detect_longitudinal_grooves(image, "center", is_debug=True)
 
-        assert score is None
-        assert details["error_type"] == "InputDataError"
-        assert "image_type" in details["err_msg"]
+        assert result.groove_count == 1
+        assert result.line_mask is not None
+        assert result.line_mask.shape == (IMAGE_SIZE, IMAGE_SIZE)
+        assert result.debug_image is not None
+        assert result.debug_image.shape == image.shape
 
-    def test_non_bgr_image_returns_input_data_error(self):
-        """Non-BGR image arrays return InputDataError details."""
+    def test_invalid_image_type_raises_input_data_error(self):
+        """非法 image_type 应直接抛出 InputDataError。"""
+        image = make_small_image_with_grooves([64])
+
+        with pytest.raises(InputDataError) as exc_info:
+            detect_longitudinal_grooves(image, "middle")
+
+        assert "image_type" in str(exc_info.value)
+
+    def test_non_bgr_image_raises_input_data_error(self):
+        """非 BGR 图像数组应直接抛出 InputDataError。"""
         image = np.full((IMAGE_SIZE, IMAGE_SIZE), 255, dtype=np.uint8)
 
-        score, details = detect_longitudinal_grooves(image, "center")
+        with pytest.raises(InputDataError) as exc_info:
+            detect_longitudinal_grooves(image, "center")
 
-        assert score is None
-        assert details["error_type"] == "InputDataError"
-        assert "shape (H, W, 3)" in details["err_msg"]
+        assert "shape (H, W, 3)" in str(exc_info.value)
 
-    def test_non_array_image_returns_input_type_error(self):
-        """Non-array image values return InputTypeError details."""
-        score, details = detect_longitudinal_grooves(None, "center")
+    def test_non_array_image_raises_input_type_error(self):
+        """非 ndarray 图像输入应直接抛出 InputTypeError。"""
+        with pytest.raises(InputTypeError) as exc_info:
+            detect_longitudinal_grooves(None, "center")
 
-        assert score is None
-        assert details["error_type"] == "InputTypeError"
-        assert "image" in details["err_msg"]
+        assert "image" in str(exc_info.value)
+
+    def test_invalid_pixel_parameter_raises_input_data_error(self):
+        """像素阈值参数不合理时应直接抛出 InputDataError。"""
+        image = make_small_image_with_grooves([64])
+
+        with pytest.raises(InputDataError) as exc_info:
+            detect_longitudinal_grooves(image, "center", min_width_px=0)
+
+        assert "min_width_px" in str(exc_info.value)
