@@ -22,7 +22,7 @@ from src.common.exceptions import InputDataError, RuntimeProcessError
 
 logger = logging.getLogger(__name__)
 
-_VIS_NAME = "land_sea_ratio.png"
+_VIS_NAME = "land_sea_ratio"
 
 # 像素亮度阈值（与老架构保持一致）
 _BLACK_LOWER = 0

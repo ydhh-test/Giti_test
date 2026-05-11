@@ -33,12 +33,9 @@ API 注意：compute_land_sea_ratio() 使用显式参数，返回显式 tuple，
 """
 
 import pathlib
-import sys
 import unittest
 
-_ROOT = pathlib.Path(__file__).parents[4]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+_DATASET_BASE = pathlib.Path(__file__).parent.parent.parent.parent / "datasets" / "test_land_sea_ratio"
 
 try:
     import cv2
@@ -46,8 +43,6 @@ try:
     _HAS_CV2 = True
 except ImportError:
     _HAS_CV2 = False
-
-_DATASET_BASE = _ROOT / "tests" / "datasets" / "test_land_sea_ratio"
 _COMBINE_HORIZONTAL = _DATASET_BASE / "combine_horizontal"
 _WISE_IMAGE_DEV1 = _DATASET_BASE / "wise_image_dev1"
 _WISE_IMAGE_DEV2 = _DATASET_BASE / "wise_image_dev2"
@@ -122,24 +117,30 @@ class TestComputeLandSeaRatioApi(unittest.TestCase):
     def test_return_types_no_debug(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
         score, ratio_percent, vis_name, vis_image = self._run(image)
+        expected_vis_name = ""
         self.assertIsInstance(score, int)
         self.assertIsInstance(ratio_percent, float)
-        self.assertEqual(vis_name, "")
+        self.assertEqual(vis_name, expected_vis_name)
         self.assertIsNone(vis_image)
 
     def test_return_types_with_debug(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
         score, ratio_percent, vis_name, vis_image = self._run(image, is_debug=True)
-        self.assertEqual(vis_name, "land_sea_ratio.png")
+        expected_vis_name = "land_sea_ratio"
+        expected_shape = image.shape
+        self.assertEqual(vis_name, expected_vis_name)
         self.assertIsInstance(vis_image, np.ndarray)
-        self.assertEqual(vis_image.shape, image.shape)
+        self.assertEqual(vis_image.shape, expected_shape)
 
     def test_score_range(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
         score, ratio_percent, _, _ = self._run(image)
-        self.assertIn(score, [0, 1, 2])
-        self.assertGreaterEqual(ratio_percent, 0.0)
-        self.assertLessEqual(ratio_percent, 100.0)
+        expected_scores = [0, 1, 2]
+        expected_ratio_min = 0.0
+        expected_ratio_max = 100.0
+        self.assertIn(score, expected_scores)
+        self.assertGreaterEqual(ratio_percent, expected_ratio_min)
+        self.assertLessEqual(ratio_percent, expected_ratio_max)
 
 
 @unittest.skipUnless(_HAS_CV2, "需要 numpy 和 opencv-python")
@@ -154,56 +155,67 @@ class TestScoring(unittest.TestCase):
         """黑色占30%，在目标区间[28, 35]内，应得 2 分。"""
         image = _make_ratio_image(100, 100, 0.30, 0.0)
         score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        self.assertEqual(score, 2)
-        self.assertGreaterEqual(ratio_percent, 28.0)
-        self.assertLessEqual(ratio_percent, 35.0)
+        expected = {"score": 2, "ratio_min": 28.0, "ratio_max": 35.0}
+        self.assertEqual(score, expected["score"])
+        self.assertGreaterEqual(ratio_percent, expected["ratio_min"])
+        self.assertLessEqual(ratio_percent, expected["ratio_max"])
 
     def test_score_1_below_target_in_margin(self):
         """黑色占25%，在下容差区间[23, 28)内，应得 1 分。"""
         image = _make_ratio_image(100, 100, 0.25, 0.0)
         score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        self.assertEqual(score, 1)
-        self.assertGreaterEqual(ratio_percent, 23.0)
-        self.assertLess(ratio_percent, 28.0)
+        expected = {"score": 1, "ratio_min": 23.0, "ratio_max": 28.0}
+        self.assertEqual(score, expected["score"])
+        self.assertGreaterEqual(ratio_percent, expected["ratio_min"])
+        self.assertLess(ratio_percent, expected["ratio_max"])
 
     def test_score_1_above_target_in_margin(self):
         """黑色+灰色占38%，在上容差区间(35, 40]内，应得 1 分。"""
         image = _make_ratio_image(100, 100, 0.38, 0.0)
         score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        self.assertEqual(score, 1)
-        self.assertGreater(ratio_percent, 35.0)
-        self.assertLessEqual(ratio_percent, 40.0)
+        expected = {"score": 1, "ratio_min": 35.0, "ratio_max": 40.0}
+        self.assertEqual(score, expected["score"])
+        self.assertGreater(ratio_percent, expected["ratio_min"])
+        self.assertLessEqual(ratio_percent, expected["ratio_max"])
 
     def test_score_0_far_below_range(self):
         """黑色占10%，远低于最低容差线23%，应得 0 分。"""
         image = _make_ratio_image(100, 100, 0.10, 0.0)
         score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        self.assertEqual(score, 0)
-        self.assertLess(ratio_percent, 23.0)
+        expected_score = 0
+        expected_ratio_max = 23.0
+        self.assertEqual(score, expected_score)
+        self.assertLess(ratio_percent, expected_ratio_max)
 
     def test_score_0_far_above_range(self):
         """黑色+灰色占50%，远高于最高容差线40%，应得 0 分。"""
         image = _make_ratio_image(100, 100, 0.50, 0.0)
         score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        self.assertEqual(score, 0)
-        self.assertGreater(ratio_percent, 40.0)
+        expected_score = 0
+        expected_ratio_min = 40.0
+        self.assertEqual(score, expected_score)
+        self.assertGreater(ratio_percent, expected_ratio_min)
 
     def test_pure_white_image_score_0(self):
         """纯白图：海陆比为 0%，评分为 0。验证零边界不崩溃。"""
         image = np.full((100, 100, 3), 255, dtype=np.uint8)
         score, ratio_percent, _, _ = self._run(image)
-        self.assertEqual(score, 0)
-        self.assertAlmostEqual(ratio_percent, 0.0, places=2)
+        expected_score = 0
+        expected_ratio = 0.0
+        self.assertEqual(score, expected_score)
+        self.assertAlmostEqual(ratio_percent, expected_ratio, places=2)
 
     def test_target_exactly_at_min_boundary(self):
         """ratio 精确等于 target_min 时，应得 2 分（区间含端点）。"""
         image = _make_ratio_image(100, 100, 0.28, 0.0)
         score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
+        expected_score_in_range = 2
+        expected_scores_fallback = [0, 1, 2]
         # 由于像素离散化，ratio 可能不精确等于 28.0，但应在 [28, 35] 范围内
         if 28.0 <= ratio_percent <= 35.0:
-            self.assertEqual(score, 2)
+            self.assertEqual(score, expected_score_in_range)
         else:
-            self.assertIn(score, [0, 1, 2])
+            self.assertIn(score, expected_scores_fallback)
 
 
 @unittest.skipUnless(_HAS_CV2, "需要 numpy 和 opencv-python")
@@ -214,49 +226,57 @@ class TestBlackGrayArea(unittest.TestCase):
         from src.core.scoring.land_sea_ratio import _compute_black_area
         gray = np.full((100, 100), 30, dtype=np.uint8)
         area = _compute_black_area(gray)
-        self.assertEqual(area, 10000)
+        expected_area = 10000
+        self.assertEqual(area, expected_area)
 
     def test_black_area_no_black(self):
         from src.core.scoring.land_sea_ratio import _compute_black_area
         gray = np.full((100, 100), 200, dtype=np.uint8)
         area = _compute_black_area(gray)
-        self.assertEqual(area, 0)
+        expected_area = 0
+        self.assertEqual(area, expected_area)
 
     def test_black_area_boundary_50(self):
         from src.core.scoring.land_sea_ratio import _compute_black_area
         gray = np.full((100, 100), 50, dtype=np.uint8)
         area = _compute_black_area(gray)
-        self.assertEqual(area, 10000)
+        expected_area = 10000
+        self.assertEqual(area, expected_area)
 
     def test_black_area_boundary_51(self):
         from src.core.scoring.land_sea_ratio import _compute_black_area
         gray = np.full((100, 100), 51, dtype=np.uint8)
         area = _compute_black_area(gray)
-        self.assertEqual(area, 0)
+        expected_area = 0
+        self.assertEqual(area, expected_area)
 
     def test_gray_area_all_gray(self):
         from src.core.scoring.land_sea_ratio import _compute_gray_area
         gray = np.full((100, 100), 100, dtype=np.uint8)
         area = _compute_gray_area(gray)
-        self.assertEqual(area, 10000)
+        expected_area = 10000
+        self.assertEqual(area, expected_area)
 
     def test_gray_area_no_gray(self):
         from src.core.scoring.land_sea_ratio import _compute_gray_area
         gray = np.full((100, 100), 30, dtype=np.uint8)
         area = _compute_gray_area(gray)
-        self.assertEqual(area, 0)
+        expected_area = 0
+        self.assertEqual(area, expected_area)
 
     def test_gray_area_boundary_200(self):
         from src.core.scoring.land_sea_ratio import _compute_gray_area
         gray = np.full((100, 100), 200, dtype=np.uint8)
         area = _compute_gray_area(gray)
-        self.assertEqual(area, 10000)
+        expected_area = 10000
+        self.assertEqual(area, expected_area)
 
     def test_gray_area_boundary_201(self):
         from src.core.scoring.land_sea_ratio import _compute_gray_area
         gray = np.full((100, 100), 201, dtype=np.uint8)
         area = _compute_gray_area(gray)
-        self.assertEqual(area, 0)
+        expected_area = 0
+        self.assertEqual(area, expected_area)
 
 
 @unittest.skipUnless(_HAS_CV2, "需要 numpy 和 opencv-python")
@@ -295,23 +315,27 @@ class TestDebugVisualization(unittest.TestCase):
     def test_no_debug_returns_none_and_empty_string(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
         _, _, vis_name, vis_image = self._run(image, is_debug=False)
-        self.assertEqual(vis_name, "")
+        expected_vis_name = ""
+        self.assertEqual(vis_name, expected_vis_name)
         self.assertIsNone(vis_image)
 
     def test_debug_returns_correct_name(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
         _, _, vis_name, _ = self._run(image, is_debug=True)
-        self.assertEqual(vis_name, "land_sea_ratio.png")
+        expected_vis_name = "land_sea_ratio"
+        self.assertEqual(vis_name, expected_vis_name)
 
     def test_debug_image_same_shape_as_input(self):
         image = _make_ratio_image(200, 300, 0.3, 0.1)
         _, _, _, vis_image = self._run(image, is_debug=True)
-        self.assertEqual(vis_image.shape, image.shape)
+        expected_shape = image.shape
+        self.assertEqual(vis_image.shape, expected_shape)
 
     def test_debug_image_dtype_uint8(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
         _, _, _, vis_image = self._run(image, is_debug=True)
-        self.assertEqual(vis_image.dtype, np.uint8)
+        expected_dtype = np.uint8
+        self.assertEqual(vis_image.dtype, expected_dtype)
 
 
 @unittest.skipUnless(_HAS_CV2, "需要 numpy 和 opencv-python")

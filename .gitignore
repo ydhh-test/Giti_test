@@ -214,6 +214,7 @@ __marimo__/
 
 # local shell
 .setup_env.sh
+.fetch-pr.sh
 
 # Windows
 Thumbs.db
