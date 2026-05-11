@@ -6,6 +6,9 @@
 同时覆盖调试模式输出和输入异常，确保算法边界清晰、调用失败时使用项目异常类直接暴露问题。
 """
 
+from pathlib import Path
+
+import cv2
 import numpy as np
 import pytest
 
@@ -15,6 +18,15 @@ from src.core.longitudinal_groove import detect_longitudinal_grooves
 
 
 IMAGE_SIZE = 128
+DATASET_ROOT = Path(__file__).parents[2] / "datasets" / "task_longitudinal_groove_vis"
+DEBUG_OUTPUT_ROOT = Path(__file__).parents[3] / ".results" / "task_longitudinal_groove_vis" / "rule11"
+REAL_IMAGE_PATHS = [
+    DATASET_ROOT / "center_inf" / "0.png",
+    DATASET_ROOT / "center_inf" / "2.png",
+    DATASET_ROOT / "center_inf" / "4.png",
+    DATASET_ROOT / "side_inf" / "1.png",
+    DATASET_ROOT / "side_inf" / "3.png",
+]
 
 
 def make_small_image_with_grooves(center_columns: list[int], line_width: int = 4) -> np.ndarray:
@@ -27,8 +39,45 @@ def make_small_image_with_grooves(center_columns: list[int], line_width: int = 4
     return image
 
 
+def save_debug_image_like_dev(image_path: Path, debug_image: np.ndarray) -> Path:
+    image_group = "center" if image_path.parent.name == "center_inf" else "side"
+    output_dir = DEBUG_OUTPUT_ROOT / image_group
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = output_dir / f"{image_path.stem}_debug.png"
+    success, buffer = cv2.imencode(".png", debug_image)
+    assert success
+    buffer.tofile(str(output_path))
+    return output_path
+
+
 class TestDetectLongitudinalGrooves:
     """纵向细沟 core 算法测试。"""
+
+    @pytest.mark.parametrize("image_path", REAL_IMAGE_PATHS, ids=lambda path: path.name)
+    def test_real_image_dataset_can_run_detector(self, image_path: Path):
+        """dev 迁移来的真实小图应可被读取，并能跑通检测器。"""
+        assert image_path.exists()
+
+        image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+        assert image is not None
+        assert image.shape == (IMAGE_SIZE, IMAGE_SIZE, 3)
+
+        groove_count, groove_positions_px, groove_widths_px, line_mask, debug_image = detect_longitudinal_grooves(image, is_debug=True)
+
+        assert groove_count == len(groove_positions_px) == len(groove_widths_px)
+        assert all(0 <= position < IMAGE_SIZE for position in groove_positions_px)
+        assert all(width > 0 for width in groove_widths_px)
+        assert line_mask is not None
+        assert line_mask.shape == (IMAGE_SIZE, IMAGE_SIZE)
+        assert debug_image is not None
+        assert debug_image.shape == image.shape
+
+        debug_output_path = save_debug_image_like_dev(image_path, debug_image)
+        assert debug_output_path.exists()
+        saved_debug_image = cv2.imread(str(debug_output_path), cv2.IMREAD_COLOR)
+        assert saved_debug_image is not None
+        assert saved_debug_image.shape == image.shape
 
     def test_image_with_two_grooves_detects_two_lines(self):
         """小图中的两条纵向细沟应被完整检测出来。"""

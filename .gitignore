@@ -232,5 +232,6 @@ Desktop.ini
 .tmp
 *.tmp
 *.temp
+.results/
 .editorconfig
 .scripts/
