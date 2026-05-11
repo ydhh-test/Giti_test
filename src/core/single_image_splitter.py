@@ -22,19 +22,19 @@ import numpy as np
 
 from utils.logger import get_logger
 
-from core.split.cropping import (
+from src.core.split.cropping import (
     remove_black_and_split_segments,
     remove_side_white,
     remove_edge_gray,
     random_horizontal_crop,
     detect_periodic_blocks,
 )
-from core.split.analysis import (
+from src.core.split.analysis import (
     analyze_dominant_color,
     remove_vertical_lines_center,
     analyze_single_image_abnormalities,
 )
-from core.split.validation import _validate_vertical_parts_to_keep
+from src.core.split.validation import _validate_vertical_parts_to_keep
 
 logger = get_logger(__name__)
 
@@ -47,7 +47,7 @@ DEFAULT_CONFIG = {
 }
 
 
-def process_single_file(image, config):
+def process_single_file(image, config) -> dict:
     """
     单文件处理主函数
 
@@ -56,30 +56,6 @@ def process_single_file(image, config):
     2. 去除灰边 -> side_cleaned
     3. 横向切分 -> center_final 和 side_final
     4. 异常检测 -> abnormal
-
-    数据流转图:
-    img (numpy.ndarray, BGR)
-        ↓ [remove_black_and_split_segments]
-    vertical_parts = [img1, img2, img3, img4, img5]  (4主沟)
-                     或 [img1, img2, img3, img4]      (3主沟)
-        ↓ [可选: vertical_parts_to_keep过滤]
-    filtered_parts = 根据配置保留指定索引的部分
-        ↓ [分类(side/center) + remove_side_white + 宽度过滤(<5跳过)]
-    center_images = [(2, img2), (3, img3), (4, img4)] 或 [(2, img2), (3, img3)](center不经过灰边去除)
-    side_images   = [(1, img1), (5, img5)] 或 [(1, img1), (4, img4)]
-        ↓ [analyze_dominant_color +    │ 
-           remove_edge_gray]           │
-    side_images_cleaned                │
-        ↓──────────────────────────────┘
-        ↓ [detect_periodic_blocks / random_horizontal_crop + remove_vertical_lines_center]
-    side_final_images   = [(img, suffix), ...]
-    center_final_images = [(img, suffix), ...]
-        ↓ [analyze_single_image_abnormalities 三分流]
-    ┌─────────────────────┬─────────────────────┐
-    ↓                     ↓                     ↓
-    side_final_images   center_final_images   abnormal_images
-    (正常侧边图像)       (正常中间图像)        [(img, suffix, abnormalities)]
-    [(img, suffix)]      [(img, suffix)]
     
     Args:
         image: numpy数组 (BGR格式)，输入图像
