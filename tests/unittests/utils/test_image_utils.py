@@ -24,6 +24,9 @@ from src.common.exceptions import (
 from src.utils.logger import get_logger
 
 
+# 定义测试数据集路径
+TEST_DATASET_PATH = Path(__file__).parent.parent.parent / "datasets" / "test_image_utils"
+
 # 创建测试用的numpy数组（BGR格式）
 TEST_IMAGE_ARRAY = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
 
@@ -47,8 +50,13 @@ INVALID_BASE64_STRINGS = [
     "data:image/bmp;base64,xxx"  # 不支持的格式前缀
 ]
 
-# 测试数据集路径
-TEST_DATASET_PATH = Path("tests/datasets/test_image_utils")
+
+def create_temp_image_file(suffix, image_array, params=None):
+    fd, temp_path = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    success = cv2.imwrite(temp_path, image_array, params or [])
+    assert success
+    return temp_path
 
 # 配置日志捕获
 @pytest.fixture(autouse=True)
@@ -201,6 +209,12 @@ class TestResizeImage:
         result = resize_image(gray_array, 50, 50, "stretch")
         assert result.shape == (50, 50)
 
+    def test_stretch_mode_with_none_height(self):
+        """stretch模式下target_height为None时使用原始高度"""
+        original_h, original_w = TEST_IMAGE_ARRAY.shape[:2]
+        result = resize_image(TEST_IMAGE_ARRAY, target_width=50, target_height=None, mode="stretch")
+        assert result.shape == (original_h, 50, 3)
+
     def test_input_type_error_non_ndarray(self):
         """非numpy数组输入抛出InputTypeError"""
         with pytest.raises(InputTypeError) as exc_info:
@@ -211,8 +225,6 @@ class TestResizeImage:
         """无效mode参数抛出InputTypeError"""
         with pytest.raises(InputTypeError) as exc_info:
             resize_image(TEST_IMAGE_ARRAY, 50, 50, "invalid_mode")
-        # 注意：当前实现中，无效mode不会抛出异常，而是会执行stretch分支
-        # 我们需要修改实现来添加mode验证
 
     def test_input_data_error_zero_dimensions(self):
         """零尺寸抛出InputDataError"""
@@ -231,35 +243,38 @@ class TestLoadImageToBase64:
     def test_load_png_with_prefix(self):
         """加载PNG文件返回带前缀base64"""
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
             cv2.imwrite(tmp_file.name, TEST_IMAGE_ARRAY)
-            try:
-                result = load_image_to_base64(Path(tmp_file.name), with_prefix=True)
-                assert isinstance(result, str)
-                assert result.startswith("data:image/png;base64,")
-            finally:
-                os.unlink(tmp_file.name)
+        try:
+            result = load_image_to_base64(Path(tmp_path), with_prefix=True)
+            assert isinstance(result, str)
+            assert result.startswith("data:image/png;base64,")
+        finally:
+            os.unlink(tmp_path)
 
     def test_load_jpg_with_prefix(self):
         """加载JPG文件返回带前缀base64"""
         with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
             cv2.imwrite(tmp_file.name, TEST_IMAGE_ARRAY, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-            try:
-                result = load_image_to_base64(Path(tmp_file.name), with_prefix=True)
-                assert isinstance(result, str)
-                assert result.startswith("data:image/jpg;base64,")
-            finally:
-                os.unlink(tmp_file.name)
+        try:
+            result = load_image_to_base64(Path(tmp_path), with_prefix=True)
+            assert isinstance(result, str)
+            assert result.startswith("data:image/jpg;base64,")
+        finally:
+            os.unlink(tmp_path)
 
     def test_load_without_prefix(self):
         """with_prefix=False返回纯base64"""
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
             cv2.imwrite(tmp_file.name, TEST_IMAGE_ARRAY)
-            try:
-                result = load_image_to_base64(Path(tmp_file.name), with_prefix=False)
-                assert isinstance(result, str)
-                assert not result.startswith("data:image/")
-            finally:
-                os.unlink(tmp_file.name)
+        try:
+            result = load_image_to_base64(Path(tmp_path), with_prefix=False)
+            assert isinstance(result, str)
+            assert not result.startswith("data:image/")
+        finally:
+            os.unlink(tmp_path)
 
     def test_input_type_error_non_path(self):
         """非Path对象输入抛出InputTypeError"""
@@ -277,29 +292,31 @@ class TestLoadImageToBase64:
     def test_input_data_error_unsupported_format(self):
         """不支持格式文件抛出InputDataError并记录警告"""
         with tempfile.NamedTemporaryFile(suffix='.bmp', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
             # 创建一个简单的BMP文件
             simple_array = np.zeros((10, 10, 3), dtype=np.uint8)
             cv2.imwrite(tmp_file.name, simple_array)
-            try:
-                with pytest.raises(InputDataError):
-                    load_image_to_base64(Path(tmp_file.name))
-            finally:
-                os.unlink(tmp_file.name)
+        try:
+            with pytest.raises(InputDataError):
+                load_image_to_base64(Path(tmp_path))
+        finally:
+            os.unlink(tmp_path)
 
     def test_warning_logged_for_unsupported_format(self, caplog):
         """不支持格式触发警告日志"""
         with tempfile.NamedTemporaryFile(suffix='.bmp', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
             simple_array = np.zeros((10, 10, 3), dtype=np.uint8)
             cv2.imwrite(tmp_file.name, simple_array)
+        try:
             try:
-                try:
-                    load_image_to_base64(Path(tmp_file.name))
-                except InputDataError:
-                    pass
-                # 检查是否有警告日志
-                assert any("警告: 不支持的文件格式" in record.message for record in caplog.records)
-            finally:
-                os.unlink(tmp_file.name)
+                load_image_to_base64(Path(tmp_path))
+            except InputDataError:
+                pass
+            # 检查是否有警告日志
+            assert any("警告: 不支持的文件格式" in record.message for record in caplog.records)
+        finally:
+            os.unlink(tmp_path)
 
 
 class TestSaveBase64ToImage:
@@ -650,7 +667,8 @@ class TestGrayscaleAndSpecialFormats:
         gray_array = np.random.randint(0, 256, (100, 100), dtype=np.uint8)
         base64_str = ndarray_to_base64(gray_array, "png")
         decoded_gray = base64_to_ndarray(base64_str)
-        assert len(decoded_gray.shape) == 2 or decoded_gray.shape[2] == 1
+        # OpenCV会将灰度图像转换为3通道BGR，所以shape应该是(100, 100, 3)
+        assert decoded_gray.shape == (100, 100, 3)
 
     @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
     def test_transparent_png_handling(self):
