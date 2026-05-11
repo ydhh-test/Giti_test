@@ -12,7 +12,7 @@ from PIL import Image
 
 from utils.logger import get_logger
 
-from core.split_big_image_into_small import process_single_file, DEFAULT_CONFIG
+from core.single_image_splitter import process_single_file, DEFAULT_CONFIG
 
 logger = get_logger(__name__)
 

@@ -96,7 +96,7 @@ tire-ai-pattern/
 │   │   │   ├── cropping.py           # 裁剪、切分、边缘清理算法
 │   │   │   ├── analysis.py           # 图像分析与质量检测算法
 │   │   │   └── validation.py         # 配置校验
-│   │   └── split_big_image_into_small.py # 大图拆分算法实现
+│   │   └── single_image_splitter.py # 单图拆分流水线
 │   │
 │   ├── nodes/                         # 流程节点层，pipeline 拓扑中的可复用执行单元
 │   │   ├── __init__.py
