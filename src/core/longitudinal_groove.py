@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, cast
 
 import cv2
 import numpy as np
@@ -10,25 +9,10 @@ from src.common.exceptions import InputDataError, InputTypeError
 from src.utils.logger import get_logger
 
 
-ImageType = Literal["center", "side"]
 RowData = list[tuple[int, float, float]]
 Segment = tuple[float, float, int, int]
 
-VALID_IMAGE_TYPES: tuple[ImageType, ...] = ("center", "side")
-
 logger = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class LongitudinalGrooveDetectionResult:
-    """纵向细沟检测结果。"""
-
-    image_type: ImageType
-    groove_count: int
-    groove_positions_px: list[float]
-    groove_widths_px: list[float]
-    line_mask: np.ndarray | None = None
-    debug_image: np.ndarray | None = None
 
 
 @dataclass
@@ -42,7 +26,6 @@ class _ActiveTrack:
 
 def detect_longitudinal_grooves(
     image: np.ndarray,
-    image_type: str,
     nominal_width_px: float = 4.0,
     min_width_px: int = 3,
     max_width_px: int = 12,
@@ -51,16 +34,15 @@ def detect_longitudinal_grooves(
     min_segment_length_px: int = 16,
     max_angle_deg: float = 30.0,
     is_debug: bool = False,
-) -> LongitudinalGrooveDetectionResult:
+) -> tuple[int, list[float], list[float], np.ndarray | None, np.ndarray | None]:
     """
     检测小图中的纵向细沟或纵向钢片。
 
-    算法层只负责输出检测特征，不进行规则打分，也不判断 center/side 的数量是否合规。
+    算法层只负责输出检测特征，不接收小图类型，不进行规则打分，也不判断 center/side 的数量是否合规。
     规则层可基于 ``groove_count``、``groove_positions_px`` 和 ``groove_widths_px`` 再执行评分。
 
     参数：
         image: BGR 图像数组，形状必须为 ``(H, W, 3)``。
-        image_type: 小图类型，仅允许 ``"center"`` 或 ``"side"``，用于结果标识。
         nominal_width_px: 纵向细沟名义宽度，单位为像素。
         min_width_px: 候选线段的最小逐行均值宽度，单位为像素。
         max_width_px: 候选线段的最大逐行均值宽度，单位为像素。
@@ -71,15 +53,14 @@ def detect_longitudinal_grooves(
         is_debug: 为 ``True`` 时返回 ``line_mask`` 和 ``debug_image``；否则二者为 ``None``。
 
     返回：
-        显式检测结果对象，包含图像类型、纵向细沟数量、中心位置和宽度。
+        五元组：纵向细沟数量、中心位置列表、宽度列表、掩码、调试图。
 
     抛出异常：
         InputTypeError: 入参类型不符合约定。
         InputDataError: 入参数据内容不满足算法前置条件。
     """
-    normalized_image_type = _validate_inputs(
+    _validate_inputs(
         image=image,
-        image_type=image_type,
         nominal_width_px=nominal_width_px,
         min_width_px=min_width_px,
         max_width_px=max_width_px,
@@ -89,7 +70,7 @@ def detect_longitudinal_grooves(
         max_angle_deg=max_angle_deg,
         is_debug=is_debug,
     )
-    logger.debug("开始纵向细沟检测，image_type=%s", normalized_image_type)
+    logger.debug("开始纵向细沟检测")
 
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred_image = cv2.GaussianBlur(gray_image, (3, 3), 0)
@@ -122,24 +103,15 @@ def detect_longitudinal_grooves(
             image=image,
             line_mask=line_mask,
             positions=positions,
-            image_type=normalized_image_type,
             count=groove_count,
         )
 
     logger.debug("纵向细沟检测完成，数量=%d，位置=%s", groove_count, positions)
-    return LongitudinalGrooveDetectionResult(
-        image_type=normalized_image_type,
-        groove_count=groove_count,
-        groove_positions_px=positions,
-        groove_widths_px=widths,
-        line_mask=result_mask,
-        debug_image=debug_image,
-    )
+    return groove_count, positions, widths, result_mask, debug_image
 
 
 def _validate_inputs(
     image: np.ndarray,
-    image_type: str,
     nominal_width_px: float,
     min_width_px: int,
     max_width_px: int,
@@ -148,24 +120,13 @@ def _validate_inputs(
     min_segment_length_px: int,
     max_angle_deg: float,
     is_debug: bool,
-) -> ImageType:
+) -> None:
     if not isinstance(image, np.ndarray):
         raise InputTypeError("detect_longitudinal_grooves", "image", "np.ndarray", type(image).__name__)
     if image.ndim != 3 or image.shape[2] != 3:
         raise InputDataError("detect_longitudinal_grooves", "image", "expected BGR image with shape (H, W, 3)", image.shape)
-    if not isinstance(image_type, str):
-        raise InputTypeError("detect_longitudinal_grooves", "image_type", "str", type(image_type).__name__)
     if not isinstance(is_debug, bool):
         raise InputTypeError("detect_longitudinal_grooves", "is_debug", "bool", type(is_debug).__name__)
-
-    normalized_image_type = image_type.strip().lower()
-    if normalized_image_type not in VALID_IMAGE_TYPES:
-        raise InputDataError(
-            "detect_longitudinal_grooves",
-            "image_type",
-            "must be one of ['center', 'side']",
-            image_type,
-        )
 
     _validate_positive_number("nominal_width_px", nominal_width_px)
     _validate_positive_int("min_width_px", min_width_px)
@@ -181,8 +142,6 @@ def _validate_inputs(
         raise InputDataError("detect_longitudinal_grooves", "narrow_cluster_px", "must be greater than or equal to min_width_px", narrow_cluster_px)
     if max_angle_deg >= 85:
         raise InputDataError("detect_longitudinal_grooves", "max_angle_deg", "must be less than 85", max_angle_deg)
-
-    return cast(ImageType, normalized_image_type)
 
 
 def _is_real_number(value: object) -> bool:
@@ -459,7 +418,6 @@ def _draw_debug_image(
     image: np.ndarray,
     line_mask: np.ndarray,
     positions: list[float],
-    image_type: ImageType,
     count: int,
 ) -> np.ndarray:
     """生成用于人工检查的纵向细沟调试图。"""
@@ -478,7 +436,7 @@ def _draw_debug_image(
     font_thickness = 1
     text_color = (255, 255, 255)
     background_color = (0, 0, 0)
-    labels = [f"type:{image_type}", f"lines:{count}"]
+    labels = [f"lines:{count}"]
     text_y = 10
     for label in labels:
         (text_width, text_height), _baseline = cv2.getTextSize(label, font, font_scale, font_thickness)
@@ -489,4 +447,4 @@ def _draw_debug_image(
     return debug_image
 
 
-__all__ = ["LongitudinalGrooveDetectionResult", "detect_longitudinal_grooves"]
+__all__ = ["detect_longitudinal_grooves"]

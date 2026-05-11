@@ -2,14 +2,13 @@
 
 ## 主要函数
 
-`detect_longitudinal_grooves` 用于检测 128×128 小图中的纵向细沟或纵向钢片。该函数属于 core 算法层，只输出检测特征，不进行规则打分，也不判断 center / side 的数量是否合规。
+`detect_longitudinal_grooves` 用于检测 128×128 小图中的纵向细沟或纵向钢片。该函数属于 core 算法层，只输出检测特征，不接收小图类型，不进行规则打分，也不判断 center / side 的数量是否合规。
 
-规则层应基于返回的 `groove_count`、`groove_positions_px` 和 `groove_widths_px` 再执行打分逻辑。
+规则层应基于返回的纵向细沟数量、中心位置列表和宽度列表再执行打分逻辑。
 
 ## 输入参数
 
 - `image`：BGR 图像数组，形状必须为 `(H, W, 3)`。
-- `image_type`：小图类型，仅允许 `center` 或 `side`，用于结果标识。
 - `nominal_width_px`：纵向细沟名义宽度，单位为像素。
 - `min_width_px`：候选线段的最小逐行均值宽度，单位为像素。
 - `max_width_px`：候选线段的最大逐行均值宽度，单位为像素。
@@ -21,9 +20,8 @@
 
 ## 输出结果
 
-函数返回 `LongitudinalGrooveDetectionResult`，字段如下：
+函数显式返回五元组，顺序如下：
 
-- `image_type`：归一化后的小图类型。
 - `groove_count`：检测到的纵向细沟数量。
 - `groove_positions_px`：每条纵向细沟的中心列坐标，单位为像素。
 - `groove_widths_px`：每条纵向细沟的逐行均值宽度，单位为像素。
