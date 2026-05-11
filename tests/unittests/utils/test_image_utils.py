@@ -47,6 +47,14 @@ INVALID_BASE64_STRINGS = [
     "data:image/bmp;base64,xxx"  # 不支持的格式前缀
 ]
 
+
+def create_temp_image_file(suffix, image_array, params=None):
+    fd, temp_path = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    success = cv2.imwrite(temp_path, image_array, params or [])
+    assert success
+    return temp_path
+
 # 配置日志捕获
 @pytest.fixture(autouse=True)
 def capture_logs(caplog):
