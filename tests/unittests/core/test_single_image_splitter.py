@@ -12,22 +12,23 @@
 二、配置校验测试 - 2个
   设计角度：
   1. 无效配置：vertical_parts_to_keep配置错误时返回config_error状态
-  2. 不支持参数：num_segments_to_remove不在[3,4]范围内时抛出异常
+  2. 不支持参数：num_segments_to_remove=2时抛出异常
 
-三、过滤功能测试 - 2个
+三、过滤功能测试 - 3个
   设计角度：
   1. vertical_parts_to_keep过滤：只保留指定索引，验证输出数量减少
   2. 边界过滤：保留最小有效组合（1个side+1个center）
+  3. 过窄段过滤：宽度<5像素的图像段被自动跳过
 
-四、异常检测测试 - 1个
+四、异常处理测试 - 2个
+  设计角度：
+  1. 处理异常：处理过程中抛出异常时正确捕获并返回error状态
+  2. 空图像输入：传入None时正确处理并返回error状态
+
+五、异常检测测试 - 1个
   设计角度：
   1. 宽高比异常：输入超宽图像，验证异常图像被正确识别
   2. 颜色异常：输入单色图像，验证异常图像被正确识别
-
-五、结果结构测试 - 1个
-  设计角度：
-  1. 返回字典完整性：验证所有预期键存在
-  2. stats统计信息：验证处理统计正确计数
 
 ========================
 """
@@ -129,6 +130,31 @@ class TestProcessSingleFile(unittest.TestCase):
         self.assertEqual(result['stats']['status'], 'success')
         self.assertEqual(result['stats']['vertical_segments'], 2)
 
+    def test_narrow_segment_skipped(self):
+        """PASS: 宽度<5像素的图像段被跳过"""
+        img = np.ones((100, 100, 3), dtype=np.uint8) * 200
+        img[:, 30:33, :] = [0, 0, 0]
+        img[:, 60:70, :] = [0, 0, 0]
+        config = {'num_segments_to_remove': 3}
+        result = process_single_file(img, config)
+        self.assertEqual(result['stats']['status'], 'success')
+
+    # ========== 异常处理测试 ==========
+
+    def test_process_exception_handled(self):
+        """PASS: 处理过程中异常被正确捕获"""
+        config = {'num_segments_to_remove': 4}
+        result = process_single_file(None, config)
+        self.assertEqual(result['stats']['status'], 'error')
+        self.assertIn('error_message', result['stats'])
+
+    def test_process_exception_with_empty_image(self):
+        """PASS: 传入空数组图像时异常被正确捕获"""
+        img = np.array([])
+        config = {'num_segments_to_remove': 4}
+        result = process_single_file(img, config)
+        self.assertEqual(result['stats']['status'], 'error')
+
     # ========== 异常检测测试 ==========
 
     def test_abnormal_image_detection(self):
@@ -138,7 +164,6 @@ class TestProcessSingleFile(unittest.TestCase):
         result = process_single_file(img, config)
         self.assertEqual(result['stats']['status'], 'success')
         self.assertGreaterEqual(result['stats']['abnormal_count'], 0)
-
 
 if __name__ == '__main__':
     unittest.main()

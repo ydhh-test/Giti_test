@@ -229,4 +229,4 @@ def main(workspace_dir):
 if __name__ == "__main__":
     # 测试用例目录,{workspace_dir}/images下包含了输入的图片
     workspace_dir = r"./tests/datasets/tire_design_images"
-    main(workspace_dir)
+    #main(workspace_dir)
