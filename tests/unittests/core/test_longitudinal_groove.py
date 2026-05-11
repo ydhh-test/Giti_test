@@ -7,6 +7,7 @@
 """
 
 from pathlib import Path
+import shutil
 
 import cv2
 import numpy as np
@@ -18,14 +19,38 @@ from src.core.longitudinal_groove import detect_longitudinal_grooves
 
 
 IMAGE_SIZE = 128
-DATASET_ROOT = Path(__file__).parents[2] / "datasets" / "task_longitudinal_groove_vis"
-DEBUG_OUTPUT_ROOT = Path(__file__).parents[3] / ".results" / "task_longitudinal_groove_vis" / "rule11"
-REAL_IMAGE_PATHS = [
-    DATASET_ROOT / "center_inf" / "0.png",
-    DATASET_ROOT / "center_inf" / "2.png",
-    DATASET_ROOT / "center_inf" / "4.png",
-    DATASET_ROOT / "side_inf" / "1.png",
-    DATASET_ROOT / "side_inf" / "3.png",
+DATASET_SOURCE_ROOT = Path(__file__).parents[2] / "datasets" / "task_longitudinal_groove_vis"
+RESULT_ROOT = Path(__file__).parents[3] / ".results" / "task_longitudinal_groove_vis"
+DATASET_RUNTIME_ROOT = RESULT_ROOT / "dataset"
+DEBUG_OUTPUT_ROOT = RESULT_ROOT / "debug"
+DATASET_IMAGE_RELATIVE_PATHS = [
+    Path("center_inf") / "0.png",
+    Path("center_inf") / "2.png",
+    Path("center_inf") / "4.png",
+    Path("center_inf") / "syn_c1_no_groove.png",
+    Path("center_inf") / "syn_c2_one_groove_center.png",
+    Path("center_inf") / "syn_c3_two_grooves.png",
+    Path("center_inf") / "syn_c4_three_grooves.png",
+    Path("center_inf") / "syn_c5_groove_plus_noise.png",
+    Path("center_inf") / "syn_c6_diagonal_stagger.png",
+    Path("center_inf") / "syn_c7_random_x34_w11.png",
+    Path("center_inf") / "syn_c7_random_x34_w4.png",
+    Path("center_inf") / "syn_c8_top_half_only.png",
+    Path("center_inf") / "syn_c9_two_grooves_edge_residual.png",
+    Path("center_inf") / "syn_c10_too_wide.png",
+    Path("center_inf") / "syn_c11_slant_25deg.png",
+    Path("center_inf") / "syn_c12_slant_35deg.png",
+    Path("side_inf") / "1.png",
+    Path("side_inf") / "3.png",
+    Path("side_inf") / "syn_s1_no_groove.png",
+    Path("side_inf") / "syn_s2_one_groove.png",
+    Path("side_inf") / "syn_s3_two_grooves.png",
+    Path("side_inf") / "syn_s4_groove_plus_noise.png",
+    Path("side_inf") / "syn_s5_random_x67_w9.png",
+    Path("side_inf") / "syn_s5_random_x87_w4.png",
+    Path("side_inf") / "syn_s6_diagonal_stagger.png",
+    Path("side_inf") / "syn_s7_too_narrow.png",
+    Path("side_inf") / "syn_s8_slant_25deg.png",
 ]
 
 
@@ -37,6 +62,16 @@ def make_small_image_with_grooves(center_columns: list[int], line_width: int = 4
         end_column = min(IMAGE_SIZE, start_column + line_width)
         image[12:116, start_column:end_column] = 0
     return image
+
+
+def copy_dataset_image_to_results(relative_image_path: Path) -> Path:
+    source_path = DATASET_SOURCE_ROOT / relative_image_path
+    assert source_path.exists()
+
+    runtime_path = DATASET_RUNTIME_ROOT / relative_image_path
+    runtime_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_path, runtime_path)
+    return runtime_path
 
 
 def save_debug_image_like_dev(image_path: Path, debug_image: np.ndarray) -> Path:
@@ -54,10 +89,10 @@ def save_debug_image_like_dev(image_path: Path, debug_image: np.ndarray) -> Path
 class TestDetectLongitudinalGrooves:
     """纵向细沟 core 算法测试。"""
 
-    @pytest.mark.parametrize("image_path", REAL_IMAGE_PATHS, ids=lambda path: path.name)
-    def test_real_image_dataset_can_run_detector(self, image_path: Path):
-        """dev 迁移来的真实小图应可被读取，并能跑通检测器。"""
-        assert image_path.exists()
+    @pytest.mark.parametrize("relative_image_path", DATASET_IMAGE_RELATIVE_PATHS, ids=lambda path: path.name)
+    def test_dataset_images_can_run_detector_from_results(self, relative_image_path: Path):
+        """dev 迁移来的小图应先复制到 .results，再从 .results 跑通检测器。"""
+        image_path = copy_dataset_image_to_results(relative_image_path)
 
         image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
         assert image is not None
