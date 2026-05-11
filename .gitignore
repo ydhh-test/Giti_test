@@ -235,3 +235,4 @@ Desktop.ini
 .results/
 .editorconfig
 .scripts/
+.github/prompts/sync-feature-with-dev2.prompt.md

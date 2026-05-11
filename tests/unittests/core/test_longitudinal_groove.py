@@ -6,6 +6,7 @@
 同时覆盖调试模式输出和输入异常，确保算法边界清晰、调用失败时使用项目异常类直接暴露问题。
 """
 
+import json
 from pathlib import Path
 import shutil
 
@@ -20,38 +21,13 @@ from src.core.longitudinal_groove import detect_longitudinal_grooves
 
 IMAGE_SIZE = 128
 DATASET_SOURCE_ROOT = Path(__file__).parents[2] / "datasets" / "task_longitudinal_groove_vis"
+EXPECTED_OUTPUTS_PATH = DATASET_SOURCE_ROOT / "expected_outputs.json"
 RESULT_ROOT = Path(__file__).parents[3] / ".results" / "task_longitudinal_groove_vis"
 DATASET_RUNTIME_ROOT = RESULT_ROOT / "dataset"
 DEBUG_OUTPUT_ROOT = RESULT_ROOT / "debug"
-DATASET_IMAGE_RELATIVE_PATHS = [
-    Path("center_inf") / "0.png",
-    Path("center_inf") / "2.png",
-    Path("center_inf") / "4.png",
-    Path("center_inf") / "syn_c1_no_groove.png",
-    Path("center_inf") / "syn_c2_one_groove_center.png",
-    Path("center_inf") / "syn_c3_two_grooves.png",
-    Path("center_inf") / "syn_c4_three_grooves.png",
-    Path("center_inf") / "syn_c5_groove_plus_noise.png",
-    Path("center_inf") / "syn_c6_diagonal_stagger.png",
-    Path("center_inf") / "syn_c7_random_x34_w11.png",
-    Path("center_inf") / "syn_c7_random_x34_w4.png",
-    Path("center_inf") / "syn_c8_top_half_only.png",
-    Path("center_inf") / "syn_c9_two_grooves_edge_residual.png",
-    Path("center_inf") / "syn_c10_too_wide.png",
-    Path("center_inf") / "syn_c11_slant_25deg.png",
-    Path("center_inf") / "syn_c12_slant_35deg.png",
-    Path("side_inf") / "1.png",
-    Path("side_inf") / "3.png",
-    Path("side_inf") / "syn_s1_no_groove.png",
-    Path("side_inf") / "syn_s2_one_groove.png",
-    Path("side_inf") / "syn_s3_two_grooves.png",
-    Path("side_inf") / "syn_s4_groove_plus_noise.png",
-    Path("side_inf") / "syn_s5_random_x67_w9.png",
-    Path("side_inf") / "syn_s5_random_x87_w4.png",
-    Path("side_inf") / "syn_s6_diagonal_stagger.png",
-    Path("side_inf") / "syn_s7_too_narrow.png",
-    Path("side_inf") / "syn_s8_slant_25deg.png",
-]
+EXPECTED_OUTPUTS = json.loads(EXPECTED_OUTPUTS_PATH.read_text(encoding="utf-8"))
+DATASET_IMAGE_RELATIVE_PATHS = [Path(relative_path) for relative_path in EXPECTED_OUTPUTS]
+FEATURE_TOLERANCE_PX = 0.1
 
 
 def make_small_image_with_grooves(center_columns: list[int], line_width: int = 4) -> np.ndarray:
@@ -91,7 +67,7 @@ class TestDetectLongitudinalGrooves:
 
     @pytest.mark.parametrize("relative_image_path", DATASET_IMAGE_RELATIVE_PATHS, ids=lambda path: path.name)
     def test_dataset_images_can_run_detector_from_results(self, relative_image_path: Path):
-        """dev 迁移来的小图应先复制到 .results，再从 .results 跑通检测器。"""
+        """dev 迁移来的小图检测结果应与当前黄金基准保持一致。"""
         image_path = copy_dataset_image_to_results(relative_image_path)
 
         image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
@@ -99,8 +75,21 @@ class TestDetectLongitudinalGrooves:
         assert image.shape == (IMAGE_SIZE, IMAGE_SIZE, 3)
 
         groove_count, groove_positions_px, groove_widths_px, line_mask, debug_image = detect_longitudinal_grooves(image, is_debug=True)
+        expected_output = EXPECTED_OUTPUTS[relative_image_path.as_posix()]
 
-        assert groove_count == len(groove_positions_px) == len(groove_widths_px)
+        assert groove_count == expected_output["groove_count"]
+        assert len(groove_positions_px) == len(expected_output["groove_positions_px"])
+        assert len(groove_widths_px) == len(expected_output["groove_widths_px"])
+        assert np.allclose(
+            groove_positions_px,
+            expected_output["groove_positions_px"],
+            atol=FEATURE_TOLERANCE_PX,
+        )
+        assert np.allclose(
+            groove_widths_px,
+            expected_output["groove_widths_px"],
+            atol=FEATURE_TOLERANCE_PX,
+        )
         assert all(0 <= position < IMAGE_SIZE for position in groove_positions_px)
         assert all(width > 0 for width in groove_widths_px)
         assert line_mask is not None
