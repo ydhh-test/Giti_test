@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from src.common.exceptions import InputDataError, InputTypeError
+from src.core import longitudinal_groove as lg
 from src.core.longitudinal_groove import detect_longitudinal_grooves
 
 
@@ -107,3 +108,190 @@ class TestDetectLongitudinalGrooves:
             detect_longitudinal_grooves(image, "center", min_width_px=0)
 
         assert "min_width_px" in str(exc_info.value)
+
+
+class TestLongitudinalGrooveCoverageBranches:
+    """补齐纵向细沟模块的边界与分支覆盖。"""
+
+    def test_input_type_branches_are_raised(self):
+        """输入类型分支应抛出项目异常。"""
+        image = make_small_image_with_grooves([64])
+
+        with pytest.raises(InputTypeError):
+            detect_longitudinal_grooves(image, 123)  # type: ignore[arg-type]
+
+        with pytest.raises(InputTypeError):
+            detect_longitudinal_grooves(image, "center", is_debug=1)  # type: ignore[arg-type]
+
+    def test_input_relation_branches_are_raised(self):
+        """参数关系约束分支应抛出 InputDataError。"""
+        image = make_small_image_with_grooves([64])
+
+        with pytest.raises(InputDataError):
+            detect_longitudinal_grooves(image, "center", min_width_px=5, max_width_px=4)
+
+        with pytest.raises(InputDataError):
+            detect_longitudinal_grooves(image, "center", min_width_px=5, narrow_cluster_px=4)
+
+        with pytest.raises(InputDataError):
+            detect_longitudinal_grooves(image, "center", max_angle_deg=85)
+
+    def test_positive_number_and_int_validators_branches(self):
+        """数值验证函数的类型和范围分支。"""
+        image = make_small_image_with_grooves([64])
+
+        with pytest.raises(InputTypeError):
+            detect_longitudinal_grooves(image, "center", nominal_width_px=True)  # type: ignore[arg-type]
+
+        with pytest.raises(InputDataError):
+            detect_longitudinal_grooves(image, "center", nominal_width_px=0)
+
+        with pytest.raises(InputTypeError):
+            detect_longitudinal_grooves(image, "center", min_width_px=1.5)  # type: ignore[arg-type]
+
+        with pytest.raises(InputTypeError):
+            detect_longitudinal_grooves(image, "center", edge_margin_px=1.5)  # type: ignore[arg-type]
+
+        with pytest.raises(InputDataError):
+            detect_longitudinal_grooves(image, "center", edge_margin_px=-1)
+
+    def test_split_row_data_by_angle_handles_empty_and_single(self):
+        """轨迹切分需覆盖空输入与单元素输入分支。"""
+        assert lg._split_row_data_by_angle([], max_angle_deg=30.0) == []
+
+        single = [(10, 30.0, 4.0)]
+        assert lg._split_row_data_by_angle(single, max_angle_deg=30.0) == [single]
+
+    def test_split_row_data_by_angle_splits_on_large_tilt(self):
+        """当相邻行偏转角超阈值时应切分轨迹。"""
+        row_data = [
+            (0, 10.0, 4.0),
+            (1, 10.0, 4.0),
+            (2, 40.0, 4.0),
+            (3, 40.0, 4.0),
+        ]
+
+        segments = lg._split_row_data_by_angle(row_data, max_angle_deg=10.0, smooth_half_window=0)
+
+        assert len(segments) == 2
+        assert segments[0] == row_data[:2]
+        assert segments[1] == row_data[2:]
+
+    def test_build_groove_tracks_covers_gap_finish_and_candidate_skip(self):
+        """覆盖轨迹超 gap 完结与候选冲突跳过分支。"""
+        all_row_clusters = [
+            (0, [(10, 10), (20, 20)]),
+            (1, [(11, 11)]),
+            (10, [(12, 12)]),
+        ]
+
+        tracks = lg._build_groove_tracks(all_row_clusters, max_dx=20.0, max_gap_rows=5)
+
+        assert len(tracks) >= 2
+        assert any(len(track) >= 2 for track in tracks)
+
+    def test_split_columns_into_clusters_splits_discontinuous_columns(self):
+        """同一行列索引出现间断时应拆分成多个簇。"""
+        component_columns = np.array([0, 1, 2, 7, 8], dtype=np.int32)
+
+        clusters = lg._split_columns_into_clusters(component_columns, left_offset=2)
+
+        assert clusters == [(2, 4), (9, 10)]
+
+    def test_validate_segment_branches(self):
+        """候选段校验覆盖空段、过短和宽度越界分支。"""
+        assert lg._validate_segment([], min_width_px=3, max_width_px=12, min_segment_length_px=2) is None
+
+        too_short = [(0, 10.0, 4.0)]
+        assert lg._validate_segment(too_short, min_width_px=3, max_width_px=12, min_segment_length_px=2) is None
+
+        too_wide = [(0, 10.0, 20.0), (1, 10.0, 20.0), (2, 10.0, 20.0)]
+        assert lg._validate_segment(too_wide, min_width_px=3, max_width_px=12, min_segment_length_px=2) is None
+
+    def test_dedupe_segments_merges_overlapped_segments(self):
+        """横向接近且纵向重叠超过阈值的段应被合并。"""
+        raw_segments = [
+            (10.0, 3.0, 0, 10),
+            (11.0, 4.0, 2, 8),
+        ]
+
+        deduped = lg._dedupe_segments(raw_segments, dedup_distance_px=5.0)
+
+        assert len(deduped) == 1
+        merged_center, merged_width, merged_first_row, merged_last_row = deduped[0]
+        assert merged_center == pytest.approx(10.5)
+        assert merged_width == pytest.approx(4.0)
+        assert merged_first_row == 0
+        assert merged_last_row == 10
+
+    def test_analyze_vertical_lines_skips_short_component(self):
+        """连通域高度不足时应被直接跳过。"""
+        binary = np.zeros((32, 32), dtype=np.uint8)
+        binary[10:14, 16] = 255
+
+        positions, count, line_mask, widths = lg._analyze_vertical_lines(
+            binary=binary,
+            min_width_px=1,
+            narrow_cluster_px=3,
+            edge_margin_px=0,
+            min_segment_length_px=12,
+            max_angle_deg=30.0,
+            max_width_px=12,
+            dedup_distance_px=8.0,
+        )
+
+        assert positions == []
+        assert count == 0
+        assert widths == []
+        assert int(line_mask.sum()) == 0
+
+    def test_analyze_vertical_lines_continue_on_empty_row_cluster(self, monkeypatch: pytest.MonkeyPatch):
+        """当组件行列为空时应走 continue 分支并且不产出细沟。"""
+        binary = np.zeros((32, 32), dtype=np.uint8)
+        binary[2:28, 15:18] = 255
+
+        original_where = lg.np.where
+
+        def fake_where(_condition):
+            return (np.array([], dtype=np.int64),)
+
+        monkeypatch.setattr(lg.np, "where", fake_where)
+        try:
+            positions, count, line_mask, widths = lg._analyze_vertical_lines(
+                binary=binary,
+                min_width_px=1,
+                narrow_cluster_px=3,
+                edge_margin_px=0,
+                min_segment_length_px=5,
+                max_angle_deg=30.0,
+                max_width_px=12,
+                dedup_distance_px=8.0,
+            )
+        finally:
+            monkeypatch.setattr(lg.np, "where", original_where)
+
+        assert positions == []
+        assert count == 0
+        assert widths == []
+        assert int(line_mask.sum()) == 0
+
+    def test_analyze_vertical_lines_continue_on_rejected_segment(self):
+        """当候选段宽度不满足约束时应跳过，不计入结果。"""
+        binary = np.zeros((64, 64), dtype=np.uint8)
+        binary[8:56, 32] = 255
+
+        positions, count, line_mask, widths = lg._analyze_vertical_lines(
+            binary=binary,
+            min_width_px=3,
+            narrow_cluster_px=12,
+            edge_margin_px=0,
+            min_segment_length_px=8,
+            max_angle_deg=30.0,
+            max_width_px=12,
+            dedup_distance_px=8.0,
+        )
+
+        assert positions == []
+        assert count == 0
+        assert widths == []
+        assert int(line_mask.sum()) == 0

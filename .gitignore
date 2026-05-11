@@ -220,6 +220,7 @@ __marimo__/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+.vscode/
 
 # macOS
 .DS_Store
@@ -231,3 +232,5 @@ Desktop.ini
 .tmp
 *.tmp
 *.temp
+.editorconfig
+.scripts/
