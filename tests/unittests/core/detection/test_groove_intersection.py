@@ -27,13 +27,10 @@ API 注意：detect_transverse_grooves() 使用显式参数，返回显式 tuple
 """
 
 import pathlib
-import sys
 import unittest
 from unittest import mock
 
 _ROOT = pathlib.Path(__file__).parents[4]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
 
 
 try:
