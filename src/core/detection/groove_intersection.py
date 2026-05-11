@@ -17,18 +17,15 @@ from src.common.exceptions import InputDataError, RuntimeProcessError
 
 logger = logging.getLogger(__name__)
 
-_RIB_LABEL = {"center": "RIB1/5", "side": "RIB2/3/4"}
-_GROOVE_WIDTH_MM = {"center": 3.5, "side": 1.8}
 _SCORE_GROOVE_COUNT = 4
 _SCORE_INTERSECTION = 2
 _LEGACY_DEBUG_MAX_INTERSECTIONS = 2
-_VIS_NAME = "groove_intersection.png"
+_VIS_NAME = "groove_intersection"
 
 
 def detect_transverse_grooves(
     image: np.ndarray,
-    image_type: str,
-    pixel_per_mm: float = 7.1,
+    groove_width_px: int,
     is_debug: bool = False,
 ) -> Tuple[int, int, str, Optional[np.ndarray]]:
     """
@@ -36,8 +33,7 @@ def detect_transverse_grooves(
 
     Parameters:
     - image: 输入 BGR 图像，形状为 (H, W, 3)
-    - image_type: 小图类型，支持 "center" 或 "side"
-    - pixel_per_mm: 像素密度，单位 px/mm
+    - groove_width_px: 横沟最小宽度（像素），必须 >= 1
     - is_debug: 是否输出 debug 可视化图
 
     Returns:
@@ -48,7 +44,7 @@ def detect_transverse_grooves(
 
     注意：算法层不计算规则得分、不保存文件，也不处理 task_id 或输出目录。
     """
-    logger.debug("开始横沟检测，image_type=%s", image_type)
+    logger.debug("开始横沟检测，groove_width_px=%d", groove_width_px)
 
     if image is None:
         raise InputDataError("image", "value", "must not be None")
@@ -59,27 +55,17 @@ def detect_transverse_grooves(
     if image.ndim != 3 or image.shape[2] != 3:
         raise InputDataError("image", "shape", "expected (H, W, 3) BGR image", image.shape)
 
-    if not isinstance(image_type, str):
-        raise InputDataError("image_type", "type", "expected str", type(image_type).__name__)
+    if not isinstance(groove_width_px, int):
+        raise InputDataError("groove_width_px", "type", "expected int", type(groove_width_px).__name__)
 
-    image_type_key = image_type.strip().lower()
-    if image_type_key not in _RIB_LABEL:
-        raise InputDataError("image_type", "value", "must be 'center' or 'side'", image_type)
+    if groove_width_px < 1:
+        raise InputDataError("groove_width_px", "value", "must be >= 1", groove_width_px)
 
-    if pixel_per_mm <= 0:
-        raise InputDataError("pixel_per_mm", "value", "must be > 0", pixel_per_mm)
-
-    rib_type = _RIB_LABEL[image_type_key]
-    min_width_mm = _GROOVE_WIDTH_MM[image_type_key]
-    groove_width_px = max(1, int(round(min_width_mm * pixel_per_mm)))
     image_height, image_width = image.shape[:2]
 
     logger.debug(
-        "横沟参数: rib_type=%s, groove_width_px=%d, min_width_mm=%.1f, pixel_per_mm=%.1f",
-        rib_type,
+        "横沟参数: groove_width_px=%d",
         groove_width_px,
-        min_width_mm,
-        pixel_per_mm,
     )
 
     try:
@@ -120,7 +106,6 @@ def detect_transverse_grooves(
     if is_debug:
         try:
             valid_groove_count, valid_intersections, debug_score = _legacy_debug_status(
-                rib_type,
                 groove_count,
                 intersection_count,
             )
@@ -128,7 +113,6 @@ def detect_transverse_grooves(
                 image,
                 groove_mask,
                 groove_positions,
-                rib_type,
                 groove_count,
                 intersection_count,
                 valid_groove_count,
@@ -274,15 +258,11 @@ def _count_intersections(binary: np.ndarray, groove_mask: np.ndarray) -> int:
 
 
 def _legacy_debug_status(
-    rib_type: str,
     groove_count: int,
     intersection_count: int,
 ) -> Tuple[bool, bool, float]:
-    """计算仅用于兼容老架构 debug 图标注的状态。"""
-    if rib_type == "RIB1/5":
-        valid_groove_count = groove_count == 1
-    else:
-        valid_groove_count = groove_count <= 1
+    """计算仅用于 debug 图标注的状态。"""
+    valid_groove_count = groove_count == 1
 
     valid_intersections = intersection_count <= _LEGACY_DEBUG_MAX_INTERSECTIONS
     debug_score = 0
@@ -297,7 +277,6 @@ def _draw_debug_image(
     image: np.ndarray,
     groove_mask: np.ndarray,
     groove_positions: List[float],
-    rib_type: str,
     groove_count: int,
     intersection_count: int,
     valid_groove_count: bool,
@@ -324,7 +303,6 @@ def _draw_debug_image(
     text_color = (255, 255, 255)
     background_color = (0, 0, 0)
     lines = [
-        rib_type,
         f"G:{groove_count} {'OK' if valid_groove_count else 'NG'}",
         f"X:{intersection_count} {'OK' if valid_intersections else 'NG'}",
         f"S:{debug_score:.0f}",
