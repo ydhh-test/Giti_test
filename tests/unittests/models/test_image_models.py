@@ -9,9 +9,9 @@ BIZ_DICT = {"level": "small", "region": "side", "source_type": "original"}
 
 SMALL_IMAGE_DICT = {"image_base64": "data:image/png;base64,xxx", "meta": META_DICT, "biz": BIZ_DICT}
 
-RULE8_CONFIG_DICT = {"description": "test", "max_score": 4, "activation_node_name": "", "groove_width_center": 10.0, "groove_width_side": 8.0}
+RULE8_CONFIG_DICT = {"description": "test", "max_score": 4, "groove_width_center": 10.0, "groove_width_side": 8.0}
 
-RULE11_CONFIG_DICT = {"description": "test", "max_score": 4, "activation_node_name": "", "groove_width": 5.0, "min_width_offset_px": 1, "edge_margin_ratio": 0.1, "min_segment_length_ratio": 0.5, "max_angle_from_vertical": 15.0, "max_count_center": 3, "max_count_side": 2}
+RULE11_CONFIG_DICT = {"description": "test", "max_score": 4, "groove_width": 5.0, "min_width_offset_px": 1, "edge_margin_ratio": 0.1, "min_segment_length_ratio": 0.5, "max_angle_from_vertical": 15.0, "max_count_center": 3, "max_count_side": 2}
 
 
 # ===================== ImageMeta 校验规则测试 =====================
