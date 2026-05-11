@@ -24,6 +24,21 @@ from src.common.exceptions import (
 from src.utils.logger import get_logger
 
 
+def create_temp_image_file(suffix: str, image_array: np.ndarray, encode_params=None) -> str:
+    """Windows 兼容的临时图像文件创建辅助函数。
+
+    使用 mkstemp 而非 NamedTemporaryFile，避免 Windows 下文件句柄锁定导致
+    cv2.imwrite 写入或 os.unlink 删除失败的问题。
+    """
+    fd, path = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    if encode_params:
+        cv2.imwrite(path, image_array, encode_params)
+    else:
+        cv2.imwrite(path, image_array)
+    return path
+
+
 # 创建测试用的numpy数组（BGR格式）
 TEST_IMAGE_ARRAY = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
 
@@ -215,36 +230,33 @@ class TestLoadImageToBase64:
 
     def test_load_png_with_prefix(self):
         """加载PNG文件返回带前缀base64"""
-        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
-            cv2.imwrite(tmp_file.name, TEST_IMAGE_ARRAY)
-            try:
-                result = load_image_to_base64(Path(tmp_file.name), with_prefix=True)
-                assert isinstance(result, str)
-                assert result.startswith("data:image/png;base64,")
-            finally:
-                os.unlink(tmp_file.name)
+        tmp_path = create_temp_image_file('.png', TEST_IMAGE_ARRAY)
+        try:
+            result = load_image_to_base64(Path(tmp_path), with_prefix=True)
+            assert isinstance(result, str)
+            assert result.startswith("data:image/png;base64,")
+        finally:
+            os.unlink(tmp_path)
 
     def test_load_jpg_with_prefix(self):
         """加载JPG文件返回带前缀base64"""
-        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
-            cv2.imwrite(tmp_file.name, TEST_IMAGE_ARRAY, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-            try:
-                result = load_image_to_base64(Path(tmp_file.name), with_prefix=True)
-                assert isinstance(result, str)
-                assert result.startswith("data:image/jpg;base64,")
-            finally:
-                os.unlink(tmp_file.name)
+        tmp_path = create_temp_image_file('.jpg', TEST_IMAGE_ARRAY, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        try:
+            result = load_image_to_base64(Path(tmp_path), with_prefix=True)
+            assert isinstance(result, str)
+            assert result.startswith("data:image/jpg;base64,")
+        finally:
+            os.unlink(tmp_path)
 
     def test_load_without_prefix(self):
         """with_prefix=False返回纯base64"""
-        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
-            cv2.imwrite(tmp_file.name, TEST_IMAGE_ARRAY)
-            try:
-                result = load_image_to_base64(Path(tmp_file.name), with_prefix=False)
-                assert isinstance(result, str)
-                assert not result.startswith("data:image/")
-            finally:
-                os.unlink(tmp_file.name)
+        tmp_path = create_temp_image_file('.png', TEST_IMAGE_ARRAY)
+        try:
+            result = load_image_to_base64(Path(tmp_path), with_prefix=False)
+            assert isinstance(result, str)
+            assert not result.startswith("data:image/")
+        finally:
+            os.unlink(tmp_path)
 
     def test_input_type_error_non_path(self):
         """非Path对象输入抛出InputTypeError"""
@@ -261,30 +273,27 @@ class TestLoadImageToBase64:
 
     def test_input_data_error_unsupported_format(self):
         """不支持格式文件抛出InputDataError并记录警告"""
-        with tempfile.NamedTemporaryFile(suffix='.bmp', delete=False) as tmp_file:
-            # 创建一个简单的BMP文件
-            simple_array = np.zeros((10, 10, 3), dtype=np.uint8)
-            cv2.imwrite(tmp_file.name, simple_array)
-            try:
-                with pytest.raises(InputDataError):
-                    load_image_to_base64(Path(tmp_file.name))
-            finally:
-                os.unlink(tmp_file.name)
+        simple_array = np.zeros((10, 10, 3), dtype=np.uint8)
+        tmp_path = create_temp_image_file('.bmp', simple_array)
+        try:
+            with pytest.raises(InputDataError):
+                load_image_to_base64(Path(tmp_path))
+        finally:
+            os.unlink(tmp_path)
 
     def test_warning_logged_for_unsupported_format(self, caplog):
         """不支持格式触发警告日志"""
-        with tempfile.NamedTemporaryFile(suffix='.bmp', delete=False) as tmp_file:
-            simple_array = np.zeros((10, 10, 3), dtype=np.uint8)
-            cv2.imwrite(tmp_file.name, simple_array)
+        simple_array = np.zeros((10, 10, 3), dtype=np.uint8)
+        tmp_path = create_temp_image_file('.bmp', simple_array)
+        try:
             try:
-                try:
-                    load_image_to_base64(Path(tmp_file.name))
-                except InputDataError:
-                    pass
-                # 检查是否有警告日志
-                assert any("警告: 不支持的文件格式" in record.message for record in caplog.records)
-            finally:
-                os.unlink(tmp_file.name)
+                load_image_to_base64(Path(tmp_path))
+            except InputDataError:
+                pass
+            # 检查是否有警告日志
+            assert any("警告: 不支持的文件格式" in record.message for record in caplog.records)
+        finally:
+            os.unlink(tmp_path)
 
 
 class TestSaveBase64ToImage:
