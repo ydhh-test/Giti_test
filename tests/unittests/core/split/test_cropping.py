@@ -10,10 +10,11 @@ remove_black_and_split_segments - 黑色列分割 - 7个
   3. 边界场景：黑色段不足、无黑色段、窄黑色段过滤
   4. 颜色空间：验证BGR↔RGB转换正确性
 
-remove_side_white - 单侧白边去除 - 4个
+remove_side_white - 单侧白边去除 - 5个
   1. 方向覆盖：left/right两个方向分别测试
-  2. 正常裁剪：有白边时正确裁剪
-  3. 边界场景：无白边返回原图、全白图像返回原图
+  2. 默认参数：不指定direction时使用默认值'left'
+  3. 正常裁剪：有白边时正确裁剪
+  4. 边界场景：无白边返回原图、全白图像返回原图
 
 remove_edge_gray - 边缘灰色替换 - 5个
   1. 目标替换：target_gray在容差范围内被正确替换为白色
@@ -125,6 +126,13 @@ class TestRemoveSideWhite(unittest.TestCase):
         img = np.ones((100, 200, 3), dtype=np.uint8) * 255
         img[:, 50:, :] = [100, 100, 100]
         result = remove_side_white(img, direction='left')
+        self.assertLess(result.shape[1], img.shape[1])
+
+    def test_remove_white_default_direction(self):
+        """PASS: 不指定direction时使用默认值'left'"""
+        img = np.ones((100, 200, 3), dtype=np.uint8) * 255
+        img[:, 50:, :] = [100, 100, 100]
+        result = remove_side_white(img)
         self.assertLess(result.shape[1], img.shape[1])
 
     def test_remove_right_white(self):

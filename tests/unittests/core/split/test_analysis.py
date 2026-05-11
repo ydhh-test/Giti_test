@@ -4,13 +4,14 @@
 
 测试用例统计：
 ========================
-analyze_dominant_color - 主色调分析 - 9个
+analyze_dominant_color - 主色调分析 - 10个
   1. 正常检测：图像包含在[lower_bound, upper_bound]范围内的颜色，返回该颜色
   2. 默认颜色：所有颜色超出范围时返回default_color
-  3. 边界值：颜色值恰好等于lower_bound或upper_bound
-  4. 颜色空间：BGR输入正确转换为RGB处理
-  5. 多颜色场景：多种颜色时返回最高频且在范围内的颜色
-  6. 极端场景：全白、全黑、单色图像
+  3. 自定义默认颜色：传入自定义default_color参数时返回该颜色
+  4. 边界值：颜色值恰好等于lower_bound或upper_bound
+  5. 颜色空间：BGR输入正确转换为RGB处理
+  6. 多颜色场景：多种颜色时返回最高频且在范围内的颜色
+  7. 极端场景：全白、全黑、单色图像
 
 remove_vertical_lines_center - 中央竖直线去除 - 7个
   1. 正常检测：图像中央有竖直线时正确去除
@@ -58,6 +59,13 @@ class TestAnalyzeDominantColor(unittest.TestCase):
         img[:, :] = [10, 10, 10]
         result = analyze_dominant_color(img, lower_bound=15, upper_bound=240, default_color=(137, 137, 137))
         self.assertEqual(result, (137, 137, 137))
+
+    def test_dominant_color_custom_default(self):
+        """PASS: 自定义default_color参数生效"""
+        img = np.zeros((100, 100, 3), dtype=np.uint8)
+        img[:, :] = [5, 5, 5]
+        result = analyze_dominant_color(img, default_color=(200, 200, 200))
+        self.assertEqual(result, (200, 200, 200))
 
     def test_dominant_color_white_returns_default(self):
         """PASS: 全白图像(255,255,255)超出范围"""
