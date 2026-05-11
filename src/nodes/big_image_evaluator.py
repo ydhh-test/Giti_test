@@ -1,11 +1,32 @@
-"""Big image evaluation node placeholders."""
+"""Big image evaluation node."""
 
 from __future__ import annotations
 
-from typing import Any
+from src.common.exceptions import InputDataError
+from src.models.image_models import BigImage
+from src.models.rule_models import BaseRuleConfig
+from src.nodes.base import BIG_IMAGE_EVALUATOR_CONFIGS, evaluate_image_with_configs, select_node_configs
 
 
-def evaluate_big_image(input_data: Any, rules_config: Any | None = None) -> Any:
-    """Evaluate big images via node-level orchestration only."""
+NODE_NAME = "big_image_evaluator"
 
-    raise NotImplementedError("Big image evaluator placeholder is not implemented yet.")
+
+def evaluate_big_image(
+    big_image: BigImage | None,
+    rules_config: list[BaseRuleConfig],
+) -> BigImage:
+    """Evaluate the single big image and write the evaluation back."""
+
+    if big_image is None:
+        raise InputDataError(NODE_NAME, "big_image", "big_image is required")
+
+    configs = select_node_configs(
+        rules_config,
+        BIG_IMAGE_EVALUATOR_CONFIGS,
+    )
+    big_image.evaluation = evaluate_image_with_configs(
+        big_image,
+        configs,
+    )
+
+    return big_image
