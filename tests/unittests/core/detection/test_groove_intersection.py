@@ -159,12 +159,9 @@ class TestTransverseGroovesInternalBranches(unittest.TestCase):
         binary = np.zeros((32, 32), dtype=np.uint8)
         positions, count, groove_mask = _analyze_grooves(binary, groove_width_px=8, image_width=32)
 
-        expected_positions = []
-        expected_count = 0
-        expected_mask_sum = 0
-        self.assertEqual(positions, expected_positions)
-        self.assertEqual(count, expected_count)
-        self.assertEqual(int(groove_mask.sum()), expected_mask_sum)
+        rst = (positions, count, int(groove_mask.sum()))
+        expected = ([], 0, 0)
+        self.assertEqual(rst, expected)
 
     def test_analyze_grooves_single_and_multiple_bands(self):
         from src.core.detection.groove_intersection import _analyze_grooves
@@ -173,10 +170,12 @@ class TestTransverseGroovesInternalBranches(unittest.TestCase):
         positions, count, _ = _analyze_grooves(single, groove_width_px=25, image_width=128)
         expected_count = 1
         expected_len = 1
+        expected_position_min = 50
+        expected_position_max = 79
         self.assertEqual(count, expected_count)
         self.assertEqual(len(positions), expected_len)
-        self.assertGreaterEqual(positions[0], 50)
-        self.assertLessEqual(positions[0], 79)
+        self.assertGreaterEqual(positions[0], expected_position_min)
+        self.assertLessEqual(positions[0], expected_position_max)
 
         multiple = _make_binary_mask(bands=[(20, 46), (82, 108)])
         positions, count, _ = _analyze_grooves(multiple, groove_width_px=25, image_width=128)
@@ -191,10 +190,9 @@ class TestTransverseGroovesInternalBranches(unittest.TestCase):
         binary = _make_binary_mask(height=32, width=32, bands=[(5, 10), (12, 18)])
         positions, count, _ = _analyze_grooves(binary, groove_width_px=8, image_width=32)
 
-        expected_count = 1
-        expected_len = 1
-        self.assertEqual(count, expected_count)
-        self.assertEqual(len(positions), expected_len)
+        rst = (count, len(positions))
+        expected = (1, 1)
+        self.assertEqual(rst, expected)
 
     def test_analyze_grooves_filters_too_short_band(self):
         from src.core.detection.groove_intersection import _analyze_grooves
@@ -202,10 +200,9 @@ class TestTransverseGroovesInternalBranches(unittest.TestCase):
         binary = _make_binary_mask(bands=[(60, 63)])
         _, count, groove_mask = _analyze_grooves(binary, groove_width_px=25, image_width=128)
 
-        expected_count = 0
-        expected_mask_sum = 0
-        self.assertEqual(count, expected_count)
-        self.assertEqual(int(groove_mask.sum()), expected_mask_sum)
+        rst = (count, int(groove_mask.sum()))
+        expected = (0, 0)
+        self.assertEqual(rst, expected)
 
     def test_count_intersections_no_groove(self):
         from src.core.detection.groove_intersection import _count_intersections
