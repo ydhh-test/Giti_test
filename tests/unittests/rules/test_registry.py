@@ -12,7 +12,6 @@ from src.rules.registry import (
 class RulexConfig(BaseRuleConfig):
     description: str = "dummy"
     max_score: int = 0
-    activation_node_name: str = "test_node"
 
 
 class DummyExecutor(RuleExecutor):

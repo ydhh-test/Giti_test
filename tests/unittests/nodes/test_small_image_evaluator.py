@@ -5,7 +5,6 @@ import pytest
 from src.models.enums import ImageFormatEnum, ImageModeEnum, LevelEnum, RegionEnum, SourceTypeEnum
 from src.models.image_models import BigImage, ImageBiz, ImageMeta, SmallImage
 from src.models.rule_models import Rule6Config, Rule6Feature, Rule6Score, Rule8Config, Rule11Config, Rule11Feature, Rule11Score
-from src.models.tire_struct import TireStruct
 from src.nodes.small_image_evaluator import evaluate_small_images
 
 
@@ -81,24 +80,19 @@ class FailingRuleRunner(FakeRuleRunner):
 
 
 def test_evaluate_small_images_writes_independent_evaluations_in_node_order(monkeypatch):
-    """验证小图节点逐张写入独立评估，并按 Node1 配置顺序执行 rule6、rule11。"""
+    """验证小图节点接收小图列表并返回已写入独立评估的小图列表。"""
     FakeRuleRunner.reset()
     monkeypatch.setattr("src.nodes.base.RuleRunner", FakeRuleRunner)
-    tire = TireStruct(
-        small_images=[make_small_image(), make_small_image(RegionEnum.SIDE)],
-        big_image=make_big_image(),
-        rules_config=[make_rule11_config(), Rule8Config(groove_width_center=1, groove_width_side=1), Rule6Config()],
-    )
+    small_images = [make_small_image(), make_small_image(RegionEnum.SIDE)]
+    rules_config = [make_rule11_config(), Rule8Config(groove_width_center=1, groove_width_side=1), Rule6Config()]
 
-    result = evaluate_small_images(tire)
+    result = evaluate_small_images(small_images, rules_config)
 
-    assert result.flag is True
-    assert result.err_msg is None
-    assert result.big_image is tire.big_image
-    assert [rule.name for rule in result.small_images[0].evaluation.rules] == ["rule6", "rule11"]
-    assert [rule.name for rule in result.small_images[1].evaluation.rules] == ["rule6", "rule11"]
-    assert result.small_images[0].evaluation is not result.small_images[1].evaluation
-    assert result.small_images[0].evaluation.current_score == 10
+    assert result is small_images
+    assert [rule.name for rule in result[0].evaluation.rules] == ["rule6", "rule11"]
+    assert [rule.name for rule in result[1].evaluation.rules] == ["rule6", "rule11"]
+    assert result[0].evaluation is not result[1].evaluation
+    assert result[0].evaluation.current_score == 10
     assert [call[0] for call in FakeRuleRunner.calls] == ["feature", "score", "feature", "score", "feature", "score", "feature", "score"]
 
 
@@ -106,10 +100,6 @@ def test_evaluate_small_images_does_not_handle_runner_exception(monkeypatch):
     """验证小图节点不捕获 RuleRunner 异常，底层异常会直接向上抛出。"""
     FailingRuleRunner.reset()
     monkeypatch.setattr("src.nodes.base.RuleRunner", FailingRuleRunner)
-    tire = TireStruct(
-        small_images=[make_small_image()],
-        rules_config=[Rule6Config()],
-    )
 
     with pytest.raises(RuntimeError, match="boom"):
-        evaluate_small_images(tire)
+        evaluate_small_images([make_small_image()], [Rule6Config()])

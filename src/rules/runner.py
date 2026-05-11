@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.models.image_models import BaseImage, BigImage
+from src.models.image_models import BaseImage
 from src.models.rule_models import BaseRuleConfig, BaseRuleFeature, BaseRuleScore
 from src.rules.registry import get_rule_executor
 
@@ -23,11 +23,3 @@ class RuleRunner:
     ) -> BaseRuleScore:
         executor = get_rule_executor(config.name)
         return executor.exec_score(config, feature)
-
-    @staticmethod
-    def exec_image_operation(
-        image: BaseImage,
-        config: BaseRuleConfig,
-    ) -> BigImage:
-        executor = get_rule_executor(config.name)
-        return executor.exec_image_operation(image, config)

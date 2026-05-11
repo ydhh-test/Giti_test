@@ -1,5 +1,5 @@
 from src.models.enums import ImageFormatEnum, ImageModeEnum, LevelEnum, RegionEnum
-from src.models.image_models import BigImage, ImageBiz, ImageMeta, SmallImage
+from src.models.image_models import ImageBiz, ImageMeta, SmallImage
 from src.models.rule_models import BaseRuleConfig, BaseRuleFeature, BaseRuleScore
 from src.rules.runner import RuleRunner
 
@@ -7,7 +7,6 @@ from src.rules.runner import RuleRunner
 class RulexConfig(BaseRuleConfig):
     description: str = "image op"
     max_score: int = 0
-    activation_node_name: str = "test_node"
 
 
 class RulexFeature(BaseRuleFeature):
@@ -33,20 +32,6 @@ def make_small_image() -> SmallImage:
     )
 
 
-def make_big_image() -> BigImage:
-    return BigImage(
-        image_base64="data:image/png;base64,big",
-        meta=ImageMeta(
-            width=20,
-            height=20,
-            channels=3,
-            mode=ImageModeEnum.RGB,
-            format=ImageFormatEnum.PNG,
-            size=10,
-        ),
-        biz=ImageBiz(level=LevelEnum.BIG, region=RegionEnum.CENTER),
-    )
-
 
 class RulexExecutor:
     def __init__(self) -> None:
@@ -60,23 +45,6 @@ class RulexExecutor:
         self.calls.append(("score", config, feature))
         return RulexScore(score=7)
 
-    def exec_image_operation(self, image, config):
-        self.calls.append(("image", image, config))
-        return make_big_image()
-
-
-def test_exec_image_operation_uses_config_name_for_lookup(monkeypatch):
-    """验证 RuleRunner.exec_image_operation 使用 config.name 查找并调用 executor。"""
-    executor = RulexExecutor()
-    monkeypatch.setattr("src.rules.runner.get_rule_executor", lambda rule_name: executor)
-    image = make_small_image()
-    config = RulexConfig()
-
-    result = RuleRunner.exec_image_operation(image, config)
-
-    assert isinstance(result, BigImage)
-    assert result.image_base64 == "data:image/png;base64,big"
-    assert executor.calls == [("image", image, config)]
 
 
 def test_exec_feature_uses_config_name_for_lookup(monkeypatch):

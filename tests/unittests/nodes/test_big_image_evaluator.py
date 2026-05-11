@@ -6,7 +6,6 @@ from src.common.exceptions import InputDataError
 from src.models.enums import ImageFormatEnum, ImageModeEnum, LevelEnum, RegionEnum, SourceTypeEnum
 from src.models.image_models import BigImage, ImageBiz, ImageMeta, SmallImage
 from src.models.rule_models import Rule8Config, Rule8Feature, Rule8Score, Rule13Config, Rule13Feature, Rule13Score
-from src.models.tire_struct import TireStruct
 from src.nodes.big_image_evaluator import evaluate_big_image
 
 
@@ -64,35 +63,24 @@ class FakeRuleRunner:
 
 
 def test_evaluate_big_image_writes_single_big_image_evaluation_only(monkeypatch):
-    """验证大图评估节点只处理 big_image，并按 Node4 顺序写入 rule8、rule13。"""
+    """验证大图评估节点接收单张大图并返回已写入评估的大图对象。"""
     FakeRuleRunner.reset()
     monkeypatch.setattr("src.nodes.base.RuleRunner", FakeRuleRunner)
-    small_images = [make_small_image()]
-    tire = TireStruct(
-        small_images=small_images,
-        big_image=make_big_image(),
-        rules_config=[
-            Rule13Config(land_ratio_min=0.1, land_ratio_max=0.5),
-            Rule8Config(groove_width_center=1, groove_width_side=1),
-        ],
-    )
+    big_image = make_big_image()
+    rules_config = [
+        Rule13Config(land_ratio_min=0.1, land_ratio_max=0.5),
+        Rule8Config(groove_width_center=1, groove_width_side=1),
+    ]
 
-    result = evaluate_big_image(tire)
+    result = evaluate_big_image(big_image, rules_config)
 
-    assert result.flag is True
-    assert result.err_msg is None
-    assert result.small_images == small_images
-    assert [rule.name for rule in result.big_image.evaluation.rules] == ["rule8", "rule13"]
-    assert result.big_image.evaluation.current_score == 5
+    assert result is big_image
+    assert [rule.name for rule in result.evaluation.rules] == ["rule8", "rule13"]
+    assert result.evaluation.current_score == 5
     assert [call[0] for call in FakeRuleRunner.calls] == ["feature", "score", "feature", "score"]
 
 
 def test_evaluate_big_image_raises_input_error_when_big_image_missing():
     """验证缺少 big_image 时，大图评估节点抛出 InputDataError。"""
-    tire = TireStruct(
-        small_images=[make_small_image()],
-        rules_config=[Rule8Config(groove_width_center=1, groove_width_side=1)],
-    )
-
     with pytest.raises(InputDataError, match="big_image is required"):
-        evaluate_big_image(tire)
+        evaluate_big_image(None, [Rule8Config(groove_width_center=1, groove_width_side=1)])

@@ -119,8 +119,6 @@ class BaseRuleConfig(BaseModel):
 
     description: str = Field(description="规则描述")
     max_score: int = Field(ge=0, description="最大可得分")
-    activation_node_name: str = Field(description="生效节点名称")
-
     @property
     def name(self) -> str:
         """规则名称，从类名自动提取（如Rule8Config → rule8）"""
@@ -172,37 +170,30 @@ class Rule1Config(BaseRuleConfig):
     """Rule1：5个花纹RIB无对称原则"""
     description: str = "5个花纹RIB无对称原则"
     max_score: int = 8
-    activation_node_name: str = ""
 
 
 class Rule2Config(BaseRuleConfig):
     """Rule2：中心旋转180°对称花纹"""
     description: str = "中心旋转180°对称花纹"
     max_score: int = 8
-    activation_node_name: str = ""
 
 
 class Rule3Config(BaseRuleConfig):
     """Rule3：中心线镜像对称"""
     description: str = "中心线镜像对称"
     max_score: int = 8
-    activation_node_name: str = ""
 
 
 class Rule4Config(BaseRuleConfig):
     """Rule4：中心线镜像对称可错位"""
     description: str = "中心线镜像对称可错位"
     max_score: int = 8
-    activation_node_name: str = ""
 
 
 class Rule5Config(BaseRuleConfig):
     """Rule5：根据用户指定的对称性进行输出"""
     description: str = "根据用户指定的对称性进行输出"
     max_score: int = 1
-    activation_node_name: str = ""
-
-
 @register_rule_feature
 class Rule1Feature(BaseRuleFeature):
     """Rule1特征：横图拼接子规则，特征字段待业务细化"""
@@ -271,14 +262,12 @@ class Rule6Config(BaseRuleConfig):
     """Rule6：节距纵向关系无缝拼接/图案连续性检测"""
     description: str = "节距纵向关系无缝拼接 / 图案连续性检测"
     max_score: int = 10
-    activation_node_name: str = ""
 
 
 class Rule6AConfig(BaseRuleConfig):
     """Rule6A：拼接节距 - 非打分规则，后续可能摘出为新类"""
     description: str = "拼接节距"
     max_score: int = 0
-    activation_node_name: str = ""
     default_stitch_count: int = Field(description="拼接次数")
     target_resolution_width: int = Field(description="目标分辨率宽度(像素)")
 
@@ -315,7 +304,6 @@ class Rule7Config(BaseRuleConfig):
     """Rule7：主沟宽度/数量 - 现被rule1to5横图拼接、rule12/16/17连续性拼接吸收"""
     description: str = "主沟宽度/数量约束"
     max_score: int = 0
-    activation_node_name: str = ""
     main_groove_width: float = Field(description="主沟宽度(像素)")
     main_groove_width_min: float = Field(description="主沟宽度下限(像素)")
     main_groove_width_max: float = Field(description="主沟宽度上限(像素)")
@@ -349,7 +337,6 @@ class Rule8Config(BaseRuleConfig):
     """Rule8：横沟数量约束"""
     description: str = "横沟数量约束"
     max_score: int = 4
-    activation_node_name: str = ""
     groove_width_center: float = Field(gt=0, description="center横沟宽度(像素)")
     groove_width_side: float = Field(gt=0, description="side横沟宽度(像素)")
 
@@ -374,7 +361,6 @@ class Rule9Config(BaseRuleConfig):
     """Rule9：横向钢片数量约束（未实现）"""
     description: str = "横向钢片数量约束"
     max_score: int = 0
-    activation_node_name: str = ""
     transverse_sipe_width: float = Field(description="横向钢片宽度(像素)")
     min_sipe_count_rib1_5: int = Field(description="RIB1/5钢片数量下限")
     max_sipe_count_rib1_5: int = Field(description="RIB1/5钢片数量上限")
@@ -386,7 +372,6 @@ class Rule10Config(BaseRuleConfig):
     """Rule10：横向钢片位置需均分两横沟之间花纹块（未实现）"""
     description: str = "横向钢片位置需均分两横沟之间花纹块"
     max_score: int = 0
-    activation_node_name: str = ""
     transverse_sipe_width: float = Field(description="横向钢片宽度(像素)")
     position_tolerance_ratio: float = Field(description="允许偏离均分位置的比例阈值")
     min_adjacent_groove_count: int = Field(description="至少需要两条横沟才能判断均分")
@@ -429,7 +414,6 @@ class Rule11Config(BaseRuleConfig):
     """Rule11：纵向钢片与纵向细沟数量约束"""
     description: str = "纵向钢片与纵向细沟数量约束"
     max_score: int = 4
-    activation_node_name: str = ""
     groove_width: float = Field(description="纵向线条名义宽度(像素)")
     min_width_offset_px: int = Field(description="宽度下限偏移(像素)")
     edge_margin_ratio: float = Field(description="左右边缘排除比例")
@@ -459,7 +443,6 @@ class Rule12Config(BaseRuleConfig):
     """Rule12：两个RIB间横向钢片及横沟连续性占比60%-70%"""
     description: str = "两个RIB间横向钢片及横沟连续性占比60%-70%"
     max_score: int = 0
-    activation_node_name: str = ""
     continuity_mode: str = Field(description="连续性模式：RIB2-RIB3|RIB3-RIB4|RIB2-RIB3-RIB4|none")
     groove_width: float = Field(description="主沟宽度(像素)")
     blend_width: int = Field(description="融合宽度(像素)")
@@ -485,7 +468,6 @@ class Rule13Config(BaseRuleConfig):
     """Rule13：1个节距TDW范围内海陆比在28%-35%"""
     description: str = "1个节距TDW范围内海陆比在28%-35%"
     max_score: int = 2
-    activation_node_name: str = ""
     land_ratio_min: float = Field(description="合格陆地占比下限")
     land_ratio_max: float = Field(description="合格陆地占比上限")
 
@@ -510,7 +492,6 @@ class Rule14Config(BaseRuleConfig):
     """Rule14：钢片&横沟与其他线条交点数量<=2"""
     description: str = "钢片&横沟与其他线条交点数量≤2"
     max_score: int = 2
-    activation_node_name: str = ""
     max_intersections: int = Field(description="允许的最大交叉点数量")
 
 
@@ -534,7 +515,6 @@ class Rule15Config(BaseRuleConfig):
     """Rule15：各节距中细沟&横沟分割出的花纹块面积比例（未实现）"""
     description: str = "各节距中细沟&横沟分割出的花纹块面积比例≤1:1.2"
     max_score: int = 0
-    activation_node_name: str = ""
     max_block_area_ratio: float = Field(description="各花纹块面积比例上限：1.2")
     min_block_area_px: int = Field(description="过滤噪声用最小花纹块面积(像素)")
     rib_index_start: int = Field(description="RIB起始索引，默认RIB1")
@@ -563,7 +543,6 @@ class Rule16Config(BaseRuleConfig):
     """Rule16：RIB2/3/4上的横沟或横向钢片可任意组合连续性"""
     description: str = "RIB2/3/4上的横沟或横向钢片可任意组合连续性"
     max_score: int = 0
-    activation_node_name: str = ""
     continuity_mode: str = Field(description="三RIB组合模式")
     groove_width: float = Field(description="主沟宽度(像素)")
     blend_width: int = Field(description="融合宽度(像素)")
@@ -573,7 +552,6 @@ class Rule17Config(BaseRuleConfig):
     """Rule17：RIB1与RIB2、RIB4与RIB5可连续可不连续，各占50%"""
     description: str = "RIB1与RIB2、RIB4与RIB5可连续可不连续，各占50%"
     max_score: int = 0
-    activation_node_name: str = ""
     edge_continuity_rib1_rib2: float = Field(ge=0, le=1, description="RIB1-RIB2连续概率")
     edge_continuity_rib4_rib5: float = Field(ge=0, le=1, description="RIB4-RIB5连续概率")
     blend_width: int = Field(description="融合宽度(像素)")
@@ -612,7 +590,6 @@ class Rule18Config(BaseRuleConfig):
     """Rule18：颜色灰度变化用于表征沟的深浅（未实现）"""
     description: str = "颜色灰度变化用于表征沟的深浅"
     max_score: int = 0
-    activation_node_name: str = ""
     enable_gray_depth: bool = Field(description="是否启用灰度深度")
     min_gray_value: int = Field(description="最小灰度值")
     max_gray_value: int = Field(description="最大灰度值")
@@ -642,7 +619,6 @@ class Rule19Config(BaseRuleConfig):
     """Rule19：PDW与TDW之间边缘灰色区域可结合横沟或钢片做装饰性造型 - 纯流程类规则，无评分"""
     description: str = "PDW与TDW之间边缘灰色区域可结合横沟或钢片做装饰性造型"
     max_score: int = 0
-    activation_node_name: str = ""
     tire_design_width: int = Field(description="花纹有效宽度(像素)")
     decoration_border_alpha: float = Field(ge=0, le=1, description="透明度")
     decoration_gray_color: int = Field(description="灰色RGB值")
@@ -668,7 +644,6 @@ class Rule20Config(BaseRuleConfig):
     """Rule20：用户输入文字生成合理的花纹概念图片（未实现）"""
     description: str = "用户输入文字生成合理的花纹概念图片"
     max_score: int = 0
-    activation_node_name: str = ""
     prompt: str = Field(description="提示词")
     negative_prompt: Optional[str] = Field(default=None, description="负面提示词")
     num_images: int = Field(description="生成图片数量")
@@ -699,7 +674,6 @@ class Rule21Config(BaseRuleConfig):
     """Rule21：针对用户提出的业务目标量化要求支持配置 - 现被configs与各RuleConfig吸收"""
     description: str = "针对用户提出的业务目标量化要求支持配置"
     max_score: int = 0
-    activation_node_name: str = ""
     configurable_rule_names: List[str] = Field(description="可配置规则名称列表")
     strict_validation: bool = Field(description="是否严格校验")
     allow_partial_override: bool = Field(description="是否允许部分覆盖")
@@ -709,7 +683,6 @@ class Rule22Config(BaseRuleConfig):
     """Rule22：能够根据需要输出指定清晰度的图片 - 现被rule6a纵图拼接resolution配置吸收"""
     description: str = "能够根据需要输出指定清晰度的图片"
     max_score: int = 0
-    activation_node_name: str = ""
     target_width: int = Field(description="目标宽度(像素)")
     target_height: int = Field(description="目标高度(像素)")
     keep_aspect_ratio: bool = Field(description="是否保持宽高比")

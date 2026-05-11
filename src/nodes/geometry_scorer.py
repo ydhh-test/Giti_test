@@ -3,28 +3,32 @@
 from __future__ import annotations
 
 from src.common.exceptions import InputDataError
-from src.models.tire_struct import TireStruct
+from src.models.image_models import BigImage
+from src.models.rule_models import BaseRuleConfig
 from src.nodes.base import GEOMETRY_SCORER_CONFIGS, RuleRunner, recalculate_current_score, select_node_configs
 
 
 NODE_NAME = "geometry_scorer"
 
 
-def score_geometry(tire_struct: TireStruct) -> TireStruct:
+def score_geometry(
+    big_image: BigImage | None,
+    rules_config: list[BaseRuleConfig],
+) -> BigImage:
     """Recalculate geometry scores from existing big-image features."""
 
-    if tire_struct.big_image is None:
+    if big_image is None:
         raise InputDataError(NODE_NAME, "big_image", "big_image is required")
-    if tire_struct.big_image.evaluation is None:
+    if big_image.evaluation is None:
         raise InputDataError(
             NODE_NAME,
             "big_image.evaluation",
             "big_image.evaluation is required",
         )
 
-    evaluation = tire_struct.big_image.evaluation
+    evaluation = big_image.evaluation
     configs = select_node_configs(
-        tire_struct.rules_config,
+        rules_config,
         GEOMETRY_SCORER_CONFIGS,
     )
 
@@ -47,6 +51,4 @@ def score_geometry(tire_struct: TireStruct) -> TireStruct:
         rule_evaluation.score = RuleRunner.exec_score(config, rule_evaluation.feature)
 
     recalculate_current_score(evaluation)
-    tire_struct.flag = True
-    tire_struct.err_msg = None
-    return tire_struct
+    return big_image

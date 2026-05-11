@@ -29,8 +29,8 @@ from src.models.rule_models import (
 )
 from src.rules.base import RuleExecutor
 from src.rules.registry import get_rule_executor
-from src.rules import rule_executors
-from src.rules.rule_executors import Rule19Executor, UnsupportedRuleExecutor
+import src.rules.executors as executors
+from src.rules.executors.rule19 import Rule19Executor
 
 
 ALL_RULE_CONFIGS = [
@@ -109,27 +109,18 @@ def test_all_rule_executors_are_registered():
         assert executor.rule_cls is config_cls
 
 
-def test_only_rule19_defines_image_operation():
-    """验证当前只有 Rule19Executor 覆盖图片操作方法，其余规则仍是未落地 executor。"""
-    for config_cls in ALL_RULE_CONFIGS:
-        rule_name = config_cls.__name__.lower().replace("config", "")
-        executor_cls_name = f"{config_cls.__name__.replace('Config', '')}Executor"
-        executor_cls = getattr(rule_executors, executor_cls_name)
 
-        if rule_name == "rule19":
-            assert "exec_image_operation" in executor_cls.__dict__
-        else:
-            assert issubclass(executor_cls, UnsupportedRuleExecutor)
-            assert "exec_image_operation" not in executor_cls.__dict__
+def test_unimplemented_rule_uses_base_not_implemented_methods():
+    """验证未落地规则使用 RuleExecutor 默认未实现方法。"""
+    executor = get_rule_executor(Rule1Config().name)
+    image = make_big_image()
+    config = Rule1Config()
 
+    assert type(executor).exec_feature is RuleExecutor.exec_feature
+    assert type(executor).exec_score is RuleExecutor.exec_score
+    with pytest.raises(NotImplementedError, match="rule1.exec_feature is not implemented"):
+        executor.exec_feature(image, config)
 
-def test_rule19_exec_image_operation_returns_big_image():
-    """验证 Rule19Executor.exec_image_operation 直接返回 BigImage 且不改写图片内容。"""
-    result = Rule19Executor().exec_image_operation(make_big_image(), make_config())
-
-    assert isinstance(result, BigImage)
-    assert result.biz.level == LevelEnum.BIG
-    assert result.image_base64 == "data:image/png;base64,original"
 
 
 def test_rule19_executor_is_registered_by_config_name():
