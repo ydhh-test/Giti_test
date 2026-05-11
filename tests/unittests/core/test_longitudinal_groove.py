@@ -6,7 +6,6 @@
 同时覆盖调试模式输出和输入异常，确保算法边界清晰、调用失败时使用项目异常类直接暴露问题。
 """
 
-import json
 from pathlib import Path
 import shutil
 
@@ -21,13 +20,16 @@ from src.core.longitudinal_groove import detect_longitudinal_grooves
 
 IMAGE_SIZE = 128
 DATASET_SOURCE_ROOT = Path(__file__).parents[2] / "datasets" / "task_longitudinal_groove_vis"
-EXPECTED_OUTPUTS_PATH = DATASET_SOURCE_ROOT / "expected_outputs.json"
+DATASET_IMAGE_FOLDERS = ("center_inf", "side_inf")
+DEBUG_BASELINE_ROOT = DATASET_SOURCE_ROOT / "debug_baseline"
 RESULT_ROOT = Path(__file__).parents[3] / ".results" / "task_longitudinal_groove_vis"
 DATASET_RUNTIME_ROOT = RESULT_ROOT / "dataset"
 DEBUG_OUTPUT_ROOT = RESULT_ROOT / "debug"
-EXPECTED_OUTPUTS = json.loads(EXPECTED_OUTPUTS_PATH.read_text(encoding="utf-8"))
-DATASET_IMAGE_RELATIVE_PATHS = [Path(relative_path) for relative_path in EXPECTED_OUTPUTS]
-FEATURE_TOLERANCE_PX = 0.1
+DATASET_IMAGE_RELATIVE_PATHS = [
+    image_path.relative_to(DATASET_SOURCE_ROOT)
+    for folder_name in DATASET_IMAGE_FOLDERS
+    for image_path in sorted((DATASET_SOURCE_ROOT / folder_name).glob("*.png"))
+]
 
 
 def make_small_image_with_grooves(center_columns: list[int], line_width: int = 4) -> np.ndarray:
@@ -51,7 +53,7 @@ def copy_dataset_image_to_results(relative_image_path: Path) -> Path:
 
 
 def save_debug_image_like_dev(image_path: Path, debug_image: np.ndarray) -> Path:
-    image_group = "center" if image_path.parent.name == "center_inf" else "side"
+    image_group = get_debug_image_group(image_path)
     output_dir = DEBUG_OUTPUT_ROOT / image_group
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -62,12 +64,21 @@ def save_debug_image_like_dev(image_path: Path, debug_image: np.ndarray) -> Path
     return output_path
 
 
+def get_debug_image_group(image_path: Path) -> str:
+    return "center" if image_path.parent.name == "center_inf" else "side"
+
+
+def get_debug_baseline_path(image_path: Path) -> Path:
+    image_group = get_debug_image_group(image_path)
+    return DEBUG_BASELINE_ROOT / image_group / f"{image_path.stem}_debug.png"
+
+
 class TestDetectLongitudinalGrooves:
     """纵向细沟 core 算法测试。"""
 
     @pytest.mark.parametrize("relative_image_path", DATASET_IMAGE_RELATIVE_PATHS, ids=lambda path: path.name)
     def test_dataset_images_can_run_detector_from_results(self, relative_image_path: Path):
-        """dev 迁移来的小图检测结果应与当前黄金基准保持一致。"""
+        """dev 迁移来的小图 debug 图应与当前黄金基准保持一致。"""
         image_path = copy_dataset_image_to_results(relative_image_path)
 
         image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
@@ -75,21 +86,8 @@ class TestDetectLongitudinalGrooves:
         assert image.shape == (IMAGE_SIZE, IMAGE_SIZE, 3)
 
         groove_count, groove_positions_px, groove_widths_px, line_mask, debug_image = detect_longitudinal_grooves(image, is_debug=True)
-        expected_output = EXPECTED_OUTPUTS[relative_image_path.as_posix()]
 
-        assert groove_count == expected_output["groove_count"]
-        assert len(groove_positions_px) == len(expected_output["groove_positions_px"])
-        assert len(groove_widths_px) == len(expected_output["groove_widths_px"])
-        assert np.allclose(
-            groove_positions_px,
-            expected_output["groove_positions_px"],
-            atol=FEATURE_TOLERANCE_PX,
-        )
-        assert np.allclose(
-            groove_widths_px,
-            expected_output["groove_widths_px"],
-            atol=FEATURE_TOLERANCE_PX,
-        )
+        assert groove_count == len(groove_positions_px) == len(groove_widths_px)
         assert all(0 <= position < IMAGE_SIZE for position in groove_positions_px)
         assert all(width > 0 for width in groove_widths_px)
         assert line_mask is not None
@@ -102,6 +100,14 @@ class TestDetectLongitudinalGrooves:
         saved_debug_image = cv2.imread(str(debug_output_path), cv2.IMREAD_COLOR)
         assert saved_debug_image is not None
         assert saved_debug_image.shape == image.shape
+        baseline_debug_path = get_debug_baseline_path(image_path)
+        assert baseline_debug_path.exists()
+        baseline_debug_image = cv2.imread(str(baseline_debug_path), cv2.IMREAD_COLOR)
+        assert baseline_debug_image is not None
+        assert baseline_debug_image.shape == saved_debug_image.shape
+        assert np.array_equal(saved_debug_image, baseline_debug_image), (
+            f"debug 图与基准不一致: output={debug_output_path}, baseline={baseline_debug_path}"
+        )
 
     def test_image_with_two_grooves_detects_two_lines(self):
         """小图中的两条纵向细沟应被完整检测出来。"""
