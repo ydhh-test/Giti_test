@@ -325,7 +325,7 @@ def _draw_debug_image(
             font_scale,
             text_color,
             font_thickness,
-            cv2.LINE_AA,
+            cv2.LINE_8,
         )
         current_y += text_height + 4
 
