@@ -305,10 +305,17 @@ class TestLongitudinalGrooveCoverageBranches:
             dedup_distance_px=8.0,
         )
 
-        assert positions == []
-        assert count == 0
-        assert widths == []
-        assert int(line_mask.sum()) == 0
+        expect_rst = {
+            "positions": [],
+            "count": 0,
+            "widths": [],
+            "line_mask_sum": 0,
+        }
+
+        assert positions == expect_rst["positions"]
+        assert count == expect_rst["count"]
+        assert widths == expect_rst["widths"]
+        assert int(line_mask.sum()) == expect_rst["line_mask_sum"]
 
     def test_analyze_vertical_lines_continue_on_empty_row_cluster(self, monkeypatch: pytest.MonkeyPatch):
         """当组件行列为空时应走 continue 分支并且不产出细沟。"""
@@ -335,10 +342,17 @@ class TestLongitudinalGrooveCoverageBranches:
         finally:
             monkeypatch.setattr(lg.np, "where", original_where)
 
-        assert positions == []
-        assert count == 0
-        assert widths == []
-        assert int(line_mask.sum()) == 0
+        expect_rst = {
+            "positions": [],
+            "count": 0,
+            "widths": [],
+            "line_mask_sum": 0,
+        }
+
+        assert positions == expect_rst["positions"]
+        assert count == expect_rst["count"]
+        assert widths == expect_rst["widths"]
+        assert int(line_mask.sum()) == expect_rst["line_mask_sum"]
 
     def test_analyze_vertical_lines_continue_on_rejected_segment(self):
         """当候选段宽度不满足约束时应跳过，不计入结果。"""
@@ -356,7 +370,14 @@ class TestLongitudinalGrooveCoverageBranches:
             dedup_distance_px=8.0,
         )
 
-        assert positions == []
-        assert count == 0
-        assert widths == []
-        assert int(line_mask.sum()) == 0
+        expect_rst = {
+            "positions": [],
+            "count": 0,
+            "widths": [],
+            "line_mask_sum": 0,
+        }
+
+        assert positions == expect_rst["positions"]
+        assert count == expect_rst["count"]
+        assert widths == expect_rst["widths"]
+        assert int(line_mask.sum()) == expect_rst["line_mask_sum"]
