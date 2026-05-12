@@ -135,3 +135,30 @@ def test_score_geometry_raises_input_error_when_feature_missing(monkeypatch):
 
     with pytest.raises(InputDataError, match="missing feature for rule8"):
         score_geometry(big_image, [config])
+
+
+def test_score_geometry_raises_input_error_when_big_image_missing():
+    """验证几何评分节点发现大图缺失时会快速失败。"""
+    config = Rule8Config(groove_width_center=1, groove_width_side=1)
+
+    with pytest.raises(InputDataError, match="big_image is required"):
+        score_geometry(None, [config])
+
+
+def test_score_geometry_raises_input_error_when_evaluation_missing():
+    """验证几何评分节点发现大图 evaluation 缺失时会快速失败。"""
+    config = Rule8Config(groove_width_center=1, groove_width_side=1)
+    big_image = make_big_image()
+
+    with pytest.raises(InputDataError, match="big_image.evaluation is required"):
+        score_geometry(big_image, [config])
+
+
+def test_score_geometry_raises_input_error_when_rule_evaluation_missing():
+    """验证几何评分节点发现目标 RuleEvaluation 缺失时会快速失败。"""
+    config = Rule8Config(groove_width_center=1, groove_width_side=1)
+    big_image = make_big_image()
+    big_image.evaluation = ImageEvaluation(rules=[])
+
+    with pytest.raises(InputDataError, match="missing rule evaluation for rule8"):
+        score_geometry(big_image, [config])
