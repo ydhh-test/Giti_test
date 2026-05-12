@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>大图生成函数研发需求文档</title>
+<style>
+  :root {
+    /* Anthropic warm-editorial palette — keep these tokens. */
+    --ivory:    #FAF9F5;   /* page background, not white */
+    --paper:    #FFFFFF;   /* cards & panels sit on ivory */
+    --slate:    #141413;   /* primary text */
+    --clay:     #D97757;   /* terracotta accent */
+    --clay-d:   #B85C3E;
+    --oat:      #E3DACC;   /* warm fill / callout bg */
+    --olive:    #788C5D;   /* success / positive */
+    --rust:     #B04A3F;   /* danger / critical */
+
+    --g100:     #F0EEE6;
+    --g200:     #E6E3DA;
+    --g300:     #D1CFC5;   /* default border */
+    --g500:     #87867F;   /* muted text */
+    --g700:     #3D3D3A;   /* body text alt */
+
+    --serif: ui-serif, Georgia, "Times New Roman", Times, serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono:  ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+
+    --radius-panel: 12px;
+    --radius-row:   8px;
+    --border:       1.5px solid var(--g300);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 56px 24px 120px;
+    background: var(--ivory);
+    color: var(--slate);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 860px; margin: 0 auto; }
+
+  /* ---------- headings ---------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--g500);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(32px, 4.6vw, 44px);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    color: var(--slate);
+    margin: 0 0 14px;
+  }
+  h1 em {                       /* signature move: clay italic span in titles */
+    font-style: italic;
+    color: var(--clay);
+  }
+  .subtitle {
+    color: var(--g500);
+    font-size: 16px;
+    margin: 0 0 40px;
+    max-width: 60ch;
+  }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  h2 + hr.rule {
+    border: none;
+    border-top: 1px solid var(--g300);
+    margin: 0 0 22px;
+  }
+  h3 { font-family: var(--sans); font-weight: 600; font-size: 15px; margin: 1.2rem 0 .4rem; }
+
+  section { margin-bottom: 52px; }
+
+  /* ---------- inline ---------- */
+  p, ul, ol { margin: .5rem 0; }
+  a { color: var(--clay); text-decoration: none; border-bottom: 1px dotted transparent; }
+  a:hover { border-bottom-color: var(--clay); }
+  code, pre { font-family: var(--mono); font-size: .9em; }
+  :not(pre) > code {
+    background: var(--g100);
+    border: 1px solid var(--g300);
+    border-radius: 4px;
+    padding: .05rem .3rem;
+  }
+  pre {
+    background: var(--slate);
+    color: #E8E6DE;
+    border-radius: var(--radius-panel);
+    padding: 18px 20px;
+    overflow: auto;
+    line-height: 1.65;
+  }
+
+  /* ---------- callout ---------- */
+  .callout {
+    border-left: 4px solid var(--clay);
+    background: var(--paper);
+    border-top: var(--border);
+    border-right: var(--border);
+    border-bottom: var(--border);
+    border-radius: 0 var(--radius-panel) var(--radius-panel) 0;
+    padding: 16px 20px;
+    margin: 1rem 0;
+  }
+  .callout.warn { border-left-color: var(--clay-d); }
+  .callout.err  { border-left-color: var(--rust); }
+  .callout.ok   { border-left-color: var(--olive); }
+
+  /* ---------- chips ---------- */
+  .chip {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    background: var(--g100);
+    border: var(--border);
+    color: var(--g700);
+    padding: 3px 9px;
+    border-radius: 999px;
+    vertical-align: middle;
+  }
+  .chip.ok   { background: #E8EEDB; border-color: #C8D3B0; color: #4D5E36; }
+  .chip.warn { background: #F5E4D7; border-color: #E8C6A9; color: #8A4A28; }
+  .chip.err  { background: #F1DBD6; border-color: #E0B2AA; color: #7A2F26; }
+
+  /* ---------- grid / cards ---------- */
+  .grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    margin: 1rem 0;
+  }
+  .card {
+    background: var(--paper);
+    border: var(--border);
+    border-radius: var(--radius-panel);
+    padding: 20px 22px;
+  }
+
+  /* ---------- tables ---------- */
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--paper);
+    border: var(--border);
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+  }
+  thead th {
+    text-align: left;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--g500);
+    background: var(--g100);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--g300);
+  }
+  tbody td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--g100);
+    font-size: 14px;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ---------- details / collapsibles ---------- */
+  details {
+    border: var(--border);
+    border-radius: var(--radius-row);
+    padding: .6rem 1rem;
+    margin: .6rem 0;
+    background: var(--paper);
+  }
+  details[open] { background: var(--g100); }
+  summary { cursor: pointer; font-weight: 600; outline: none; }
+
+  /* ---------- buttons ---------- */
+  button {
+    font: inherit;
+    cursor: pointer;
+    padding: .5rem .95rem;
+    border-radius: var(--radius-row);
+    border: var(--border);
+    background: var(--paper);
+    color: var(--slate);
+  }
+  button:hover { background: var(--g100); }
+  button.primary {
+    background: var(--clay);
+    color: var(--paper);
+    border-color: var(--clay);
+  }
+  button.primary:hover { background: var(--clay-d); border-color: var(--clay-d); }
+
+  svg { max-width: 100%; height: auto; }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--g300);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--g500);
+  }
+
+  @media (max-width: 720px) { body { padding: 32px 18px 96px; } }
+</style>
+<!-- Mermaid JS for flowchart rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({startOnLoad:true});
+</script>
+</head>
+<body>
+  <div class="page">
+
+    <div class="eyebrow">PRD · 图像处理</div>
+    <h1>大图生成函数研发需求文档</h1>
+    <p class="subtitle">基于ImageLineage血缘信息实现图片操作、拼接和装饰覆盖的完整流程</p>
+
+    <div class="callout">
+      <strong>TL;DR.</strong> 实现一个函数，根据ImageLineage血缘信息，按顺序执行RIB图片操作 → 多图拼接 → 装饰覆盖，最终生成完整的大图。使用PIL库处理图像，支持管道化操作序列和Mermaid流程图。
+    </div>
+
+    <section>
+      <h2>核心目标</h2>
+      <hr class="rule">
+      <p>实现一个函数，根据 <code>ImageLineage</code> 血缘信息，完成图片操作 → 多图拼接 → 装饰覆盖的完整流程，最终生成大图。</p>
+    </section>
+
+    <section>
+      <h2>算法流程图</h2>
+      <hr class="rule">
+      <div class="mermaid">
+graph TD
+    A[开始] --> B{遍历每个RibSchemeImpl}
+    B --> C[解码small_image为PIL Image]
+    C --> D{遍历operations操作序列}
+    D --> E[执行当前操作]
+    E --> F{还有更多操作?}
+    F -->|是| D
+    F -->|否| G[编码结果为base64存入rib_image]
+    G --> H{还有更多RIB?}
+    H -->|是| B
+    H -->|否| I[按顺序水平拼接所有RIB图片]
+    I --> J{是否有主沟花纹?}
+    J -->|是| K[在指定位置插入主沟花纹]
+    J -->|否| L[跳过主沟处理]
+    K --> M
+    L --> M
+    M --> N{是否有装饰花纹?}
+    N -->|是| O[在大图两侧覆盖装饰花纹]
+    N -->|否| P[跳过装饰处理]
+    O --> Q[返回base64编码的大图]
+    P --> Q
+    Q --> R[结束]
+      </div>
+    </section>
+
+    <section>
+      <h2>函数签名设计</h2>
+      <hr class="rule">
+      <pre><code>def generate_large_image_from_lineage(
+    lineage: ImageLineage,
+    output_format: str = "png"
+) -> str:
+    """
+    根据血缘信息生成大图
+
+    Args:
+        lineage: ImageLineage - 包含完整血缘信息的对象
+        output_format: str - 输出格式，默认"png"
+
+    Returns:
+        str - base64编码的大图
+    """
+</code></pre>
+    </section>
+
+    <section>
+      <h2>详细处理流程</h2>
+      <hr class="rule">
+
+      <h3>阶段1：RIB图片操作处理（管道化执行）</h3>
+      <ul>
+        <li><strong>核心逻辑</strong>：对每个 <code>RibSchemeImpl</code> 对象，按顺序执行其 <code>operations</code> 元组中的所有操作</li>
+        <li><strong>管道化实现</strong>：
+          <ul>
+            <li>操作序列是<strong>有序执行</strong>的管道</li>
+            <li>前一个操作的输出直接作为后一个操作的输入</li>
+            <li>所有操作都在内存中完成，不产生中间文件</li>
+            <li>最终结果存储到 <code>rib_image</code> 字段</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>RibOperation操作实现：</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>操作名称</th>
+            <th>实现说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>NONE</code></td><td>直接使用原图</td></tr>
+          <tr><td><code>FLIP_LR</code></td><td>PIL的<code>Image.transpose(Image.FLIP_LEFT_RIGHT)</code></td></tr>
+          <tr><td><code>FLIP</code></td><td>PIL的<code>Image.rotate(180)</code></td></tr>
+          <tr><td><code>LEFT_FLIP_LR</code></td><td>截取左半部分 → 左右翻转 → 拼接成完整图</td></tr>
+          <tr><td><code>LEFT_FLIP</code></td><td>截取左半部分 → 旋转180度 → 拼接成完整图</td></tr>
+          <tr><td><code>RESIZE_HORIZONTAL_2X/1.5X/3X</code></td><td>横向拉伸对应倍数，保持纵向不变</td></tr>
+          <tr><td><code>LEFT/RIGHT</code></td><td>截取左/右半部分</td></tr>
+          <tr><td><code>LEFT_2_3/RIGHT_2_3</code></td><td>截取左/右2/3部分</td></tr>
+          <tr><td><code>LEFT_1_3/RIGHT_1_3</code></td><td>截取左/右1/3部分</td></tr>
+          <tr><td><code>__RESIZE_AS_FIRST_RIB</code></td><td>内部对齐操作，将当前图调整为第一张RIB的尺寸</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h3>阶段2：多图拼接处理</h3>
+      <ul>
+        <li><strong>输入</strong>: 处理后的RIB图片列表（按顺序）+ 主沟花纹图片列表</li>
+        <li><strong>处理逻辑</strong>:
+          <ul>
+            <li>按照<code>ribs_scheme_implementation</code>列表的顺序，依次水平拼接RIB图片</li>
+            <li>在指定位置插入主沟花纹（根据业务逻辑确定插入点）</li>
+            <li>由于拼接模板已在外部处理完成，本函数只需按给定顺序执行简单拼接</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>阶段3：装饰覆盖处理</h3>
+      <ul>
+        <li><strong>装饰定位逻辑</strong>：
+          <ul>
+            <li>装饰花纹覆盖在拼接完成的大图<strong>两侧</strong></li>
+            <li>根据<code>decoration_width</code>确定覆盖区域宽度</li>
+            <li>左侧装饰覆盖在大图最左侧，右侧装饰覆盖在大图最右侧</li>
+            <li>使用PIL的alpha_composite进行透明度混合，透明度值为<code>decoration_opacity</code>(0-255)</li>
+          </ul>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>技术选型决定</h2>
+      <hr class="rule">
+      <ul>
+        <li><strong>图像处理库</strong>: 选择<strong>PIL (Pillow)</strong>
+          <ul>
+            <li>理由：操作相对简单，PIL足以满足所有需求；项目中已有使用；内存占用相对较小</li>
+            <li>具体模块：<code>from PIL import Image, ImageOps</code></li>
+          </ul>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>需求边界</h2>
+      <hr class="rule">
+
+      <div class="grid">
+        <article class="card">
+          <h3>✅ 本函数负责</h3>
+          <ul>
+            <li>执行RIB图片的各种原子操作</li>
+            <li>按顺序水平拼接处理后的RIB和主沟图片</li>
+            <li>在大图两侧覆盖装饰花纹</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>❌ 本函数不负责</h3>
+          <ul>
+            <li>拼接方案的决策逻辑（由外部模板生成器处理）</li>
+            <li>血缘对象的验证和生成（由调用方保证）</li>
+            <li>复杂的布局计算（位置信息已由血缘数据提供）</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>示例说明（可视化参考）</h2>
+      <hr class="rule">
+      <p>以 <code>rib_number=5</code>，无对称性要求的场景为例：</p>
+
+      <h3>输入RIB图片：</h3>
+      <div class="grid">
+        <article class="card">
+          <h3>rib1</h3>
+          <img src="../../tests/datasets/stitching/rib1.png" alt="rib1" style="max-width: 100%; height: auto;">
+          <p style="color: var(--g500); font-size: 12px;">(如无法显示，请查看: tests/datasets/stitching/rib1.png)</p>
+        </article>
+        <article class="card">
+          <h3>rib2</h3>
+          <img src="../../tests/datasets/stitching/rib2.png" alt="rib2" style="max-width: 100%; height: auto;">
+          <p style="color: var(--g500); font-size: 12px;">(如无法显示，请查看: tests/datasets/stitching/rib2.png)</p>
+        </article>
+        <article class="card">
+          <h3>rib3</h3>
+          <img src="../../tests/datasets/stitching/rib3.png" alt="rib3" style="max-width: 100%; height: auto;">
+          <p style="color: var(--g500); font-size: 12px;">(如无法显示，请查看: tests/datasets/stitching/rib3.png)</p>
+        </article>
+        <article class="card">
+          <h3>rib4</h3>
+          <img src="../../tests/datasets/stitching/rib4.png" alt="rib4" style="max-width: 100%; height: auto;">
+          <p style="color: var(--g500); font-size: 12px;">(如无法显示，请查看: tests/datasets/stitching/rib4.png)</p>
+        </article>
+        <article class="card">
+          <h3>rib5</h3>
+          <img src="../../tests/datasets/stitching/rib5.png" alt="rib5" style="max-width: 100%; height: auto;">
+          <p style="color: var(--g500); font-size: 12px;">(如无法显示，请查看: tests/datasets/stitching/rib5.png)</p>
+        </article>
+      </div>
+
+      <h3>预期输出大图：</h3>
+      <div class="card">
+        <h3>bigimage</h3>
+        <img src="../../tests/datasets/stitching/except.png" alt="except" style="max-width: 100%; height: auto;">
+        <p style="color: var(--g500); font-size: 12px;">(如无法显示，请查看: tests/datasets/stitching/except.png)</p>
+      </div>
+
+      <h3>处理流程：</h3>
+      <ol>
+        <li>每个RIB可能经过不同的操作序列处理（本例中无特殊操作）</li>
+        <li>按rib1→rib2→rib3→rib4→rib5的顺序水平拼接</li>
+        <li>如果有主沟花纹，在指定位置插入</li>
+        <li>如果有装饰花纹，在大图两侧覆盖</li>
+        <li>最终生成完整的轮胎花纹大图</li>
+      </ol>
+    </section>
+
+    <footer>
+      Generated with the html-over-markdown skill. Large Image Generation Function PRD.
+    </footer>
+
+  </div>
+</body>
+</html>
