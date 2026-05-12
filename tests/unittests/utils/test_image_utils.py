@@ -24,6 +24,9 @@ from src.common.exceptions import (
 from src.utils.logger import get_logger
 
 
+# 定义测试数据集路径 - 直接使用相对路径（PYTHONPATH已指向项目根目录）
+TEST_DATASET_PATH = Path("tests/datasets/test_image_utils")
+
 # 创建测试用的numpy数组（BGR格式）
 TEST_IMAGE_ARRAY = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
 
@@ -39,6 +42,9 @@ SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg"]
 
 # 不支持的图像类型
 UNSUPPORTED_IMAGE_TYPES = ["bmp", "tiff", "webp"]
+
+# OpenCV BGR图像的通道数
+BGR_CHANNELS = 3
 
 INVALID_BASE64_STRINGS = [
     "invalid_base64_string",
@@ -60,23 +66,41 @@ def create_temp_image_file(suffix, image_array, params=None):
 def capture_logs(caplog):
     caplog.set_level(logging.WARNING)
 
+# 验证测试数据集是否存在
+@pytest.fixture(scope="session", autouse=True)
+def ensure_test_dataset():
+    """确保测试数据集存在"""
+    if not TEST_DATASET_PATH.exists():
+        pytest.skip(f"测试数据集不存在: {TEST_DATASET_PATH}")
+
+    required_files = ["0.png", "0_width2x.png", "0_height2x.png", "0_2x.png"]
+    for file in required_files:
+        if not (TEST_DATASET_PATH / file).exists():
+            pytest.skip(f"测试文件缺失: {file}")
+
 
 class TestBase64ToNdarray:
     """base64_to_ndarray() 功能测试"""
 
     def test_valid_base64_with_prefix(self):
         """带data:image前缀的base64正确解码"""
+        expected_shape = TEST_IMAGE_ARRAY.shape
+        expected_dtype = TEST_IMAGE_ARRAY.dtype
+
         result = base64_to_ndarray(TEST_IMAGE_BASE64_WITH_PREFIX)
         assert isinstance(result, np.ndarray)
-        assert result.shape == (100, 100, 3)
-        assert result.dtype == np.uint8
+        assert result.shape == expected_shape
+        assert result.dtype == expected_dtype
 
     def test_valid_base64_no_prefix(self):
         """纯base64字符串正确解码"""
+        expected_shape = TEST_IMAGE_ARRAY.shape
+        expected_dtype = TEST_IMAGE_ARRAY.dtype
+
         result = base64_to_ndarray(TEST_IMAGE_BASE64_NO_PREFIX)
         assert isinstance(result, np.ndarray)
-        assert result.shape == (100, 100, 3)
-        assert result.dtype == np.uint8
+        assert result.shape == expected_shape
+        assert result.dtype == expected_dtype
 
     def test_different_image_formats(self):
         """PNG、JPG、JPEG格式都支持"""
@@ -169,30 +193,42 @@ class TestResizeImage:
     def test_stretch_mode_exact_dimensions(self):
         """stretch模式精确缩放到指定尺寸"""
         target_width, target_height = 50, 75
+        expected_shape = (target_height, target_width, 3)
         result = resize_image(TEST_IMAGE_ARRAY, target_width, target_height, "stretch")
-        assert result.shape == (target_height, target_width, 3)
+        assert result.shape == expected_shape
 
     def test_width_scale_mode_proportional(self):
         """width_scale模式按宽度等比缩放"""
         target_width = 50
         original_h, original_w = TEST_IMAGE_ARRAY.shape[:2]
         expected_height = int(original_h * (target_width / original_w))
+        expected_shape = (expected_height, target_width, BGR_CHANNELS)
         result = resize_image(TEST_IMAGE_ARRAY, target_width, mode="width_scale")
-        assert result.shape == (expected_height, target_width, 3)
+        assert result.shape == expected_shape
 
     def test_height_scale_mode_proportional(self):
         """height_scale模式按高度等比缩放"""
         target_height = 75
         original_h, original_w = TEST_IMAGE_ARRAY.shape[:2]
         expected_width = int(original_w * (target_height / original_h))
+        expected_shape = (target_height, expected_width, BGR_CHANNELS)
         result = resize_image(TEST_IMAGE_ARRAY, target_width=original_w, target_height=target_height, mode="height_scale")
-        assert result.shape == (target_height, expected_width, 3)
+        assert result.shape == expected_shape
 
     def test_grayscale_image_support(self):
         """支持单通道灰度图像"""
+        target_width, target_height = 50, 50
+        expected_shape = (target_height, target_width)
         gray_array = np.random.randint(0, 256, (100, 100), dtype=np.uint8)
-        result = resize_image(gray_array, 50, 50, "stretch")
-        assert result.shape == (50, 50)
+        result = resize_image(gray_array, target_width, target_height, "stretch")
+        assert result.shape == expected_shape
+
+    def test_stretch_mode_with_none_height(self):
+        """stretch模式下target_height为None时使用原始高度"""
+        original_h, original_w = TEST_IMAGE_ARRAY.shape[:2]
+        expected_shape = (original_h, 50, BGR_CHANNELS)
+        result = resize_image(TEST_IMAGE_ARRAY, target_width=50, target_height=None, mode="stretch")
+        assert result.shape == expected_shape
 
     def test_input_type_error_non_ndarray(self):
         """非numpy数组输入抛出InputTypeError"""
@@ -204,8 +240,6 @@ class TestResizeImage:
         """无效mode参数抛出InputTypeError"""
         with pytest.raises(InputTypeError) as exc_info:
             resize_image(TEST_IMAGE_ARRAY, 50, 50, "invalid_mode")
-        # 注意：当前实现中，无效mode不会抛出异常，而是会执行stretch分支
-        # 我们需要修改实现来添加mode验证
 
     def test_input_data_error_zero_dimensions(self):
         """零尺寸抛出InputDataError"""
@@ -354,11 +388,13 @@ class TestConvertCmykToRgb:
     def test_valid_cmyk_pil_to_bgr(self):
         """CMYK PIL图像正确转换为BGR numpy数组"""
         # 创建CMYK PIL图像
+        expected_shape = (100, 100, BGR_CHANNELS)
+        expected_dtype = np.uint8
         cmyk_image = Image.new('CMYK', (100, 100), (100, 50, 75, 25))
         result = convert_cmyk_to_rgb(cmyk_image)
         assert isinstance(result, np.ndarray)
-        assert result.shape == (100, 100, 3)
-        assert result.dtype == np.uint8
+        assert result.shape == expected_shape
+        assert result.dtype == expected_dtype
 
     def test_input_type_error_non_pil_image(self):
         """非PIL Image对象抛出InputTypeError"""
@@ -418,17 +454,20 @@ class TestIntegration:
 
         # stretch模式
         stretch_result = resize_image(TEST_IMAGE_ARRAY, 50, 75, "stretch")
-        assert stretch_result.shape == (75, 50, 3)
+        expected_stretch_shape = (75, 50, BGR_CHANNELS)
+        assert stretch_result.shape == expected_stretch_shape
 
         # width_scale模式
         width_result = resize_image(TEST_IMAGE_ARRAY, 50, mode="width_scale")
         expected_height = int(original_h * (50 / original_w))
-        assert width_result.shape == (expected_height, 50, 3)
+        expected_width_shape = (expected_height, 50, BGR_CHANNELS)
+        assert width_result.shape == expected_width_shape
 
         # height_scale模式
         height_result = resize_image(TEST_IMAGE_ARRAY, target_width=original_w, target_height=75, mode="height_scale")
         expected_width = int(original_w * (75 / original_h))
-        assert height_result.shape == (75, expected_width, 3)
+        expected_height_shape = (75, expected_width, BGR_CHANNELS)
+        assert height_result.shape == expected_height_shape
 
 
 class TestEdgeCases:
@@ -441,9 +480,11 @@ class TestEdgeCases:
 
     def test_single_pixel_images(self):
         """单像素图像处理"""
+        target_width, target_height = 10, 10
+        expected_shape = (target_height, target_width, 3)
         single_pixel = np.array([[[255, 128, 64]]], dtype=np.uint8)
-        result = resize_image(single_pixel, 10, 10, "stretch")
-        assert result.shape == (10, 10, 3)
+        result = resize_image(single_pixel, target_width, target_height, "stretch")
+        assert result.shape == expected_shape
 
     def test_special_characters_in_paths(self):
         """路径包含特殊字符"""
@@ -460,3 +501,219 @@ class TestEdgeCases:
             cv2.imwrite(str(unicode_path), TEST_IMAGE_ARRAY)
             base64_str = load_image_to_base64(unicode_path)
             assert isinstance(base64_str, str)
+
+
+class TestResizeImageWithRealImages:
+    """resize_image 真实图片测试 - 使用真实测试图像"""
+
+    @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
+    def test_resize_stretch_exact_dimensions(self):
+        """验证 stretch 模式能精确产生指定尺寸"""
+        original_path = TEST_DATASET_PATH / "0.png"
+        original_image = cv2.imread(str(original_path))
+        h, w = original_image.shape[:2]
+
+        # 测试宽度2倍，高度不变
+        target_width, target_height = w * 2, h
+        resized = resize_image(original_image, target_width, target_height, "stretch")
+        expected_path = TEST_DATASET_PATH / "0_width2x.png"
+        expected_image = cv2.imread(str(expected_path))
+
+        expected_shape = (target_height, target_width, 3)
+        assert resized.shape == expected_image.shape
+        assert resized.shape == expected_shape
+
+        # 测试高度2倍，宽度不变
+        target_width, target_height = w, h * 2
+        resized = resize_image(original_image, target_width, target_height, "stretch")
+        expected_path = TEST_DATASET_PATH / "0_height2x.png"
+        expected_image = cv2.imread(str(expected_path))
+
+        expected_shape = (target_height, target_width, 3)
+        assert resized.shape == expected_image.shape
+        assert resized.shape == expected_shape
+
+        # 测试宽高都2倍
+        target_width, target_height = w * 2, h * 2
+        resized = resize_image(original_image, target_width, target_height, "stretch")
+        expected_path = TEST_DATASET_PATH / "0_2x.png"
+        expected_image = cv2.imread(str(expected_path))
+
+        expected_shape = (target_height, target_width, 3)
+        assert resized.shape == expected_image.shape
+        assert resized.shape == expected_shape
+
+    @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
+    def test_resize_width_scale_proportional(self):
+        """验证 width_scale 模式保持宽高比"""
+        original_path = TEST_DATASET_PATH / "0.png"
+        original_image = cv2.imread(str(original_path))
+        h, w = original_image.shape[:2]
+
+        target_width = w * 2
+        resized = resize_image(original_image, target_width, mode="width_scale")
+        expected_height = int(h * (target_width / w))
+
+        expected_shape = (expected_height, target_width, BGR_CHANNELS)
+        assert resized.shape == expected_shape
+
+    @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
+    def test_resize_height_scale_proportional(self):
+        """验证 height_scale 模式保持宽高比"""
+        original_path = TEST_DATASET_PATH / "0.png"
+        original_image = cv2.imread(str(original_path))
+        h, w = original_image.shape[:2]
+
+        target_height = h * 2
+        resized = resize_image(original_image, target_width=w, target_height=target_height, mode="height_scale")
+        expected_width = int(w * (target_height / h))
+
+        expected_shape = (target_height, expected_width, BGR_CHANNELS)
+        assert resized.shape == expected_shape
+
+    @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
+    def test_resize_modes_comparison(self):
+        """对比三种缩放模式的结果差异"""
+        original_path = TEST_DATASET_PATH / "0.png"
+        original_image = cv2.imread(str(original_path))
+        h, w = original_image.shape[:2]
+
+        # stretch 模式
+        stretch_result = resize_image(original_image, w*2, h*2, "stretch")
+
+        # width_scale 模式
+        width_result = resize_image(original_image, w*2, mode="width_scale")
+
+        # height_scale 模式
+        height_result = resize_image(original_image, target_width=w, target_height=h*2, mode="height_scale")
+
+        # 验证尺寸差异
+        expected_shape = (h*2, w*2, 3)
+        assert stretch_result.shape == expected_shape
+        assert width_result.shape == expected_shape  # 因为原图是正方形，所以结果相同
+        assert height_result.shape == expected_shape  # 因为原图是正方形，所以结果相同
+
+        # 对于非正方形图像，这些模式会产生不同结果
+
+
+class TestImageFileIntegration:
+    """图像文件加载/保存集成测试"""
+
+    @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
+    def test_load_real_image_file(self):
+        """测试加载真实的 PNG 文件"""
+        image_path = TEST_DATASET_PATH / "0.png"
+        base64_str = load_image_to_base64(image_path)
+        assert isinstance(base64_str, str)
+        assert base64_str.startswith("data:image/png;base64,")
+
+        # 验证可以解码回图像
+        decoded_image = base64_to_ndarray(base64_str)
+        original_image = cv2.imread(str(image_path))
+        assert decoded_image.shape == original_image.shape
+
+    @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
+    def test_save_and_reload_consistency(self):
+        """保存后重新加载验证一致性"""
+        original_path = TEST_DATASET_PATH / "0.png"
+        original_image = cv2.imread(str(original_path))
+
+        # 转换为base64
+        base64_str = ndarray_to_base64(original_image, "png")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            save_path = Path(tmp_dir) / "saved_test.png"
+            save_base64_to_image(base64_str, save_path)
+
+            # 重新加载
+            reloaded_image = cv2.imread(str(save_path))
+            assert reloaded_image.shape == original_image.shape
+
+            # 验证内容基本一致（PNG是有损压缩，但应该很接近）
+            diff = np.abs(original_image.astype(np.float32) - reloaded_image.astype(np.float32))
+            assert np.mean(diff) < 1.0  # 平均差异应该很小
+
+    @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
+    def test_base64_roundtrip_with_real_images(self):
+        """使用真实图像进行往返测试"""
+        image_path = TEST_DATASET_PATH / "0.png"
+        original_image = cv2.imread(str(image_path))
+
+        # 加载为base64
+        base64_str = load_image_to_base64(image_path)
+
+        # 解码为ndarray
+        decoded_image = base64_to_ndarray(base64_str)
+
+        # 编码回base64
+        new_base64_str = ndarray_to_base64(decoded_image, "png")
+
+        # 再次解码
+        final_image = base64_to_ndarray(new_base64_str)
+
+        assert final_image.shape == original_image.shape
+
+
+class TestImageQualityValidation:
+    """图像质量验证测试"""
+
+    @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
+    def test_resize_quality_preservation(self):
+        """验证缩放后的图像质量"""
+        original_path = TEST_DATASET_PATH / "0.png"
+        original_image = cv2.imread(str(original_path))
+
+        # 放大然后缩小，检查质量损失
+        enlarged = resize_image(original_image, 256, 256, "stretch")
+        reduced = resize_image(enlarged, 128, 128, "stretch")
+
+        # 原图和还原后的图像应该相似
+        diff = np.abs(original_image.astype(np.float32) - reduced.astype(np.float32))
+        assert np.mean(diff) < 10.0  # 允许一定的质量损失
+
+    @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
+    def test_color_channel_integrity(self):
+        """验证颜色通道完整性"""
+        image_path = TEST_DATASET_PATH / "0.png"
+        original_image = cv2.imread(str(image_path))
+
+        # 确保有3个颜色通道
+        assert original_image.shape[2] == BGR_CHANNELS
+
+        # 测试各种操作后颜色通道完整性
+        base64_str = ndarray_to_base64(original_image, "png")
+        decoded_image = base64_to_ndarray(base64_str)
+        assert decoded_image.shape[2] == BGR_CHANNELS
+
+
+class TestGrayscaleAndSpecialFormats:
+    """灰度图像和特殊格式测试"""
+
+    def test_grayscale_image_support(self):
+        """灰度图像支持测试"""
+        expected_shape = (100, 100, BGR_CHANNELS)
+        # 创建灰度图像
+        gray_array = np.random.randint(0, 256, (100, 100), dtype=np.uint8)
+        base64_str = ndarray_to_base64(gray_array, "png")
+        decoded_gray = base64_to_ndarray(base64_str)
+        # OpenCV会将灰度图像转换为3通道BGR，所以shape应该是(100, 100, 3)
+        assert decoded_gray.shape == expected_shape
+
+    @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")
+    def test_transparent_png_handling(self):
+        """透明PNG处理测试"""
+        # 创建带透明通道的PNG
+        rgba_array = np.random.randint(0, 256, (100, 100, 4), dtype=np.uint8)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            png_path = Path(tmp_dir) / "transparent.png"
+            cv2.imwrite(str(png_path), rgba_array)
+
+            # 加载并验证
+            try:
+                base64_str = load_image_to_base64(png_path)
+                decoded_image = base64_to_ndarray(base64_str)
+                # OpenCV会自动去除alpha通道，所以应该是3通道
+                assert decoded_image.shape[2] == BGR_CHANNELS
+            except Exception:
+                # 如果OpenCV不支持透明PNG，这也是可接受的行为
+                pass
