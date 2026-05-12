@@ -4,84 +4,118 @@
 实现一个函数，根据 `ImageLineage` 血缘信息，完成图片操作 → 多图拼接 → 装饰覆盖的完整流程，最终生成大图。
 
 ## 2. 算法流程图
-```mermaid
-graph TD
-    A[开始] --> B{遍历每个RibSchemeImpl}
-    B --> C[解码small_image为PIL Image]
-    C --> D{遍历operations操作序列}
-    D --> E[执行当前操作]
-    E --> F{还有更多操作?}
-    F -->|是| D
-    F -->|否| G[编码结果为base64存入rib_image]
-    G --> H{还有更多RIB?}
-    H -->|是| B
-    H -->|否| I[按顺序水平拼接所有RIB图片]
-    I --> J{是否有主沟花纹?}
-    J -->|是| K[在指定位置插入主沟花纹]
-    J -->|否| L[跳过主沟处理]
-    K --> M
-    L --> M
-    M --> N{是否有装饰花纹?}
-    N -->|是| O[在大图两侧覆盖装饰花纹]
-    N -->|否| P[跳过装饰处理]
-    O --> Q[返回base64编码的大图]
-    P --> Q
-    Q --> R[结束]
+```
+输入: ImageLineage 对象
+       │
+       ▼ [RIB图片预处理]
+┌─────────────────────────────────────────────┐
+│ 遍历每个 RibSchemeImpl:                     │
+│ 1. rib_image已存在? → 跳过                  │
+│ 2. 解码 small_image (base64)                │
+│ 3. 执行operations操作管道                   │
+│ 4. 纵向重复 num_pitchs 次                   │
+│ 5. resize(rib_width, rib_height)            │
+│ 6. 编码为base64存入 rib_image               │
+└─────────────────────────────────────────────┘
+       │
+       ▼ [主沟图片预处理]
+┌─────────────────────────────────────────────┐
+│ MainGrooveImpl处理:                         │
+│ 1. after_image已存在? → 跳过                │
+│ 2. 解码 before_image (base64)               │
+│ 3. resize(groove_width, groove_height)      │
+│ 4. 编码为base64存入 after_image             │
+└─────────────────────────────────────────────┘
+       │
+       ▼ [装饰图片预处理]
+┌─────────────────────────────────────────────┐
+│ DecorationImpl处理:                         │
+│ 1. after_image已存在? → 跳过                │
+│ 2. 解码 before_image (base64)               │
+│ 3. resize(decoration_width, decoration_height)│
+│ 4. 应用 decoration_opacity 透明度           │
+│ 5. 编码为base64存入 after_image             │
+└─────────────────────────────────────────────┘
+       │
+       ▼ [参数验证]
+┌─────────────────────────────────────────────┐
+│ 验证规则:                                   │
+│ - 所有图片高度一致                          │
+│ - 装饰宽度 ≤ 总宽度/2                       │
+│ - 必需字段存在                              │
+│ - 尺寸参数有效                              │
+└─────────────────────────────────────────────┘
+       │
+       ▼ [横向拼接]
+┌─────────────────────────────────────────────┐
+│ 按顺序拼接:                                 │
+│ rib1 + groove + rib2 + groove + ... + ribN   │
+└─────────────────────────────────────────────┘
+       │
+       ▼ [装饰覆盖]
+┌─────────────────────────────────────────────┐
+│ 在大图左右两侧各覆盖一个装饰图片            │
+└─────────────────────────────────────────────┘
+       │
+       ▼ [返回结果]
+输出: (更新后的 ImageLineage 对象, base64 大图)
 ```
 
 ## 2. 函数签名设计
 ```python
+from typing import Tuple
+
 def generate_large_image_from_lineage(
     lineage: ImageLineage,
-    output_format: str = "png"
-) -> str:
+    output_format: str = "png",
+    is_debug: bool = False
+) -> Tuple[ImageLineage, str]:
     """
     根据血缘信息生成大图
     
     Args:
         lineage: ImageLineage - 包含完整血缘信息的对象
         output_format: str - 输出格式，默认"png"
+        is_debug: bool - 是否启用调试模式，默认False
     
     Returns:
-        str - base64编码的大图
+        Tuple[ImageLineage, str] - (更新后的血缘对象, base64编码的大图)
     """
 ```
 
 ## 3. 详细处理流程
 
-### 阶段1：RIB图片操作处理（管道化执行）
-- **核心逻辑**：对每个 `RibSchemeImpl` 对象，按顺序执行其 `operations` 元组中的所有操作
-- **管道化实现**：
-  - 操作序列是**有序执行**的管道
-  - 前一个操作的输出直接作为后一个操作的输入
-  - 所有操作都在内存中完成，不产生中间文件
-  - 最终结果存储到 `rib_image` 字段
+### 一、RIB图片操作处理
+0. **跳过检查**：如果 `RibSchemeImpl.rib_image` 已有图像数据，直接跳过该RIB的所有操作
+1. **输入处理**：每个 `RibSchemeImpl.small_image` 都是base64编码的单张图片，需要进行适当的图像处理
+2. **执行操作管道**：按顺序执行 `operations` 元组中的所有操作（管道化执行）
+3. **纵向重复**：将操作后的结果纵向重复 `RibSchemeImpl.num_pitchs` 次
+4. **尺寸调整**：按照 `RibSchemeImpl.rib_height` 和 `RibSchemeImpl.rib_width` 进行resize
+5. **结果保存**：将最终的base64图像数据保存到 `RibSchemeImpl.rib_image`
+6. **循环处理**：继续处理下一个 `RibSchemeImpl`，直到所有RIB处理完成
 
-- **RibOperation操作实现**：
-  - `NONE`: 直接使用原图
-  - `FLIP_LR`: PIL的`Image.transpose(Image.FLIP_LEFT_RIGHT)`
-  - `FLIP`: PIL的`Image.rotate(180)`
-  - `LEFT_FLIP_LR`: 截取左半部分 → 左右翻转 → 拼接成完整图
-  - `LEFT_FLIP`: 截取左半部分 → 旋转180度 → 拼接成完整图  
-  - `RESIZE_HORIZONTAL_2X/1.5X/3X`: 横向拉伸对应倍数，保持纵向不变
-  - `LEFT/RIGHT`: 截取左/右半部分
-  - `LEFT_2_3/RIGHT_2_3`: 截取左/右2/3部分
-  - `LEFT_1_3/RIGHT_1_3`: 截取左/右1/3部分
-  - `__RESIZE_AS_FIRST_RIB`: 内部对齐操作，将当前图调整为第一张RIB的尺寸
+### 二、主沟图片操作处理
+0. **跳过检查**：如果 `MainGrooveImpl.after_image` 已有图像数据，直接跳过主沟操作（主沟只使用一张图）
+1. **尺寸调整**：读取主沟花纹图片 `MainGrooveImpl.before_image`，按照 `MainGrooveImpl.groove_width` 和 `MainGrooveImpl.groove_height` 属性进行resize
+2. **结果保存**：将处理后的base64图像数据保存到 `MainGrooveImpl.after_image`
 
-### 阶段2：多图拼接处理
-- **输入**: 处理后的RIB图片列表（按顺序）+ 主沟花纹图片列表
-- **处理逻辑**: 
-  - 按照`ribs_scheme_implementation`列表的顺序，依次水平拼接RIB图片
-  - 在指定位置插入主沟花纹（根据业务逻辑确定插入点）
-  - 由于拼接模板已在外部处理完成，本函数只需按给定顺序执行简单拼接
+### 三、装饰图片操作处理
+0. **跳过检查**：如果 `DecorationImpl.after_image` 已有图像数据，直接跳过装饰操作（装饰只使用一张图）
+1. **尺寸调整**：读取装饰花纹图片 `DecorationImpl.before_image`，按照 `DecorationImpl.decoration_width` 和 `DecorationImpl.decoration_height` 属性进行resize
+2. **透明度处理**：根据 `decoration_opacity` 参数调整图像透明度
+3. **结果保存**：将处理后的base64图像数据保存到 `DecorationImpl.after_image`
 
-### 阶段3：装饰覆盖处理
-- **装饰定位逻辑**：
-  - 装饰花纹覆盖在拼接完成的大图**两侧**
-  - 根据`decoration_width`确定覆盖区域宽度
-  - 左侧装饰覆盖在大图最左侧，右侧装饰覆盖在大图最右侧
-  - 使用PIL的alpha_composite进行透明度混合，透明度值为`decoration_opacity`(0-255)
+### 四、横向拼接处理
+1. **拼接顺序**：按照 `rib1 + 主沟花纹 + rib2 + 主沟花纹 + ... + ribN` 的方式横向拼接所有图片
+
+### 五、装饰覆盖处理
+1. **双侧覆盖**：在拼接完成的大图左右两侧，各覆盖一个 `DecorationImpl.after_image`
+
+### 〇、参数验证规则
+- **高度一致性**：所有RIB图片、主沟图片、装饰图片的高度必须保持一致
+- **装饰宽度限制**：装饰图片的宽度不应超过最终大图总宽度的1/2
+- **必要字段检查**：确保所有必需的图像字段（small_image、before_image等）都已提供
+- **尺寸有效性**：所有resize参数（rib_width/height、groove_width/height、decoration_width/height）必须为正整数
 
 ## 4. 技术选型决定
 - **图像处理库**: 选择**PIL (Pillow)** 
@@ -121,8 +155,10 @@ def generate_large_image_from_lineage(
   (如无法显示，请查看: tests/datasets/stitching/except.png)
 
 **处理流程**：
-1. 每个RIB可能经过不同的操作序列处理（本例中无特殊操作）
-2. 按rib1→rib2→rib3→rib4→rib5的顺序水平拼接
-3. 如果有主沟花纹，在指定位置插入
-4. 如果有装饰花纹，在大图两侧覆盖
-5. 最终生成完整的轮胎花纹大图
+1. **RIB预处理**：对每个RIB执行操作管道 → 纵向重复num_pitchs次 → 按rib_width/height resize
+2. **主沟预处理**：对主沟图片按groove_width/height resize（如果after_image不存在）
+3. **装饰预处理**：对装饰图片按decoration_width/height resize并应用透明度（如果after_image不存在）
+4. **参数验证**：检查所有图片高度一致、装饰宽度合规等
+5. **横向拼接**：按rib1 + groove + rib2 + groove + ... + rib5的顺序拼接
+6. **装饰覆盖**：在大图左右两侧各覆盖一个装饰图片
+7. **输出结果**：返回 (更新后的ImageLineage对象, base64编码的大图)
