@@ -236,3 +236,4 @@ Desktop.ini
 .editorconfig
 .scripts/
 .github/prompts/sync-feature-with-dev2.prompt.md
+.github/skills/code-migration-workflow/SKILL.md
