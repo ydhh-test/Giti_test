@@ -71,15 +71,22 @@ class TestRemoveBlackAndSplitSegments(unittest.TestCase):
         """PASS: 4段黑色区域，返回5张图像"""
         img = self._create_image_with_black_segments(num_segments=4)
         result = remove_black_and_split_segments(img, num_segments_to_remove=4)
-        self.assertEqual(len(result), 5)
+        except_rst = {
+            'result_len': 5,
+            'channels': 3
+        }
+        self.assertEqual(len(result), except_rst['result_len'])
         for r in result:
-            self.assertEqual(r.shape[2], 3)
+            self.assertEqual(r.shape[2], except_rst['channels'])
 
     def test_remove_3_segments_returns_4_images(self):
         """PASS: 3段黑色区域，返回4张图像"""
         img = self._create_image_with_black_segments(num_segments=3)
         result = remove_black_and_split_segments(img, num_segments_to_remove=3)
-        self.assertEqual(len(result), 4)
+        except_rst = {
+            'result_len': 4
+        }
+        self.assertEqual(len(result), except_rst['result_len'])
 
     def test_invalid_segments_raises_value_error(self):
         """FAIL: num_segments_to_remove=2，抛出ValueError"""
@@ -99,13 +106,19 @@ class TestRemoveBlackAndSplitSegments(unittest.TestCase):
         img[:, 100:110, :] = [0, 0, 0]
         img[:, 200:210, :] = [0, 0, 0]
         result = remove_black_and_split_segments(img, num_segments_to_remove=4)
-        self.assertEqual(len(result), 3)
+        except_rst = {
+            'result_len': 3
+        }
+        self.assertEqual(len(result), except_rst['result_len'])
 
     def test_no_black_segments(self):
         """PASS: 无黑色区域，返回1张原图"""
         img = np.ones((100, 200, 3), dtype=np.uint8) * 200
         result = remove_black_and_split_segments(img, num_segments_to_remove=4)
-        self.assertEqual(len(result), 1)
+        except_rst = {
+            'result_len': 1
+        }
+        self.assertEqual(len(result), except_rst['result_len'])
 
     def test_narrow_black_segments_filtered(self):
         """PASS: 宽度<5像素的黑色段被忽略"""
@@ -113,7 +126,10 @@ class TestRemoveBlackAndSplitSegments(unittest.TestCase):
         img[:, 50:53, :] = [0, 0, 0]
         img[:, 100:110, :] = [0, 0, 0]
         result = remove_black_and_split_segments(img, num_segments_to_remove=4)
-        self.assertEqual(len(result), 2)
+        except_rst = {
+            'result_len': 2
+        }
+        self.assertEqual(len(result), except_rst['result_len'])
 
 
 # ===================== remove_side_white 测试 =====================

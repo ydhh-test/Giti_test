@@ -350,7 +350,7 @@ _EXPECTED_REAL_IMAGE_FEATURES = {
     },
 }
 _WISE_IMAGE_DEV1 = _DATASET_GROOVE / "wise_image_dev1"
-_WISE_IMAGE_DEV2 = _DATASET_GROOVE / "wise_image_dev2"
+_WISE_IMAGE_DEV2 = _ROOT / ".results" / "wise_image_dev2" / "test_groove_intersection"
 _HAS_WISE_DEV1 = bool(list(_WISE_IMAGE_DEV1.glob("*.png"))) if _WISE_IMAGE_DEV1.exists() else False
 
 

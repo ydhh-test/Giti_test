@@ -5,7 +5,7 @@
 
 | 属性 | 值 |
 |------|-----|
-| **适用模块** | `src/core/single_image_splitter.py` |
+| **适用模块** | `src/nodes/single_image_splitter.py` |
 | **目标读者** | PM、架构师、开发工程师、测试工程师 |
 
 ---
