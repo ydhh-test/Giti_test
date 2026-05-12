@@ -1,6 +1,6 @@
-# AGENT.md
+# AGENTS.md
 
-本文件用于告诉 AI 在不同任务场景下优先查阅哪些项目文档。
+本文件用于告诉 AI 在不同任务场景下优先查阅哪些项目文档和协作规范。
 
 ## 通用入口
 
@@ -18,10 +18,10 @@
 ## 提交与 PR
 
 - 需要生成 commit message、拆分提交或判断提交粒度时，阅读：
-  - `docs/commit_conventions.md`
+  - `.github/commit_conventions.md`
 
-- 需要创建 PR、生成 PR 标题/正文或确认 PR 结构时，阅读：
-  - `docs/pull_request_conventions.md`
+- 需要创建 PR、生成 PR 标题/正文或确认 PR 结构时，使用：
+  - `.github/pull_request_template.md`
 
 ## 异常处理
 
@@ -48,4 +48,3 @@
 
 - 需要查看历史实现方案、设计记录或阶段计划时，阅读：
   - `docs/plans/`
-
