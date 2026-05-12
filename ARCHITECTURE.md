@@ -96,7 +96,6 @@ tire-ai-pattern/
 │   │   │   ├── cropping.py           # 裁剪、切分、边缘清理算法
 │   │   │   ├── analysis.py           # 图像分析与质量检测算法
 │   │   │   └── validation.py         # 配置校验
-│   │   └── single_image_splitter.py # 单图拆分流水线
 │   │
 │   ├── nodes/                         # 流程节点层，pipeline 拓扑中的可复用执行单元
 │   │   ├── __init__.py
@@ -106,6 +105,7 @@ tire-ai-pattern/
 │   │   ├── big_image_evaluator.py    # 节点-4：大图评估
 │   │   ├── geometry_scorer.py        # 节点-5：几何合理性业务评分
 │   │   └── big_image_splitter.py     # 节点-6：大图拆分
+│   │   └── single_image_splitter.py  # 单图拆分流水线，用于实现节点-6：大图拆分
 │   │
 │   ├── rules/                         # 业务规则层，包含特征规则与评分规则
 │   │   ├── __init__.py

@@ -51,33 +51,38 @@ class TestAnalyzeDominantColor(unittest.TestCase):
         """PASS: 图像包含在[15, 240]范围内的颜色，返回该颜色"""
         img = np.full((100, 100, 3), 100, dtype=np.uint8)
         result = analyze_dominant_color(img)
-        self.assertEqual(result, (100, 100, 100))
+        expected = (100, 100, 100)
+        self.assertEqual(result, expected)
 
     def test_dominant_color_out_of_range_returns_default(self):
         """PASS: 所有颜色超出范围，返回default_color"""
         img = np.zeros((100, 100, 3), dtype=np.uint8)
         img[:, :] = [10, 10, 10]
         result = analyze_dominant_color(img, lower_bound=15, upper_bound=240, default_color=(137, 137, 137))
-        self.assertEqual(result, (137, 137, 137))
+        expected = (137, 137, 137)
+        self.assertEqual(result, expected)
 
     def test_dominant_color_custom_default(self):
         """PASS: 自定义default_color参数生效"""
         img = np.zeros((100, 100, 3), dtype=np.uint8)
         img[:, :] = [5, 5, 5]
         result = analyze_dominant_color(img, default_color=(200, 200, 200))
-        self.assertEqual(result, (200, 200, 200))
+        expected = (200, 200, 200)
+        self.assertEqual(result, expected)
 
     def test_dominant_color_white_returns_default(self):
         """PASS: 全白图像(255,255,255)超出范围"""
         img = np.full((100, 100, 3), 255, dtype=np.uint8)
         result = analyze_dominant_color(img)
-        self.assertEqual(result, (137, 137, 137))
+        expected = (137, 137, 137)
+        self.assertEqual(result, expected)
 
     def test_dominant_color_black_returns_default(self):
         """PASS: 全黑图像(0,0,0)低于范围"""
         img = np.zeros((100, 100, 3), dtype=np.uint8)
         result = analyze_dominant_color(img)
-        self.assertEqual(result, (137, 137, 137))
+        expected = (137, 137, 137)
+        self.assertEqual(result, expected)
 
     def test_dominant_color_multiple_returns_most_frequent(self):
         """PASS: 多种颜色时返回最高频且在范围内的颜色"""
@@ -85,32 +90,37 @@ class TestAnalyzeDominantColor(unittest.TestCase):
         img[:70, :] = [100, 100, 100]
         img[70:, :] = [200, 200, 200]
         result = analyze_dominant_color(img)
-        self.assertEqual(result, (100, 100, 100))
+        expected = (100, 100, 100)
+        self.assertEqual(result, expected)
 
     def test_dominant_color_bgr_to_rgb_conversion(self):
         """PASS: BGR输入正确转换为RGB处理"""
         img_bgr = np.zeros((100, 100, 3), dtype=np.uint8)
         img_bgr[:, :] = [100, 150, 200]
         result = analyze_dominant_color(img_bgr)
-        self.assertEqual(result, (200, 150, 100))
+        expected = (200, 150, 100)
+        self.assertEqual(result, expected)
 
     def test_dominant_color_single_color(self):
         """PASS: 图像只有一种颜色"""
         img = np.full((50, 50, 3), 128, dtype=np.uint8)
         result = analyze_dominant_color(img)
-        self.assertEqual(result, (128, 128, 128))
+        expected = (128, 128, 128)
+        self.assertEqual(result, expected)
 
     def test_dominant_color_boundary_lower(self):
         """PASS: 颜色值恰好等于lower_bound(15)"""
         img = np.full((100, 100, 3), 15, dtype=np.uint8)
         result = analyze_dominant_color(img, lower_bound=15, upper_bound=240)
-        self.assertEqual(result, (15, 15, 15))
+        expected = (15, 15, 15)
+        self.assertEqual(result, expected)
 
     def test_dominant_color_boundary_upper(self):
         """PASS: 颜色值恰好等于upper_bound(240)"""
         img = np.full((100, 100, 3), 240, dtype=np.uint8)
         result = analyze_dominant_color(img, lower_bound=15, upper_bound=240)
-        self.assertEqual(result, (240, 240, 240))
+        expected = (240, 240, 240)
+        self.assertEqual(result, expected)
 
 
 # ===================== remove_vertical_lines_center 测试 =====================
@@ -188,48 +198,76 @@ class TestAnalyzeSingleImageAbnormalities(unittest.TestCase):
         """PASS: 正常图像，无异常"""
         img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         is_abnormal, abnormalities = analyze_single_image_abnormalities(img)
-        self.assertFalse(is_abnormal)
-        self.assertEqual(len(abnormalities), 0)
+        except_rst = {
+            'is_abnormal': False,
+            'abnormalities_len': 0
+        }
+        self.assertEqual(is_abnormal, except_rst['is_abnormal'])
+        self.assertEqual(len(abnormalities), except_rst['abnormalities_len'])
 
     def test_abnormal_width_ratio(self):
         """PASS: 宽/高 > 4，返回宽高比异常"""
         img = np.random.randint(0, 255, (10, 100, 3), dtype=np.uint8)
         is_abnormal, abnormalities = analyze_single_image_abnormalities(img)
-        self.assertTrue(is_abnormal)
-        self.assertTrue(any("宽高比异常" in a for a in abnormalities))
+        except_rst = {
+            'is_abnormal': True,
+            'has_ratio_abnormal': any("宽高比异常" in a for a in abnormalities)
+        }
+        self.assertEqual(is_abnormal, except_rst['is_abnormal'])
+        self.assertTrue(except_rst['has_ratio_abnormal'])
 
     def test_abnormal_height_ratio(self):
         """PASS: 高/宽 > 4，返回宽高比异常"""
         img = np.random.randint(0, 255, (100, 10, 3), dtype=np.uint8)
         is_abnormal, abnormalities = analyze_single_image_abnormalities(img)
-        self.assertTrue(is_abnormal)
-        self.assertTrue(any("宽高比异常" in a for a in abnormalities))
+        except_rst = {
+            'is_abnormal': True,
+            'has_ratio_abnormal': any("宽高比异常" in a for a in abnormalities)
+        }
+        self.assertEqual(is_abnormal, except_rst['is_abnormal'])
+        self.assertTrue(except_rst['has_ratio_abnormal'])
 
     def test_abnormal_few_colors(self):
         """PASS: 颜色种类 < 3，返回颜色异常"""
         img = np.full((100, 100, 3), 128, dtype=np.uint8)
         is_abnormal, abnormalities = analyze_single_image_abnormalities(img)
-        self.assertTrue(is_abnormal)
-        self.assertTrue(any("颜色种类过少" in a for a in abnormalities))
+        except_rst = {
+            'is_abnormal': True,
+            'has_color_abnormal': any("颜色种类过少" in a for a in abnormalities)
+        }
+        self.assertEqual(is_abnormal, except_rst['is_abnormal'])
+        self.assertTrue(except_rst['has_color_abnormal'])
 
     def test_abnormal_both_ratio_and_colors(self):
         """PASS: 同时存在宽高比异常和颜色过少"""
         img = np.full((10, 100, 3), 128, dtype=np.uint8)
         is_abnormal, abnormalities = analyze_single_image_abnormalities(img)
-        self.assertTrue(is_abnormal)
-        self.assertEqual(len(abnormalities), 2)
+        except_rst = {
+            'is_abnormal': True,
+            'abnormalities_len': 2
+        }
+        self.assertEqual(is_abnormal, except_rst['is_abnormal'])
+        self.assertEqual(len(abnormalities), except_rst['abnormalities_len'])
 
     def test_boundary_width_ratio_exactly_4(self):
         """PASS: 宽/高 = 4，不触发异常"""
         img = np.random.randint(0, 255, (25, 100, 3), dtype=np.uint8)
         is_abnormal, abnormalities = analyze_single_image_abnormalities(img)
-        self.assertFalse(is_abnormal)
+        except_rst = {
+            'is_abnormal': False,
+            'abnormalities_len': 0
+        }
+        self.assertEqual(is_abnormal, except_rst['is_abnormal'])
+        self.assertEqual(len(abnormalities), except_rst['abnormalities_len'])
 
     def test_boundary_width_ratio_slightly_over_4(self):
         """PASS: 宽/高 = 4.01，触发异常"""
         img = np.random.randint(0, 255, (100, 401, 3), dtype=np.uint8)
         is_abnormal, abnormalities = analyze_single_image_abnormalities(img)
-        self.assertTrue(is_abnormal)
+        except_rst = {
+            'is_abnormal': True
+        }
+        self.assertEqual(is_abnormal, except_rst['is_abnormal'])
 
     def test_boundary_colors_exactly_3(self):
         """PASS: 颜色种类 = 3，不触发异常"""
@@ -238,7 +276,12 @@ class TestAnalyzeSingleImageAbnormalities(unittest.TestCase):
         img[33:66, :] = [150, 150, 150]
         img[66:, :] = [200, 200, 200]
         is_abnormal, abnormalities = analyze_single_image_abnormalities(img)
-        self.assertFalse(is_abnormal)
+        except_rst = {
+            'is_abnormal': False,
+            'abnormalities_len': 0
+        }
+        self.assertEqual(is_abnormal, except_rst['is_abnormal'])
+        self.assertEqual(len(abnormalities), except_rst['abnormalities_len'])
 
     def test_boundary_colors_2(self):
         """PASS: 颜色种类 = 2，触发异常"""
@@ -246,7 +289,10 @@ class TestAnalyzeSingleImageAbnormalities(unittest.TestCase):
         img[:50, :] = [100, 100, 100]
         img[50:, :] = [200, 200, 200]
         is_abnormal, abnormalities = analyze_single_image_abnormalities(img)
-        self.assertTrue(is_abnormal)
+        except_rst = {
+            'is_abnormal': True
+        }
+        self.assertEqual(is_abnormal, except_rst['is_abnormal'])
 
 
 if __name__ == '__main__':
