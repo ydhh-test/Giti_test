@@ -44,7 +44,9 @@ def make_small_image_with_grooves(center_columns: list[int], line_width: int = 4
 
 def copy_dataset_image_to_results(relative_image_path: Path) -> Path:
     source_path = DATASET_SOURCE_ROOT / relative_image_path
-    assert source_path.exists()
+    rst = {"source_exists": source_path.exists()}
+    expect_rst = {"source_exists": True}
+    assert rst == expect_rst
 
     runtime_path = DATASET_RUNTIME_ROOT / relative_image_path
     runtime_path.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +61,9 @@ def save_debug_image_like_dev(image_path: Path, debug_image: np.ndarray) -> Path
 
     output_path = output_dir / f"{image_path.stem}_debug.png"
     success, buffer = cv2.imencode(".png", debug_image)
-    assert success
+    rst = {"encode_success": success}
+    expect_rst = {"encode_success": True}
+    assert rst == expect_rst
     buffer.tofile(str(output_path))
     return output_path
 
@@ -82,32 +86,66 @@ class TestDetectLongitudinalGrooves:
         image_path = copy_dataset_image_to_results(relative_image_path)
 
         image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
-        assert image is not None
-        assert image.shape == (IMAGE_SIZE, IMAGE_SIZE, 3)
+        if image is None:
+            pytest.fail(f"读取测试图失败: {image_path}")
+
+        rst = {"image_shape": image.shape}
+        expect_rst = {"image_shape": (IMAGE_SIZE, IMAGE_SIZE, 3)}
+        assert rst == expect_rst
 
         groove_count, groove_positions_px, groove_widths_px, line_mask, debug_image = detect_longitudinal_grooves(image, is_debug=True)
 
-        assert groove_count == len(groove_positions_px) == len(groove_widths_px)
-        assert all(0 <= position < IMAGE_SIZE for position in groove_positions_px)
-        assert all(width > 0 for width in groove_widths_px)
-        assert line_mask is not None
-        assert line_mask.shape == (IMAGE_SIZE, IMAGE_SIZE)
-        assert debug_image is not None
-        assert debug_image.shape == image.shape
+        rst = {
+            "count_matches_lengths": groove_count == len(groove_positions_px) == len(groove_widths_px),
+            "positions_in_image": all(0 <= position < IMAGE_SIZE for position in groove_positions_px),
+            "widths_positive": all(width > 0 for width in groove_widths_px),
+            "line_mask_exists": line_mask is not None,
+            "line_mask_shape": line_mask.shape if line_mask is not None else None,
+            "debug_image_exists": debug_image is not None,
+            "debug_image_shape": debug_image.shape if debug_image is not None else None,
+        }
+        expect_rst = {
+            "count_matches_lengths": True,
+            "positions_in_image": True,
+            "widths_positive": True,
+            "line_mask_exists": True,
+            "line_mask_shape": (IMAGE_SIZE, IMAGE_SIZE),
+            "debug_image_exists": True,
+            "debug_image_shape": image.shape,
+        }
+        assert rst == expect_rst
 
         debug_output_path = save_debug_image_like_dev(image_path, debug_image)
-        assert debug_output_path.exists()
+        rst = {"debug_output_exists": debug_output_path.exists()}
+        expect_rst = {"debug_output_exists": True}
+        assert rst == expect_rst
+
         saved_debug_image = cv2.imread(str(debug_output_path), cv2.IMREAD_COLOR)
-        assert saved_debug_image is not None
-        assert saved_debug_image.shape == image.shape
+        if saved_debug_image is None:
+            pytest.fail(f"读取 debug 输出图失败: {debug_output_path}")
+
+        rst = {"saved_debug_shape": saved_debug_image.shape}
+        expect_rst = {"saved_debug_shape": image.shape}
+        assert rst == expect_rst
+
         baseline_debug_path = get_debug_baseline_path(image_path)
-        assert baseline_debug_path.exists()
+        rst = {"baseline_exists": baseline_debug_path.exists()}
+        expect_rst = {"baseline_exists": True}
+        assert rst == expect_rst
+
         baseline_debug_image = cv2.imread(str(baseline_debug_path), cv2.IMREAD_COLOR)
-        assert baseline_debug_image is not None
-        assert baseline_debug_image.shape == saved_debug_image.shape
-        assert np.array_equal(saved_debug_image, baseline_debug_image), (
-            f"debug 图与基准不一致: output={debug_output_path}, baseline={baseline_debug_path}"
-        )
+        if baseline_debug_image is None:
+            pytest.fail(f"读取 debug 基准图失败: {baseline_debug_path}")
+
+        rst = {
+            "baseline_debug_shape": baseline_debug_image.shape,
+            "debug_matches_baseline": np.array_equal(saved_debug_image, baseline_debug_image),
+        }
+        expect_rst = {
+            "baseline_debug_shape": saved_debug_image.shape,
+            "debug_matches_baseline": True,
+        }
+        assert rst == expect_rst, f"debug 图与基准不一致: output={debug_output_path}, baseline={baseline_debug_path}"
 
     def test_image_with_two_grooves_detects_two_lines(self):
         """小图中的两条纵向细沟应被完整检测出来。"""
@@ -115,11 +153,21 @@ class TestDetectLongitudinalGrooves:
 
         groove_count, groove_positions_px, _groove_widths_px, line_mask, debug_image = detect_longitudinal_grooves(image)
 
-        assert groove_count == 2
-        assert len(groove_positions_px) == 2
-        assert np.allclose(groove_positions_px, [39.5, 85.5], atol=2.0)
-        assert line_mask is None
-        assert debug_image is None
+        rst = {
+            "groove_count": groove_count,
+            "groove_positions_count": len(groove_positions_px),
+            "groove_positions_match": np.allclose(groove_positions_px, [39.5, 85.5], atol=2.0),
+            "line_mask": line_mask,
+            "debug_image": debug_image,
+        }
+        expect_rst = {
+            "groove_count": 2,
+            "groove_positions_count": 2,
+            "groove_positions_match": True,
+            "line_mask": None,
+            "debug_image": None,
+        }
+        assert rst == expect_rst
 
     def test_two_grooves_only_reports_features(self):
         """小图中出现两条纵向细沟时，算法只报告特征，不在 core 层扣分。"""
@@ -127,8 +175,15 @@ class TestDetectLongitudinalGrooves:
 
         groove_count, _groove_positions_px, groove_widths_px, _line_mask, _debug_image = detect_longitudinal_grooves(image)
 
-        assert groove_count == 2
-        assert len(groove_widths_px) == 2
+        rst = {
+            "groove_count": groove_count,
+            "groove_widths_count": len(groove_widths_px),
+        }
+        expect_rst = {
+            "groove_count": 2,
+            "groove_widths_count": 2,
+        }
+        assert rst == expect_rst
 
     def test_edge_residual_is_ignored(self):
         """靠左边缘的主沟残留应被边缘忽略参数过滤。"""
@@ -136,9 +191,17 @@ class TestDetectLongitudinalGrooves:
 
         groove_count, groove_positions_px, groove_widths_px, _line_mask, _debug_image = detect_longitudinal_grooves(image)
 
-        assert groove_count == 0
-        assert groove_positions_px == []
-        assert groove_widths_px == []
+        rst = {
+            "groove_count": groove_count,
+            "groove_positions_px": groove_positions_px,
+            "groove_widths_px": groove_widths_px,
+        }
+        expect_rst = {
+            "groove_count": 0,
+            "groove_positions_px": [],
+            "groove_widths_px": [],
+        }
+        assert rst == expect_rst
 
     def test_debug_mode_returns_mask_and_debug_image(self):
         """is_debug=True 时应返回纵向细沟掩码和调试标注图。"""
@@ -146,11 +209,21 @@ class TestDetectLongitudinalGrooves:
 
         groove_count, _groove_positions_px, _groove_widths_px, line_mask, debug_image = detect_longitudinal_grooves(image, is_debug=True)
 
-        assert groove_count == 1
-        assert line_mask is not None
-        assert line_mask.shape == (IMAGE_SIZE, IMAGE_SIZE)
-        assert debug_image is not None
-        assert debug_image.shape == image.shape
+        rst = {
+            "groove_count": groove_count,
+            "line_mask_exists": line_mask is not None,
+            "line_mask_shape": line_mask.shape if line_mask is not None else None,
+            "debug_image_exists": debug_image is not None,
+            "debug_image_shape": debug_image.shape if debug_image is not None else None,
+        }
+        expect_rst = {
+            "groove_count": 1,
+            "line_mask_exists": True,
+            "line_mask_shape": (IMAGE_SIZE, IMAGE_SIZE),
+            "debug_image_exists": True,
+            "debug_image_shape": image.shape,
+        }
+        assert rst == expect_rst
 
     def test_non_bgr_image_raises_input_data_error(self):
         """非 BGR 图像数组应直接抛出 InputDataError。"""
@@ -159,14 +232,18 @@ class TestDetectLongitudinalGrooves:
         with pytest.raises(InputDataError) as exc_info:
             detect_longitudinal_grooves(image)
 
-        assert "shape (H, W, 3)" in str(exc_info.value)
+        rst = {"has_shape_message": "shape (H, W, 3)" in str(exc_info.value)}
+        expect_rst = {"has_shape_message": True}
+        assert rst == expect_rst
 
     def test_non_array_image_raises_input_type_error(self):
         """非 ndarray 图像输入应直接抛出 InputTypeError。"""
         with pytest.raises(InputTypeError) as exc_info:
             detect_longitudinal_grooves(None)
 
-        assert "image" in str(exc_info.value)
+        rst = {"has_image_message": "image" in str(exc_info.value)}
+        expect_rst = {"has_image_message": True}
+        assert rst == expect_rst
 
     def test_invalid_pixel_parameter_raises_input_data_error(self):
         """像素阈值参数不合理时应直接抛出 InputDataError。"""
@@ -175,7 +252,9 @@ class TestDetectLongitudinalGrooves:
         with pytest.raises(InputDataError) as exc_info:
             detect_longitudinal_grooves(image, min_width_px=0)
 
-        assert "min_width_px" in str(exc_info.value)
+        rst = {"has_min_width_message": "min_width_px" in str(exc_info.value)}
+        expect_rst = {"has_min_width_message": True}
+        assert rst == expect_rst
 
 
 class TestLongitudinalGrooveCoverageBranches:
@@ -222,10 +301,17 @@ class TestLongitudinalGrooveCoverageBranches:
 
     def test_split_row_data_by_angle_handles_empty_and_single(self):
         """轨迹切分需覆盖空输入与单元素输入分支。"""
-        assert lg._split_row_data_by_angle([], max_angle_deg=30.0) == []
-
         single = [(10, 30.0, 4.0)]
-        assert lg._split_row_data_by_angle(single, max_angle_deg=30.0) == [single]
+
+        rst = {
+            "empty_segments": lg._split_row_data_by_angle([], max_angle_deg=30.0),
+            "single_segments": lg._split_row_data_by_angle(single, max_angle_deg=30.0),
+        }
+        expect_rst = {
+            "empty_segments": [],
+            "single_segments": [single],
+        }
+        assert rst == expect_rst
 
     def test_split_row_data_by_angle_splits_on_large_tilt(self):
         """当相邻行偏转角超阈值时应切分轨迹。"""
@@ -238,9 +324,15 @@ class TestLongitudinalGrooveCoverageBranches:
 
         segments = lg._split_row_data_by_angle(row_data, max_angle_deg=10.0, smooth_half_window=0)
 
-        assert len(segments) == 2
-        assert segments[0] == row_data[:2]
-        assert segments[1] == row_data[2:]
+        rst = {
+            "segments_count": len(segments),
+            "segments": segments,
+        }
+        expect_rst = {
+            "segments_count": 2,
+            "segments": [row_data[:2], row_data[2:]],
+        }
+        assert rst == expect_rst
 
     def test_build_groove_tracks_covers_gap_finish_and_candidate_skip(self):
         """覆盖轨迹超 gap 完结与候选冲突跳过分支。"""
@@ -252,8 +344,15 @@ class TestLongitudinalGrooveCoverageBranches:
 
         tracks = lg._build_groove_tracks(all_row_clusters, max_dx=20.0, max_gap_rows=5)
 
-        assert len(tracks) >= 2
-        assert any(len(track) >= 2 for track in tracks)
+        rst = {
+            "has_min_track_count": len(tracks) >= 2,
+            "has_connected_track": any(len(track) >= 2 for track in tracks),
+        }
+        expect_rst = {
+            "has_min_track_count": True,
+            "has_connected_track": True,
+        }
+        assert rst == expect_rst
 
     def test_split_columns_into_clusters_splits_discontinuous_columns(self):
         """同一行列索引出现间断时应拆分成多个簇。"""
@@ -261,17 +360,36 @@ class TestLongitudinalGrooveCoverageBranches:
 
         clusters = lg._split_columns_into_clusters(component_columns, left_offset=2)
 
-        assert clusters == [(2, 4), (9, 10)]
+        rst = {"clusters": clusters}
+        expect_rst = {"clusters": [(2, 4), (9, 10)]}
+        assert rst == expect_rst
 
     def test_validate_segment_branches(self):
         """候选段校验覆盖空段、过短和宽度越界分支。"""
-        assert lg._validate_segment([], min_width_px=3, max_width_px=12, min_segment_length_px=2) is None
-
         too_short = [(0, 10.0, 4.0)]
-        assert lg._validate_segment(too_short, min_width_px=3, max_width_px=12, min_segment_length_px=2) is None
-
         too_wide = [(0, 10.0, 20.0), (1, 10.0, 20.0), (2, 10.0, 20.0)]
-        assert lg._validate_segment(too_wide, min_width_px=3, max_width_px=12, min_segment_length_px=2) is None
+
+        rst = {
+            "empty_segment": lg._validate_segment([], min_width_px=3, max_width_px=12, min_segment_length_px=2),
+            "too_short_segment": lg._validate_segment(
+                too_short,
+                min_width_px=3,
+                max_width_px=12,
+                min_segment_length_px=2,
+            ),
+            "too_wide_segment": lg._validate_segment(
+                too_wide,
+                min_width_px=3,
+                max_width_px=12,
+                min_segment_length_px=2,
+            ),
+        }
+        expect_rst = {
+            "empty_segment": None,
+            "too_short_segment": None,
+            "too_wide_segment": None,
+        }
+        assert rst == expect_rst
 
     def test_dedupe_segments_merges_overlapped_segments(self):
         """横向接近且纵向重叠超过阈值的段应被合并。"""
@@ -282,12 +400,24 @@ class TestLongitudinalGrooveCoverageBranches:
 
         deduped = lg._dedupe_segments(raw_segments, dedup_distance_px=5.0)
 
-        assert len(deduped) == 1
-        merged_center, merged_width, merged_first_row, merged_last_row = deduped[0]
-        assert merged_center == pytest.approx(10.5)
-        assert merged_width == pytest.approx(4.0)
-        assert merged_first_row == 0
-        assert merged_last_row == 10
+        merged_center, merged_width, merged_first_row, merged_last_row = (
+            deduped[0] if deduped else (None, None, None, None)
+        )
+        rst = {
+            "deduped_count": len(deduped),
+            "merged_center": merged_center,
+            "merged_width": merged_width,
+            "merged_first_row": merged_first_row,
+            "merged_last_row": merged_last_row,
+        }
+        expect_rst = {
+            "deduped_count": 1,
+            "merged_center": pytest.approx(10.5),
+            "merged_width": pytest.approx(4.0),
+            "merged_first_row": 0,
+            "merged_last_row": 10,
+        }
+        assert rst == expect_rst
 
     def test_analyze_vertical_lines_skips_short_component(self):
         """连通域高度不足时应被直接跳过。"""
@@ -305,17 +435,19 @@ class TestLongitudinalGrooveCoverageBranches:
             dedup_distance_px=8.0,
         )
 
+        rst = {
+            "positions": positions,
+            "count": count,
+            "widths": widths,
+            "line_mask_sum": int(line_mask.sum()),
+        }
         expect_rst = {
             "positions": [],
             "count": 0,
             "widths": [],
             "line_mask_sum": 0,
         }
-
-        assert positions == expect_rst["positions"]
-        assert count == expect_rst["count"]
-        assert widths == expect_rst["widths"]
-        assert int(line_mask.sum()) == expect_rst["line_mask_sum"]
+        assert rst == expect_rst
 
     def test_analyze_vertical_lines_continue_on_empty_row_cluster(self, monkeypatch: pytest.MonkeyPatch):
         """当组件行列为空时应走 continue 分支并且不产出细沟。"""
@@ -342,17 +474,19 @@ class TestLongitudinalGrooveCoverageBranches:
         finally:
             monkeypatch.setattr(lg.np, "where", original_where)
 
+        rst = {
+            "positions": positions,
+            "count": count,
+            "widths": widths,
+            "line_mask_sum": int(line_mask.sum()),
+        }
         expect_rst = {
             "positions": [],
             "count": 0,
             "widths": [],
             "line_mask_sum": 0,
         }
-
-        assert positions == expect_rst["positions"]
-        assert count == expect_rst["count"]
-        assert widths == expect_rst["widths"]
-        assert int(line_mask.sum()) == expect_rst["line_mask_sum"]
+        assert rst == expect_rst
 
     def test_analyze_vertical_lines_continue_on_rejected_segment(self):
         """当候选段宽度不满足约束时应跳过，不计入结果。"""
@@ -370,14 +504,16 @@ class TestLongitudinalGrooveCoverageBranches:
             dedup_distance_px=8.0,
         )
 
+        rst = {
+            "positions": positions,
+            "count": count,
+            "widths": widths,
+            "line_mask_sum": int(line_mask.sum()),
+        }
         expect_rst = {
             "positions": [],
             "count": 0,
             "widths": [],
             "line_mask_sum": 0,
         }
-
-        assert positions == expect_rst["positions"]
-        assert count == expect_rst["count"]
-        assert widths == expect_rst["widths"]
-        assert int(line_mask.sum()) == expect_rst["line_mask_sum"]
+        assert rst == expect_rst
