@@ -4,12 +4,14 @@
 
 # Copyright © 2026. All rights reserved.
 
+from typing import List
+
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-def _validate_vertical_parts_to_keep(parts_to_keep, num_segments_to_remove):
+def _validate_vertical_parts_to_keep(parts_to_keep: List[int], num_segments_to_remove: int) -> None:
     """
     校验vertical_parts_to_keep配置的有效性
     校验规则:

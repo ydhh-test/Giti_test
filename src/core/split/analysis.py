@@ -6,13 +6,19 @@
 
 import cv2
 import numpy as np
+from typing import Tuple, Optional, List
 
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-def analyze_dominant_color(image, lower_bound=15, upper_bound=240, default_color=(137,137,137)):
+def analyze_dominant_color(
+    image: np.ndarray,
+    lower_bound: int = 15,
+    upper_bound: int = 240,
+    default_color: Tuple[int, int, int] = (137, 137, 137),
+) -> Tuple[int, int, int]:
     """
     分析图像主色调，返回在指定范围内的主要颜色
 
@@ -38,9 +44,15 @@ def analyze_dominant_color(image, lower_bound=15, upper_bound=240, default_color
     return default_color
 
 
-def remove_vertical_lines_center(image, x_tolerance=2, length_ratio=0.7,
-                                 line_width=2, margin_ratio=0.1,
-                                 hough_threshold=50, min_line_gap=10):
+def remove_vertical_lines_center(
+    image: np.ndarray,
+    x_tolerance: int = 2,
+    length_ratio: float = 0.7,
+    line_width: int = 2,
+    margin_ratio: float = 0.1,
+    hough_threshold: int = 50,
+    min_line_gap: int = 10,
+) -> Optional[np.ndarray]:
     """
     检测图像中央区域的竖直线并去除，保护与其他线段的交点
 
@@ -105,7 +117,7 @@ def remove_vertical_lines_center(image, x_tolerance=2, length_ratio=0.7,
     return result
 
 
-def analyze_single_image_abnormalities(image):
+def analyze_single_image_abnormalities(image: np.ndarray) -> Tuple[bool, List[str]]:
     """
     分析单张图片的异常情况
 
