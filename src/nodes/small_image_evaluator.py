@@ -1,4 +1,8 @@
-"""Small image evaluation node."""
+"""小图评估节点。
+
+本节点用于对每张小图执行当前阶段支持的小图规则，并把每张图独立的
+评估结果写回到对应 ``SmallImage.evaluation``。
+"""
 
 from __future__ import annotations
 
@@ -15,7 +19,26 @@ def evaluate_small_images(
     small_images: list[SmallImage],
     rules_config: list[BaseRuleConfig],
 ) -> list[SmallImage]:
-    """Evaluate each small image and write independent evaluations back."""
+    """评估一组小图并写回每张小图的评估结果。
+
+    函数会从 ``rules_config`` 中筛选小图评估节点支持的规则配置，
+    当前执行顺序由 ``SMALL_IMAGE_EVALUATOR_CONFIGS`` 决定。每张小图
+    都会独立执行 feature 和 score 计算，并将生成的 ``ImageEvaluation``
+    写入该小图的 ``evaluation`` 字段。
+
+    Args:
+        small_images: 待评估的小图列表。列表不能为空。
+        rules_config: 用户传入的完整规则配置列表，函数只会执行本节点
+            支持的规则配置。
+
+    Returns:
+        原始 ``small_images`` 列表对象。列表内每个 ``SmallImage`` 都会
+        被原地写入最新的 ``evaluation``。
+
+    Raises:
+        InputDataError: 当 ``small_images`` 为空，或规则配置存在重复类型时抛出。
+        Exception: 规则执行过程中的异常不会在节点内捕获，会原样向上透传。
+    """
 
     if not small_images:
         raise InputDataError(NODE_NAME, "small_images", "small_images is required")
