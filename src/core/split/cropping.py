@@ -10,13 +10,17 @@
 import cv2
 import numpy as np
 import random
+from typing import Tuple, Optional, List
 
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-def remove_black_and_split_segments(image, num_segments_to_remove=4):
+def remove_black_and_split_segments(
+    image: np.ndarray,
+    num_segments_to_remove: int = 4,
+) -> List[np.ndarray]:
     """
     删除图像中连续全黑列中宽度最大的num_segments_to_remove段，
     返回剩余连续列段的独立图片列表
@@ -87,7 +91,7 @@ def remove_black_and_split_segments(image, num_segments_to_remove=4):
     return parts
 
 
-def remove_side_white(image, direction='left'):
+def remove_side_white(image: np.ndarray, direction: str = 'left') -> np.ndarray:
     """
     去除图像单侧的白色边缘
 
@@ -120,8 +124,12 @@ def remove_side_white(image, direction='left'):
         return image[:, left_bound:]
 
 
-def remove_edge_gray(image, target_gray=(137,137,137),
-                     tolerance=90, edge_percent=23):
+def remove_edge_gray(
+    image: np.ndarray,
+    target_gray: Tuple[int, int, int] = (137, 137, 137),
+    tolerance: int = 90,
+    edge_percent: int = 23,
+) -> np.ndarray:
     """
     将图片左右边缘的特定灰色背景替换为白色
 
@@ -156,7 +164,11 @@ def remove_edge_gray(image, target_gray=(137,137,137),
     return result
 
 
-def random_horizontal_crop(image, min_splits=5, max_splits=7):
+def random_horizontal_crop(
+    image: np.ndarray,
+    min_splits: int = 5,
+    max_splits: int = 7,
+) -> np.ndarray:
     """
     随机水平裁剪图像的一部分
 
@@ -183,7 +195,12 @@ def random_horizontal_crop(image, min_splits=5, max_splits=7):
     return img[current_y:end_y, :, :]
 
 
-def detect_periodic_blocks(image, min_cycles=5, max_cycles=7, min_block_pixels=100):
+def detect_periodic_blocks(
+    image: np.ndarray,
+    min_cycles: int = 5,
+    max_cycles: int = 7,
+    min_block_pixels: int = 100,
+) -> Optional[np.ndarray]:
     """
     检测图像中的周期性色块并返回第一个有效周期块
 
