@@ -51,8 +51,8 @@ class TestImageStichingReal(unittest.TestCase):
     def test_generate_large_image_from_lineage_basic_real(self):
         """测试基本的大图生成功能 - 真实图片（单RIB，无主沟）"""
         rib5_base64 = self._ndarray_to_base64(self.rib5_image)
+        expected_prefix = "data:image/"
 
-        # 创建测试数据 - 使用真实图片，单RIB不需要主沟
         rib1 = RibSchemeImpl(
             rib_source="side",
             rib_operation=(RibOperation.NONE,),
@@ -60,37 +60,35 @@ class TestImageStichingReal(unittest.TestCase):
             before_image=rib5_base64,
             num_pitchs=1,
             rib_height=self.rib5_image.shape[0],
-            rib_width=self.rib5_image.shape[1]
+            rib_width=self.rib5_image.shape[1],
         )
 
         stitching_scheme = StitchingScheme(
             stitching_scheme_abstract=StitchingSchemeAbstract(
                 name=StitchingSchemeName.SYMMETRY_0,
                 description="test with real images",
-                rib_number=1
+                rib_number=1,
             ),
-            ribs_scheme_implementation=[rib1]
+            ribs_scheme_implementation=[rib1],
         )
 
         # 创建空的主沟和装饰方案（单RIB不需要主沟）
         empty_main_groove = MainGrooveScheme(
             main_groove_scheme_abstract=MainGrooveSchemeAbstract(
                 name="empty",
-                groove_number=0
+                groove_number=0,
             ),
-            main_groove_implementation=[]
+            main_groove_implementation=[],
         )
         empty_decoration = DecorationScheme(
-            decoration_scheme_abstract=DecorationSchemeAbstract(
-                name="empty"
-            ),
-            decoration_implementation=[]
+            decoration_scheme_abstract=DecorationSchemeAbstract(name="empty"),
+            decoration_implementation=[],
         )
 
         lineage = ImageLineage(
             stitching_scheme=stitching_scheme,
             main_groove_scheme=empty_main_groove,
-            decoration_scheme=empty_decoration
+            decoration_scheme=empty_decoration,
         )
 
         # 执行测试
@@ -99,12 +97,12 @@ class TestImageStichingReal(unittest.TestCase):
         # 验证结果
         self.assertIsNotNone(result_lineage)
         self.assertIsNotNone(result_base64)
-        self.assertTrue(result_base64.startswith("data:image/"))
+        self.assertEqual(result_base64[:len(expected_prefix)], expected_prefix)
 
     def test_rib_operations_with_real_images(self):
         """测试RIB操作序列处理 - 真实图片"""
         rib5_base64 = self._ndarray_to_base64(self.rib5_image)
-        except_base64 = self._ndarray_to_base64(self.except_image)
+        expected_prefix = "data:image/"
 
         # 测试 resize + left 组合操作
         rib_with_operations = RibSchemeImpl(
@@ -114,37 +112,35 @@ class TestImageStichingReal(unittest.TestCase):
             before_image=rib5_base64,
             num_pitchs=1,
             rib_height=self.rib5_image.shape[0],
-            rib_width=self.rib5_image.shape[1]
+            rib_width=self.rib5_image.shape[1],
         )
 
         stitching_scheme = StitchingScheme(
             stitching_scheme_abstract=StitchingSchemeAbstract(
                 name=StitchingSchemeName.SYMMETRY_0,
                 description="test operations with real images",
-                rib_number=1
+                rib_number=1,
             ),
-            ribs_scheme_implementation=[rib_with_operations]
+            ribs_scheme_implementation=[rib_with_operations],
         )
 
         # 创建空的主沟和装饰方案（单RIB不需要主沟）
         empty_main_groove = MainGrooveScheme(
             main_groove_scheme_abstract=MainGrooveSchemeAbstract(
                 name="empty",
-                groove_number=0
+                groove_number=0,
             ),
-            main_groove_implementation=[]
+            main_groove_implementation=[],
         )
         empty_decoration = DecorationScheme(
-            decoration_scheme_abstract=DecorationSchemeAbstract(
-                name="empty"
-            ),
-            decoration_implementation=[]
+            decoration_scheme_abstract=DecorationSchemeAbstract(name="empty"),
+            decoration_implementation=[],
         )
 
         lineage = ImageLineage(
             stitching_scheme=stitching_scheme,
             main_groove_scheme=empty_main_groove,
-            decoration_scheme=empty_decoration
+            decoration_scheme=empty_decoration,
         )
 
         # 执行测试
@@ -153,7 +149,7 @@ class TestImageStichingReal(unittest.TestCase):
         # 验证结果
         self.assertIsNotNone(result_lineage)
         self.assertIsNotNone(result_base64)
-        self.assertTrue(result_base64.startswith("data:image/"))
+        self.assertEqual(result_base64[:len(expected_prefix)], expected_prefix)
 
 
 if __name__ == '__main__':

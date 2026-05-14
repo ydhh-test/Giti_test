@@ -137,12 +137,16 @@ class TestLargeImageStitchingIntegration:
             pytest.fail(f"预期结果文件不存在: {EXPECTED_PATH}")
         return expected
 
+    expected_prefix = "data:image/"
+
     def test_generates_same_result_as_expected(self, expected_image):
         """验证生成的完整大图与预期结果完全一致"""
         lineage = _build_lineage_with_black_decoration()
         result_lineage, result_base64 = generate_large_image_from_lineage(lineage)
 
-        assert result_base64.startswith("data:image/"), "输出应为 data:image 前缀的 base64"
+        assert result_base64[:len(expected_prefix)] == expected_prefix, (
+            "输出应为 data:image 前缀的 base64"
+        )
 
         # 解码结果图像
         b64data = result_base64.split(",")[1]
@@ -181,8 +185,10 @@ class TestLargeImageStitchingIntegration:
         # 原始 RIB 背景约为 214, 黑色装饰 0 + 50% → 约 107
         left_region = actual[:, :300]
         left_mean = float(np.mean(left_region))
-        assert left_mean > 50, "左侧不应全黑"
-        assert left_mean < 160, f"左侧应因黑色装饰变暗，实际均值 {left_mean}"
+        expected_min_brightness = 50
+        expected_max_brightness = 160
+        assert left_mean > expected_min_brightness, "左侧不应全黑"
+        assert left_mean < expected_max_brightness, f"左侧应因黑色装饰变暗，实际均值 {left_mean}"
 
     def test_after_image_fields_are_filled(self):
         """验证处理完成后 after_image 被正确填充，且像素值与预期一致"""
@@ -190,13 +196,13 @@ class TestLargeImageStitchingIntegration:
         result_lineage, result_base64 = generate_large_image_from_lineage(lineage)
 
         # 验证输出图片
-        assert result_base64.startswith("data:image/"), "输出应为 base64 图片"
+        assert result_base64[:len(expected_prefix)] == expected_prefix, "输出应为 base64 图片"
 
         # --- 验证 RIB after_image ---
         ribs = result_lineage.stitching_scheme.ribs_scheme_implementation
         for rib in ribs:
             assert rib.after_image is not None, f"{rib.rib_name} 的 after_image 为空"
-            assert rib.after_image.startswith("data:image/"), (
+            assert rib.after_image[:len(expected_prefix)] == expected_prefix, (
                 f"{rib.rib_name} 的 after_image 格式不正确"
             )
 
@@ -212,7 +218,7 @@ class TestLargeImageStitchingIntegration:
         grooves = result_lineage.main_groove_scheme.main_groove_implementation
         for i, groove in enumerate(grooves):
             assert groove.after_image is not None, f"主沟 {i} 的 after_image 为空"
-            assert groove.after_image.startswith("data:image/"), (
+            assert groove.after_image[:len(expected_prefix)] == expected_prefix, (
                 f"主沟 {i} 的 after_image 格式不正确"
             )
 
@@ -227,7 +233,7 @@ class TestLargeImageStitchingIntegration:
         decorations = result_lineage.decoration_scheme.decoration_implementation
         for i, dec in enumerate(decorations):
             assert dec.after_image is not None, f"装饰 {i} 的 after_image 为空"
-            assert dec.after_image.startswith("data:image/"), (
+            assert dec.after_image[:len(expected_prefix)] == expected_prefix, (
                 f"装饰 {i} 的 after_image 格式不正确"
             )
 
