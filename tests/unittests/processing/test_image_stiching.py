@@ -5,6 +5,7 @@
 import unittest
 import numpy as np
 import cv2
+import base64
 from unittest.mock import patch, MagicMock
 from src.models.image_models import ImageLineage, ImageLineage
 from src.models.scheme_models import (
@@ -16,10 +17,10 @@ from src.models.scheme_models import (
 from src.models.enums import (
     RibOperation, RegionEnum, SourceTypeEnum, StitchingSchemeName
 )
-from src.processing.image_processing import generate_large_image_from_lineage
+from src.processing.image_stiching import generate_large_image_from_lineage
 
 
-class TestImageProcessing(unittest.TestCase):
+class TestImageStiching(unittest.TestCase):
     """大图生成函数测试"""
 
     def setUp(self):
@@ -33,8 +34,7 @@ class TestImageProcessing(unittest.TestCase):
         success, buffer = cv2.imencode('.png', image)
         if not success:
             raise ValueError("Failed to encode image")
-        base64_str = buffer.tobytes().hex()
-        # 简化处理，实际测试中应该使用完整的base64编码
+        base64_str = base64.b64encode(buffer).decode('utf-8')
         return f"data:image/png;base64,{base64_str}"
 
     def test_generate_large_image_from_lineage_basic(self):
@@ -71,10 +71,30 @@ class TestImageProcessing(unittest.TestCase):
             ribs_scheme_implementation=[rib1, rib2]
         )
 
+        # 创建包含一个主沟的方案（2个RIB需要1个主沟）
+        main_groove_impl = MainGrooveImpl(
+            groove_image=self.test_base64,
+            groove_width=50,
+            groove_height=100
+        )
+        test_main_groove = MainGrooveScheme(
+            main_groove_scheme_abstract=MainGrooveSchemeAbstract(
+                name="test",
+                groove_number=1
+            ),
+            main_groove_implementation=[main_groove_impl]
+        )
+        empty_decoration = DecorationScheme(
+            decoration_scheme_abstract=DecorationSchemeAbstract(
+                name="empty"
+            ),
+            decoration_implementation=[]
+        )
+
         lineage = ImageLineage(
             stitching_scheme=stitching_scheme,
-            main_groove_scheme=None,
-            decoration_scheme=None
+            main_groove_scheme=test_main_groove,
+            decoration_scheme=empty_decoration
         )
 
         # 执行测试
@@ -87,7 +107,7 @@ class TestImageProcessing(unittest.TestCase):
 
     def test_rib_operations_sequence(self):
         """测试RIB操作序列处理"""
-        from src.core.image_operation import apply_rib_operations_sequence
+        from src.core.operation.image_operation import apply_rib_operations_sequence
 
         # 测试 resize + left 组合
         operations = (RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.LEFT)
@@ -100,7 +120,7 @@ class TestImageProcessing(unittest.TestCase):
 
     def test_single_rib_operations(self):
         """测试单个RIB操作"""
-        from src.core.image_operation import apply_single_rib_operation
+        from src.core.operation.image_operation import apply_single_rib_operation
 
         # 测试FLIP_LR
         flipped = apply_single_rib_operation(self.test_image, RibOperation.FLIP_LR)
@@ -114,7 +134,7 @@ class TestImageProcessing(unittest.TestCase):
 
     def test_horizontal_concatenate(self):
         """测试横向拼接"""
-        from src.core.image_operation import horizontal_concatenate
+        from src.core.operation.image_operation import horizontal_concatenate
 
         images = [self.test_image, self.test_image]
         result = horizontal_concatenate(images)
@@ -125,7 +145,7 @@ class TestImageProcessing(unittest.TestCase):
 
     def test_overlay_decoration(self):
         """测试装饰覆盖"""
-        from src.core.image_operation import overlay_decoration
+        from src.core.operation.image_operation import overlay_decoration
 
         left_dec = np.ones((100, 50, 3), dtype=np.uint8) * 200
         right_dec = np.ones((100, 50, 3), dtype=np.uint8) * 50
@@ -152,10 +172,25 @@ class TestImageProcessing(unittest.TestCase):
             ribs_scheme_implementation=[]
         )
 
+        # 创建空的主沟和装饰方案
+        empty_main_groove = MainGrooveScheme(
+            main_groove_scheme_abstract=MainGrooveSchemeAbstract(
+                name="empty",
+                groove_number=0
+            ),
+            main_groove_implementation=[]
+        )
+        empty_decoration = DecorationScheme(
+            decoration_scheme_abstract=DecorationSchemeAbstract(
+                name="empty"
+            ),
+            decoration_implementation=[]
+        )
+
         lineage = ImageLineage(
             stitching_scheme=stitching_scheme,
-            main_groove_scheme=None,
-            decoration_scheme=None
+            main_groove_scheme=empty_main_groove,
+            decoration_scheme=empty_decoration
         )
 
         with self.assertRaises(ValueError):

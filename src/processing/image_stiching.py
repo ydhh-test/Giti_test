@@ -19,7 +19,7 @@ from src.utils.image_utils import (
     ndarray_to_base64,
     resize_image
 )
-from src.core.image_operation import (
+from src.core.operation.image_operation import (
     apply_rib_operations_sequence,
     repeat_vertically,
     apply_opacity,
@@ -110,17 +110,14 @@ def _process_decoration(decorations: List[DecorationImpl], is_debug: bool = Fals
     处理装饰图片
 
     流程:
-    1. 跳过检查: 如果 after_image 已存在，跳过处理
-    2. 解码 before_image (base64) → np.ndarray
+    1. 跳过检查: 如果装饰已经处理过，跳过处理
+    2. 解码 decoration_image (base64) → np.ndarray
     3. resize(decoration_width, decoration_height)（调用utils层resize_image）
     4. 应用 decoration_opacity 透明度（调用core层算法）
-    5. 编码为base64存入 after_image
+    5. 编码为base64存入 decoration_image
     """
     for decoration in decorations:
-        # 跳过检查
-        if decoration.decoration_image is not None:
-            continue
-
+        # 跳过检查：如果装饰为空，跳过
         if decoration.decoration_image is None:
             continue
 
@@ -141,9 +138,7 @@ def _process_decoration(decorations: List[DecorationImpl], is_debug: bool = Fals
         # 应用透明度
         if decoration.decoration_opacity is not None:
             transparent_image = apply_opacity(resized_image, decoration.decoration_opacity)
-            # 转换回BGR格式（移除alpha通道）以保持一致性
-            if transparent_image.shape[2] == 4:
-                transparent_image = cv2.cvtColor(transparent_image, cv2.COLOR_BGRA2BGR)
+            # 保留BGRA格式以支持透明度混合
         else:
             transparent_image = resized_image
 

@@ -5,7 +5,7 @@
 import unittest
 import numpy as np
 import cv2
-from src.core.image_operation import (
+from src.core.operation.image_operation import (
     apply_single_rib_operation,
     apply_rib_operations_sequence,
     repeat_vertically,

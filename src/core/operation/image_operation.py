@@ -254,38 +254,79 @@ def overlay_decoration(
     right_decoration: np.ndarray
 ) -> np.ndarray:
     """
-    在基础图像左右两侧覆盖装饰
+    在基础图像左右边缘应用半透明装饰覆盖（不改变图像分辨率）
 
     Args:
-        base_image: 基础图像 (np.ndarray)
-        left_decoration: 左侧装饰图像 (np.ndarray)
-        right_decoration: 右侧装饰图像 (np.ndarray)
+        base_image: 基础图像 (np.ndarray, BGR格式)
+        left_decoration: 左侧装饰图像 (np.ndarray, 可以是BGR或BGRA格式)
+        right_decoration: 右侧装饰图像 (np.ndarray, 可以是BGR或BGRA格式)
 
     Returns:
-        np.ndarray: 应用装饰后的图像
+        np.ndarray: 应用半透明装饰后的图像（BGR格式，尺寸与base_image相同）
     """
     if base_image is None or left_decoration is None or right_decoration is None:
         raise ValueError("输入图像不能为空")
 
     base_h, base_w = base_image.shape[:2]
-    left_h, left_w = left_decoration.shape[:2]
-    right_h, right_w = right_decoration.shape[:2]
-
-    # 验证高度兼容性
-    if left_h != base_h or right_h != base_h:
-        raise ValueError("装饰图像高度必须与基础图像高度一致")
 
     # 创建结果图像
-    total_width = left_w + base_w + right_w
-    result = np.zeros((base_h, total_width, 3), dtype=base_image.dtype)
+    result = base_image.copy().astype(np.float32)
 
-    # 放置左侧装饰
-    result[:, :left_w] = left_decoration
+    # 处理左侧装饰
+    if left_decoration.shape[2] == 4:  # BGRA格式，有alpha通道
+        left_h, left_w = left_decoration.shape[:2]
+        if left_h != base_h:
+            raise ValueError("左侧装饰图像高度必须与基础图像高度一致")
+        if left_w > base_w:
+            raise ValueError("左侧装饰图像宽度不能超过基础图像宽度")
 
-    # 放置基础图像
-    result[:, left_w:left_w + base_w] = base_image
+        # 提取RGB和Alpha通道
+        left_rgb = left_decoration[:, :, :3].astype(np.float32)
+        left_alpha = left_decoration[:, :, 3] / 255.0
 
-    # 放置右侧装饰
-    result[:, left_w + base_w:] = right_decoration
+        # 应用左侧半透明覆盖
+        for c in range(3):  # B, G, R 通道
+            result[:, :left_w, c] = (
+                left_alpha * left_rgb[:, :, c] +
+                (1 - left_alpha) * result[:, :left_w, c]
+            )
+    else:  # BGR格式，无透明度，直接覆盖
+        left_h, left_w = left_decoration.shape[:2]
+        if left_h != base_h:
+            raise ValueError("左侧装饰图像高度必须与基础图像高度一致")
+        if left_w > base_w:
+            raise ValueError("左侧装饰图像宽度不能超过基础图像宽度")
+
+        result[:, :left_w] = left_decoration.astype(np.float32)
+
+    # 处理右侧装饰
+    if right_decoration.shape[2] == 4:  # BGRA格式，有alpha通道
+        right_h, right_w = right_decoration.shape[:2]
+        if right_h != base_h:
+            raise ValueError("右侧装饰图像高度必须与基础图像高度一致")
+        if right_w > base_w:
+            raise ValueError("右侧装饰图像宽度不能超过基础图像宽度")
+
+        # 提取RGB和Alpha通道
+        right_rgb = right_decoration[:, :, :3].astype(np.float32)
+        right_alpha = right_decoration[:, :, 3] / 255.0
+
+        # 应用右侧半透明覆盖
+        for c in range(3):  # B, G, R 通道
+            result[:, base_w - right_w:, c] = (
+                right_alpha * right_rgb[:, :, c] +
+                (1 - right_alpha) * result[:, base_w - right_w:, c]
+            )
+    else:  # BGR格式，无透明度，直接覆盖
+        right_h, right_w = right_decoration.shape[:2]
+        if right_h != base_h:
+            raise ValueError("右侧装饰图像高度必须与基础图像高度一致")
+        if right_w > base_w:
+            raise ValueError("右侧装饰图像宽度不能超过基础图像宽度")
+
+        result[:, base_w - right_w:] = right_decoration.astype(np.float32)
+
+    # 转换回uint8格式
+    result = np.clip(result, 0, 255).astype(np.uint8)
 
     return result
