@@ -1,4 +1,8 @@
-"""Big image evaluation node."""
+"""大图评估节点。
+
+本节点用于对单张大图执行当前阶段支持的大图规则，完整计算每条规则的
+feature 和 score，并把评估结果写回 ``BigImage.evaluation``。
+"""
 
 from __future__ import annotations
 
@@ -15,7 +19,25 @@ def evaluate_big_image(
     big_image: BigImage | None,
     rules_config: list[BaseRuleConfig],
 ) -> BigImage:
-    """Evaluate the single big image and write the evaluation back."""
+    """评估单张大图并写回大图评估结果。
+
+    函数会从 ``rules_config`` 中筛选大图评估节点支持的规则配置，
+    当前执行顺序由 ``BIG_IMAGE_EVALUATOR_CONFIGS`` 决定。该节点负责
+    首次完整执行大图规则的 feature 和 score 计算。
+
+    Args:
+        big_image: 待评估的大图对象。不能为 ``None``。
+        rules_config: 用户传入的完整规则配置列表，函数只会执行本节点
+            支持的规则配置。
+
+    Returns:
+        原始 ``big_image`` 对象。函数会原地写入最新的
+        ``big_image.evaluation``。
+
+    Raises:
+        InputDataError: 当 ``big_image`` 缺失，或规则配置存在重复类型时抛出。
+        Exception: 规则执行过程中的异常不会在节点内捕获，会原样向上透传。
+    """
 
     if big_image is None:
         raise InputDataError(NODE_NAME, "big_image", "big_image is required")

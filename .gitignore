@@ -220,6 +220,7 @@ __marimo__/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+.vscode/
 
 # macOS
 .DS_Store
@@ -231,3 +232,8 @@ Desktop.ini
 .tmp
 *.tmp
 *.temp
+.results/
+.editorconfig
+.scripts/
+.github/prompts/sync-feature-with-dev2.prompt.md
+.github/skills/code-migration-workflow/SKILL.md
