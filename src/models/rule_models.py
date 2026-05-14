@@ -119,6 +119,11 @@ class BaseRuleConfig(BaseModel):
 
     description: str = Field(description="规则描述")
     max_score: int = Field(ge=0, description="最大可得分")
+    is_debug: bool = Field(
+        default=False,
+        description="调试开关；为 True 时由 Executor 把算法层 vis_name/vis_image 透传到 Feature.vis_names/vis_images",
+    )
+
     @property
     def name(self) -> str:
         """规则名称，从类名自动提取（如Rule8Config → rule8）"""

@@ -4,62 +4,227 @@ Rule6 执行器单元测试
 
 测试目标：src.rules.executors.rule6.Rule6Executor
 
-最重要的测试验证逻辑：
-- 使用真实轮胎小图验证 exec_feature 的连续性判断与 feature/dev 老架构预期一致：
-    center_inf/0.png → is_continuous=False
-    center_inf/1.png → is_continuous=False
-    center_inf/2.png → is_continuous=True
-    side_inf/0.png   → is_continuous=True
-- 验证 exec_score 在连续时返回 max_score，不连续时返回 0。
-- 验证规则层与算法层的边界：exec_feature 只返回 Rule6Feature，
-  不透传 vis_name / vis_image 等 debug 信息。
+最重要的测试验证逻辑（按 .results/rule层重构与迁移需求.md 第 10 节验收标准）：
+1. 注册：Rule6Executor 可通过 Rule6Config.name 从注册表读取。
+2. 算法对接（不真正调用算法）：使用 monkeypatch 替换 detect_pattern_continuity，
+   验证 Rule6Executor.exec_feature：
+   - 解码 image.image_base64 为 BGR ndarray，转灰度后传给算法。
+   - 把 config.is_debug 透传给算法。
+   - 把算法返回的 (is_continuous, vis_name, vis_image) 正确写入 Rule6Feature：
+     * is_continuous → Rule6Feature.is_continuous
+     * is_debug=True 且 vis_image 非 None 时，vis_name/vis_image 分别透传到
+       Rule6Feature.vis_names / vis_images（vis_image 编码为 base64）。
+     * is_debug=False 时，Rule6Feature.vis_names / vis_images 为 None。
+   - exec_feature 返回 Rule6Feature 类型。
+3. 打分逻辑：exec_score 在连续时返回 max_score，不连续时返回 0；
+   严格按 config.max_score，不硬编码默认值；返回 Rule6Score 类型。
 
 人工设计的覆盖性测试逻辑：
-- 真实图 happy path：覆盖两个区域（center / side）和连续/不连续两种判断结果。
-- exec_score 分支覆盖：is_continuous=True 和 is_continuous=False 两路。
-- max_score 自定义：验证评分严格遵循 config.max_score，不硬编码默认值。
-- 返回类型检查：验证 exec_feature 返回 Rule6Feature，exec_score 返回 Rule6Score。
-- vis_names / vis_images 不泄露：非 debug 模式下 feature 不携带可视化数据。
+- 算法函数仅被调用 1 次（防止重复调用）。
+- 入参精确匹配：image_base64 解码后的灰度形状、is_debug 透传值。
+- is_debug 双路径：True 与 False 分别验证 vis_names/vis_images 行为。
+- 打分分支覆盖：is_continuous=True / False 两路 + max_score 自定义值。
+- 类型契约：exec_feature 返回 Rule6Feature；exec_score 返回 Rule6Score。
 """
 
-import pathlib
+from __future__ import annotations
+
 import unittest
+from unittest import mock
 
-try:
-    import cv2
-    import numpy as np
-    _HAS_CV2 = True
-except ImportError:
-    _HAS_CV2 = False
+import numpy as np
 
-_DATASET_BASE = pathlib.Path(__file__).parents[2] / "datasets" / "test_pattern_continuity"
+from src.models.enums import (
+    ImageFormatEnum,
+    ImageModeEnum,
+    LevelEnum,
+    RegionEnum,
+)
+from src.models.image_models import ImageBiz, ImageMeta, SmallImage
+from src.models.rule_models import Rule6Config, Rule6Feature, Rule6Score
+from src.rules.executors.rule6 import Rule6Executor
+from src.rules.registry import get_rule_executor
+from src.utils.image_utils import ndarray_to_base64
+
+
+def _make_small_image(height: int = 16, width: int = 16) -> SmallImage:
+    """构造一张可控的小图，BGR 三通道，像素为单调递增灰度。"""
+    bgr = np.tile(
+        np.arange(width, dtype=np.uint8)[None, :, None],
+        (height, 1, 3),
+    )
+    return SmallImage(
+        image_base64=ndarray_to_base64(bgr, image_type="png"),
+        meta=ImageMeta(
+            width=width,
+            height=height,
+            channels=3,
+            mode=ImageModeEnum.RGB,
+            format=ImageFormatEnum.PNG,
+            size=0,
+        ),
+        biz=ImageBiz(level=LevelEnum.SMALL, region=RegionEnum.CENTER),
+    )
+
+
+def _make_config(max_score: int = 10, is_debug: bool = False) -> Rule6Config:
+    return Rule6Config(max_score=max_score, is_debug=is_debug)
 
 
 # ============================================================
-# exec_score 纯逻辑测试（不依赖 cv2 / 真实图片）
+# 注册验收
+# ============================================================
+
+class TestRule6ExecutorRegistration(unittest.TestCase):
+    """验收 Rule6Executor 通过 Rule6Config.name 注册到全局注册表。"""
+
+    def test_rule6_executor_is_registered_by_config_name(self):
+        config = _make_config()
+
+        executor = get_rule_executor(config.name)
+
+        self.assertIsInstance(executor, Rule6Executor)
+
+
+# ============================================================
+# exec_feature 算法对接（mock 算法函数，不实际调用算法）
+# ============================================================
+
+class TestRule6ExecFeature(unittest.TestCase):
+    """验收 exec_feature 与算法层的对接契约：入参正确、出参映射正确。"""
+
+    def _patch_algorithm(self, return_value):
+        """替换 Rule6Executor 内部 import 的 detect_pattern_continuity。"""
+        return mock.patch(
+            "src.core.detection.pattern_continuity.detect_pattern_continuity",
+            return_value=return_value,
+        )
+
+    def test_exec_feature_calls_algorithm_with_gray_and_is_debug_false(self):
+        """exec_feature 应将灰度图与 is_debug=False 透传到算法层，且仅调用一次。"""
+        image = _make_small_image(height=16, width=16)
+        config = _make_config(is_debug=False)
+        executor = Rule6Executor()
+
+        with self._patch_algorithm((True, "", None)) as fake_algo:
+            executor.exec_feature(image, config)
+
+        expected_call_count = 1
+        self.assertEqual(fake_algo.call_count, expected_call_count)
+
+        args, kwargs = fake_algo.call_args
+        gray_arg = args[0]
+        self.assertIsInstance(gray_arg, np.ndarray)
+        expected_gray_shape = (16, 16)
+        self.assertEqual(gray_arg.shape, expected_gray_shape)
+        self.assertEqual(gray_arg.dtype, np.uint8)
+        self.assertEqual(kwargs.get("is_debug"), False)
+
+    def test_exec_feature_passes_is_debug_true(self):
+        """is_debug=True 时应将该值透传到算法层。"""
+        image = _make_small_image()
+        config = _make_config(is_debug=True)
+        executor = Rule6Executor()
+
+        with self._patch_algorithm(
+            (True, "pattern_continuity.png", np.zeros((4, 4, 3), dtype=np.uint8))
+        ) as fake_algo:
+            executor.exec_feature(image, config)
+
+        _, kwargs = fake_algo.call_args
+        self.assertEqual(kwargs.get("is_debug"), True)
+
+    def test_exec_feature_maps_is_continuous_true(self):
+        """算法返回 is_continuous=True 时应写入 Rule6Feature.is_continuous。"""
+        image = _make_small_image()
+        config = _make_config(is_debug=False)
+        executor = Rule6Executor()
+
+        with self._patch_algorithm((True, "", None)):
+            rst = executor.exec_feature(image, config)
+
+        expected_is_continuous = True
+        self.assertEqual(rst.is_continuous, expected_is_continuous)
+
+    def test_exec_feature_maps_is_continuous_false(self):
+        """算法返回 is_continuous=False 时应写入 Rule6Feature.is_continuous。"""
+        image = _make_small_image()
+        config = _make_config(is_debug=False)
+        executor = Rule6Executor()
+
+        with self._patch_algorithm((False, "", None)):
+            rst = executor.exec_feature(image, config)
+
+        expected_is_continuous = False
+        self.assertEqual(rst.is_continuous, expected_is_continuous)
+
+    def test_exec_feature_returns_rule6feature_type(self):
+        """exec_feature 应返回 Rule6Feature 实例。"""
+        image = _make_small_image()
+        config = _make_config(is_debug=False)
+        executor = Rule6Executor()
+
+        with self._patch_algorithm((True, "", None)):
+            rst = executor.exec_feature(image, config)
+
+        self.assertIsInstance(rst, Rule6Feature)
+
+    def test_exec_feature_does_not_pass_through_vis_when_debug_off(self):
+        """is_debug=False 时，即使算法返回 vis_image，也不应写入 Feature。"""
+        image = _make_small_image()
+        config = _make_config(is_debug=False)
+        executor = Rule6Executor()
+
+        with self._patch_algorithm(
+            (True, "pattern_continuity.png", np.zeros((4, 4, 3), dtype=np.uint8))
+        ):
+            rst = executor.exec_feature(image, config)
+
+        self.assertIsNone(rst.vis_names)
+        self.assertIsNone(rst.vis_images)
+
+    def test_exec_feature_passes_through_vis_when_debug_on(self):
+        """is_debug=True 时，算法返回的 vis_name/vis_image 应透传到 Feature。"""
+        image = _make_small_image()
+        config = _make_config(is_debug=True)
+        executor = Rule6Executor()
+
+        fake_vis_image = np.zeros((4, 4, 3), dtype=np.uint8)
+        with self._patch_algorithm(
+            (False, "pattern_continuity.png", fake_vis_image)
+        ):
+            rst = executor.exec_feature(image, config)
+
+        expected_vis_names = ["pattern_continuity.png"]
+        self.assertEqual(rst.vis_names, expected_vis_names)
+        self.assertIsNotNone(rst.vis_images)
+        self.assertEqual(len(rst.vis_images), 1)
+        self.assertTrue(rst.vis_images[0].startswith("data:image/png;base64,"))
+
+    def test_exec_feature_no_vis_when_debug_on_but_algo_returns_none(self):
+        """is_debug=True 但算法仍返回 vis_image=None 时，Feature 不应填充 vis 字段。"""
+        image = _make_small_image()
+        config = _make_config(is_debug=True)
+        executor = Rule6Executor()
+
+        with self._patch_algorithm((True, "", None)):
+            rst = executor.exec_feature(image, config)
+
+        self.assertIsNone(rst.vis_names)
+        self.assertIsNone(rst.vis_images)
+
+
+# ============================================================
+# exec_score 纯逻辑测试
 # ============================================================
 
 class TestRule6ExecScore(unittest.TestCase):
-    """
-    Rule6Executor.exec_score 的纯逻辑测试，不依赖 cv2。
-
-    只需要 Rule6Config、Rule6Feature、Rule6Score。
-    """
-
-    def _make_config(self, max_score: int = 10) -> "Rule6Config":
-        from src.models.rule_models import Rule6Config
-        return Rule6Config(max_score=max_score)
-
-    def _make_feature(self, is_continuous: bool) -> "Rule6Feature":
-        from src.models.rule_models import Rule6Feature
-        return Rule6Feature(is_continuous=is_continuous)
+    """验收 exec_score 的打分逻辑与类型契约。"""
 
     def test_exec_score_continuous_returns_max_score(self):
-        """连续时评分应等于 config.max_score"""
-        from src.rules.executors.rule6 import Rule6Executor
         executor = Rule6Executor()
-        config = self._make_config(max_score=10)
-        feature = self._make_feature(is_continuous=True)
+        config = _make_config(max_score=10)
+        feature = Rule6Feature(is_continuous=True)
 
         rst = executor.exec_score(config, feature)
 
@@ -67,11 +232,9 @@ class TestRule6ExecScore(unittest.TestCase):
         self.assertEqual(rst.score, expected)
 
     def test_exec_score_discontinuous_returns_zero(self):
-        """不连续时评分应为 0"""
-        from src.rules.executors.rule6 import Rule6Executor
         executor = Rule6Executor()
-        config = self._make_config(max_score=10)
-        feature = self._make_feature(is_continuous=False)
+        config = _make_config(max_score=10)
+        feature = Rule6Feature(is_continuous=False)
 
         rst = executor.exec_score(config, feature)
 
@@ -79,11 +242,9 @@ class TestRule6ExecScore(unittest.TestCase):
         self.assertEqual(rst.score, expected)
 
     def test_exec_score_respects_custom_max_score(self):
-        """评分应严格按 config.max_score 计算，不硬编码"""
-        from src.rules.executors.rule6 import Rule6Executor
         executor = Rule6Executor()
-        config = self._make_config(max_score=5)
-        feature = self._make_feature(is_continuous=True)
+        config = _make_config(max_score=5)
+        feature = Rule6Feature(is_continuous=True)
 
         rst = executor.exec_score(config, feature)
 
@@ -91,151 +252,13 @@ class TestRule6ExecScore(unittest.TestCase):
         self.assertEqual(rst.score, expected)
 
     def test_exec_score_returns_rule6score_type(self):
-        """exec_score 应返回 Rule6Score 实例"""
-        from src.models.rule_models import Rule6Score
-        from src.rules.executors.rule6 import Rule6Executor
         executor = Rule6Executor()
-        config = self._make_config()
-        feature = self._make_feature(is_continuous=True)
+        config = _make_config()
+        feature = Rule6Feature(is_continuous=True)
 
         rst = executor.exec_score(config, feature)
 
         self.assertIsInstance(rst, Rule6Score)
-
-
-# ============================================================
-# exec_feature 真实图片测试（依赖 cv2）
-# ============================================================
-
-@unittest.skipUnless(_HAS_CV2, "需要 cv2 和 numpy")
-class TestRule6ExecFeatureWithRealImages(unittest.TestCase):
-    """
-    使用真实轮胎小图验证 exec_feature 的连续性判断结果。
-
-    基准（来自 feature/dev 老架构验证）：
-        center_inf/0.png → False
-        center_inf/1.png → False
-        center_inf/2.png → True
-        side_inf/0.png   → True
-    """
-
-    def _load_small_image(self, image_path: pathlib.Path, region: str):
-        """从磁盘加载图片并构造 SmallImage（base64 编码）。
-
-        使用 cv2.imdecode 读取字节以兼容含非 ASCII 字符的路径。
-        """
-        from src.models.enums import (
-            ImageFormatEnum, ImageModeEnum, LevelEnum, RegionEnum
-        )
-        from src.models.image_models import ImageBiz, ImageMeta, SmallImage
-        from src.utils.image_utils import ndarray_to_base64
-
-        img_bytes = np.frombuffer(image_path.read_bytes(), dtype=np.uint8)
-        bgr = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
-        self.assertIsNotNone(bgr, f"图片读取失败：{image_path}")
-
-        h, w, c = bgr.shape
-        region_enum = RegionEnum.CENTER if region == "center" else RegionEnum.SIDE
-        return SmallImage(
-            image_base64=ndarray_to_base64(bgr, image_type="png"),
-            meta=ImageMeta(
-                width=w,
-                height=h,
-                channels=c,
-                mode=ImageModeEnum.RGB,
-                format=ImageFormatEnum.PNG,
-                size=0,
-            ),
-            biz=ImageBiz(level=LevelEnum.SMALL, region=region_enum),
-        )
-
-    def _make_config(self):
-        from src.models.rule_models import Rule6Config
-        return Rule6Config()
-
-    def test_exec_feature_center_inf_0_is_not_continuous(self):
-        """center_inf/0.png 应判断为不连续"""
-        from src.rules.executors.rule6 import Rule6Executor
-        image = self._load_small_image(
-            _DATASET_BASE / "center_inf" / "0.png", region="center"
-        )
-        config = self._make_config()
-        executor = Rule6Executor()
-
-        rst = executor.exec_feature(image, config)
-
-        expected_is_continuous = False
-        self.assertEqual(rst.is_continuous, expected_is_continuous)
-
-    def test_exec_feature_center_inf_1_is_not_continuous(self):
-        """center_inf/1.png 应判断为不连续"""
-        from src.rules.executors.rule6 import Rule6Executor
-        image = self._load_small_image(
-            _DATASET_BASE / "center_inf" / "1.png", region="center"
-        )
-        config = self._make_config()
-        executor = Rule6Executor()
-
-        rst = executor.exec_feature(image, config)
-
-        expected_is_continuous = False
-        self.assertEqual(rst.is_continuous, expected_is_continuous)
-
-    def test_exec_feature_center_inf_2_is_continuous(self):
-        """center_inf/2.png 应判断为连续"""
-        from src.rules.executors.rule6 import Rule6Executor
-        image = self._load_small_image(
-            _DATASET_BASE / "center_inf" / "2.png", region="center"
-        )
-        config = self._make_config()
-        executor = Rule6Executor()
-
-        rst = executor.exec_feature(image, config)
-
-        expected_is_continuous = True
-        self.assertEqual(rst.is_continuous, expected_is_continuous)
-
-    def test_exec_feature_side_inf_0_is_continuous(self):
-        """side_inf/0.png 应判断为连续"""
-        from src.rules.executors.rule6 import Rule6Executor
-        image = self._load_small_image(
-            _DATASET_BASE / "side_inf" / "0.png", region="side"
-        )
-        config = self._make_config()
-        executor = Rule6Executor()
-
-        rst = executor.exec_feature(image, config)
-
-        expected_is_continuous = True
-        self.assertEqual(rst.is_continuous, expected_is_continuous)
-
-    def test_exec_feature_returns_rule6feature_type(self):
-        """exec_feature 应返回 Rule6Feature 实例"""
-        from src.models.rule_models import Rule6Feature
-        from src.rules.executors.rule6 import Rule6Executor
-        image = self._load_small_image(
-            _DATASET_BASE / "center_inf" / "2.png", region="center"
-        )
-        config = self._make_config()
-        executor = Rule6Executor()
-
-        rst = executor.exec_feature(image, config)
-
-        self.assertIsInstance(rst, Rule6Feature)
-
-    def test_exec_feature_does_not_leak_vis_data(self):
-        """exec_feature 不应透传 vis_names / vis_images（非 debug 模式）"""
-        from src.rules.executors.rule6 import Rule6Executor
-        image = self._load_small_image(
-            _DATASET_BASE / "center_inf" / "2.png", region="center"
-        )
-        config = self._make_config()
-        executor = Rule6Executor()
-
-        rst = executor.exec_feature(image, config)
-
-        self.assertIsNone(rst.vis_names)
-        self.assertIsNone(rst.vis_images)
 
 
 if __name__ == "__main__":
