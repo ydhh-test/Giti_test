@@ -88,14 +88,14 @@ def make_baseline_small_image(baseline_case: dict) -> SmallImage:
 def test_exec_feature_converts_detector_result_to_feature(monkeypatch):
     """Rule11 特征提取应只转换算法返回值，不依赖真实算法行为。"""
     decoded_image = np.full((IMAGE_SIZE, IMAGE_SIZE, 3), 255, dtype=np.uint8)
-    calls = {"base64": [], "detector_received_decoded_image": []}
+    calls = {"base64": [], "detector": []}
 
     def fake_base64_to_ndarray(image_base64: str) -> np.ndarray:
         calls["base64"].append(image_base64)
         return decoded_image
 
-    def fake_detect_longitudinal_grooves(image_array: np.ndarray, **_kwargs):
-        calls["detector_received_decoded_image"].append(image_array is decoded_image)
+    def fake_detect_longitudinal_grooves(image_array: np.ndarray, **kwargs):
+        calls["detector"].append({"received_decoded_image": image_array is decoded_image, **kwargs})
         return 2, [39.5, 85.5], [4.0, 4.0], None, None
 
     monkeypatch.setattr("src.rules.executors.rule11.base64_to_ndarray", fake_base64_to_ndarray)
@@ -115,14 +115,19 @@ def test_exec_feature_converts_detector_result_to_feature(monkeypatch):
         ),
         "calls": {
             "base64": ["data:image/png;base64,small"],
-            "detector_received_decoded_image": [True],
+            "detector": [
+                {
+                    "received_decoded_image": True,
+                    "is_debug": False,
+                }
+            ],
         },
     }
     assert rst == expect_rst
 
 
-def test_exec_feature_maps_config_to_detector_parameters(monkeypatch):
-    """Rule11 应把配置中的比例和宽度字段显式转换为 core 算法参数。"""
+def test_exec_feature_uses_detector_defaults(monkeypatch):
+    """Rule11 不再从配置派生 core 检测阈值，检测细节由算法默认值负责。"""
     decoded_image = np.full((40, 80, 3), 255, dtype=np.uint8)
     calls = {"base64": [], "detector": []}
 
@@ -161,11 +166,53 @@ def test_exec_feature_maps_config_to_detector_parameters(monkeypatch):
             "detector": [
                 {
                     "shape": (40, 80, 3),
-                    "nominal_width_px": 5.0,
-                    "min_width_px": 4,
-                    "edge_margin_px": 8,
-                    "min_segment_length_px": 10,
-                    "max_angle_deg": 15.0,
+                    "is_debug": False,
+                }
+            ],
+        },
+    }
+    assert rst == expect_rst
+
+
+def test_exec_feature_passes_debug_and_returns_visualization(monkeypatch):
+    """Rule11 应透传 is_debug，并只在 debug 模式下填充可视化结果。"""
+    decoded_image = np.full((IMAGE_SIZE, IMAGE_SIZE, 3), 255, dtype=np.uint8)
+    debug_image = np.zeros((IMAGE_SIZE, IMAGE_SIZE, 3), dtype=np.uint8)
+    calls = {"detector": []}
+
+    def fake_base64_to_ndarray(_image_base64: str) -> np.ndarray:
+        return decoded_image
+
+    def fake_detect_longitudinal_grooves(image_array, **kwargs):
+        calls["detector"].append({"received_decoded_image": image_array is decoded_image, **kwargs})
+        return 1, [64.0], [4.0], None, debug_image
+
+    monkeypatch.setattr("src.rules.executors.rule11.base64_to_ndarray", fake_base64_to_ndarray)
+    monkeypatch.setattr("src.rules.executors.rule11.detect_longitudinal_grooves", fake_detect_longitudinal_grooves)
+
+    feature = Rule11Executor().exec_feature(make_small_image(RegionEnum.CENTER), make_rule11_config(), is_debug=True)
+
+    rst = {
+        "feature_fields": {
+            "num_longitudinal_grooves": feature.num_longitudinal_grooves,
+            "region": feature.region,
+            "vis_names": feature.vis_names,
+            "vis_image_prefix": feature.vis_images[0].split(",", 1)[0] if feature.vis_images else None,
+        },
+        "calls": calls,
+    }
+    expect_rst = {
+        "feature_fields": {
+            "num_longitudinal_grooves": 1,
+            "region": RegionEnum.CENTER,
+            "vis_names": ["rule11_longitudinal_grooves.png"],
+            "vis_image_prefix": "data:image/png;base64",
+        },
+        "calls": {
+            "detector": [
+                {
+                    "received_decoded_image": True,
+                    "is_debug": True,
                 }
             ],
         },
@@ -225,6 +272,12 @@ def test_exec_feature_rejects_missing_region():
     """Rule11 评分需要 center/side 区域信息。"""
     with pytest.raises(InputDataError, match="image.biz.region"):
         Rule11Executor().exec_feature(make_small_image(None), make_rule11_config())
+
+
+def test_exec_feature_rejects_invalid_debug_flag():
+    """Rule11 debug 开关必须是 bool。"""
+    with pytest.raises(InputTypeError, match="is_debug"):
+        Rule11Executor().exec_feature(make_small_image(), make_rule11_config(), is_debug=1)  # type: ignore[arg-type]
 
 
 def test_exec_score_rejects_wrong_feature_type():
