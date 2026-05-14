@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -8,10 +11,16 @@ from src.models.enums import ImageFormatEnum, ImageModeEnum, LevelEnum, RegionEn
 from src.models.image_models import BigImage, ImageBiz, ImageMeta, SmallImage
 from src.models.rule_models import Rule6Feature, Rule11Config, Rule11Feature, Rule11Score
 from src.rules.executors.rule11 import Rule11Executor
-from src.utils.image_utils import ndarray_to_base64
+from src.utils.image_utils import load_image_to_base64
 
 
 IMAGE_SIZE = 128
+DATASET_ROOT = Path("tests/datasets/task_rule11_vis")
+BASELINE_PATH = DATASET_ROOT / "baseline.json"
+
+
+def load_rule11_baseline_cases() -> list[dict]:
+    return json.loads(BASELINE_PATH.read_text(encoding="utf-8"))["cases"]
 
 
 def make_rule11_config(
@@ -35,74 +44,99 @@ def make_rule11_config(
     )
 
 
-def make_image_with_grooves(center_columns: list[int], width: int = IMAGE_SIZE, height: int = IMAGE_SIZE) -> np.ndarray:
-    image = np.full((height, width, 3), 255, dtype=np.uint8)
-    half_width = 2
-    for center_column in center_columns:
-        start_column = max(0, center_column - half_width)
-        end_column = min(width, start_column + 4)
-        image[12: height - 12, start_column:end_column] = 0
-    return image
-
-
-def make_meta(image: np.ndarray) -> ImageMeta:
-    height, width = image.shape[:2]
+def make_meta(width: int = IMAGE_SIZE, height: int = IMAGE_SIZE, size: int = 1) -> ImageMeta:
     return ImageMeta(
         width=width,
         height=height,
         channels=3,
         mode=ImageModeEnum.RGB,
         format=ImageFormatEnum.PNG,
-        size=1,
+        size=size,
     )
 
 
-def make_small_image(image: np.ndarray, region: RegionEnum | None = RegionEnum.CENTER) -> SmallImage:
+def make_small_image(
+    region: RegionEnum | None = RegionEnum.CENTER,
+    image_base64: str = "data:image/png;base64,small",
+    meta: ImageMeta | None = None,
+) -> SmallImage:
     source_type = SourceTypeEnum.ORIGINAL if region is not None else SourceTypeEnum.CONCAT
     return SmallImage(
-        image_base64=ndarray_to_base64(image),
-        meta=make_meta(image),
+        image_base64=image_base64,
+        meta=meta or make_meta(),
         biz=ImageBiz(level=LevelEnum.SMALL, region=region, source_type=source_type),
     )
 
 
-def make_big_image(image: np.ndarray) -> BigImage:
+def make_big_image() -> BigImage:
     return BigImage(
-        image_base64=ndarray_to_base64(image),
-        meta=make_meta(image),
+        image_base64="data:image/png;base64,big",
+        meta=make_meta(),
         biz=ImageBiz(level=LevelEnum.BIG, source_type=SourceTypeEnum.CONCAT),
     )
 
 
-def test_exec_feature_detects_longitudinal_grooves_from_small_image():
-    """Rule11 特征提取应解码小图并返回检测数量和区域。"""
-    image = make_image_with_grooves([40, 86])
-    small_image = make_small_image(image, RegionEnum.CENTER)
+def make_baseline_small_image(baseline_case: dict) -> SmallImage:
+    image_path = DATASET_ROOT / baseline_case["image_path"]
+    return make_small_image(
+        region=RegionEnum(baseline_case["region"]),
+        image_base64=load_image_to_base64(image_path),
+        meta=make_meta(size=image_path.stat().st_size),
+    )
+
+
+def test_exec_feature_converts_detector_result_to_feature(monkeypatch):
+    """Rule11 特征提取应只转换算法返回值，不依赖真实算法行为。"""
+    decoded_image = np.full((IMAGE_SIZE, IMAGE_SIZE, 3), 255, dtype=np.uint8)
+    calls = {"base64": [], "detector_received_decoded_image": []}
+
+    def fake_base64_to_ndarray(image_base64: str) -> np.ndarray:
+        calls["base64"].append(image_base64)
+        return decoded_image
+
+    def fake_detect_longitudinal_grooves(image_array: np.ndarray, **_kwargs):
+        calls["detector_received_decoded_image"].append(image_array is decoded_image)
+        return 2, [39.5, 85.5], [4.0, 4.0], None, None
+
+    monkeypatch.setattr("src.rules.executors.rule11.base64_to_ndarray", fake_base64_to_ndarray)
+    monkeypatch.setattr("src.rules.executors.rule11.detect_longitudinal_grooves", fake_detect_longitudinal_grooves)
+    small_image = make_small_image(RegionEnum.CENTER)
 
     feature = Rule11Executor().exec_feature(small_image, make_rule11_config())
 
-    rst = feature
-    expect_rst = Rule11Feature(
-        num_longitudinal_grooves=2,
-        region=RegionEnum.CENTER,
-    )
+    rst = {
+        "feature": feature,
+        "calls": calls,
+    }
+    expect_rst = {
+        "feature": Rule11Feature(
+            num_longitudinal_grooves=2,
+            region=RegionEnum.CENTER,
+        ),
+        "calls": {
+            "base64": ["data:image/png;base64,small"],
+            "detector_received_decoded_image": [True],
+        },
+    }
     assert rst == expect_rst
 
 
 def test_exec_feature_maps_config_to_detector_parameters(monkeypatch):
     """Rule11 应把配置中的比例和宽度字段显式转换为 core 算法参数。"""
-    calls = []
+    decoded_image = np.full((40, 80, 3), 255, dtype=np.uint8)
+    calls = {"base64": [], "detector": []}
+
+    def fake_base64_to_ndarray(image_base64: str) -> np.ndarray:
+        calls["base64"].append(image_base64)
+        return decoded_image
 
     def fake_detect_longitudinal_grooves(image_array, **kwargs):
-        calls.append({"shape": image_array.shape, **kwargs})
+        calls["detector"].append({"shape": image_array.shape, **kwargs})
         return 7, [], [], None, None
 
-    monkeypatch.setattr(
-        "src.rules.executors.rule11.detect_longitudinal_grooves",
-        fake_detect_longitudinal_grooves,
-    )
-    image = np.full((40, 80, 3), 255, dtype=np.uint8)
-    small_image = make_small_image(image, RegionEnum.SIDE)
+    monkeypatch.setattr("src.rules.executors.rule11.base64_to_ndarray", fake_base64_to_ndarray)
+    monkeypatch.setattr("src.rules.executors.rule11.detect_longitudinal_grooves", fake_detect_longitudinal_grooves)
+    small_image = make_small_image(RegionEnum.SIDE)
     config = make_rule11_config(
         groove_width=5.0,
         min_width_offset_px=1,
@@ -122,16 +156,40 @@ def test_exec_feature_maps_config_to_detector_parameters(monkeypatch):
             num_longitudinal_grooves=7,
             region=RegionEnum.SIDE,
         ),
-        "calls": [
-            {
-                "shape": (40, 80, 3),
-                "nominal_width_px": 5.0,
-                "min_width_px": 4,
-                "edge_margin_px": 8,
-                "min_segment_length_px": 10,
-                "max_angle_deg": 15.0,
-            }
-        ],
+        "calls": {
+            "base64": ["data:image/png;base64,small"],
+            "detector": [
+                {
+                    "shape": (40, 80, 3),
+                    "nominal_width_px": 5.0,
+                    "min_width_px": 4,
+                    "edge_margin_px": 8,
+                    "min_segment_length_px": 10,
+                    "max_angle_deg": 15.0,
+                }
+            ],
+        },
+    }
+    assert rst == expect_rst
+
+
+@pytest.mark.parametrize("baseline_case", load_rule11_baseline_cases(), ids=lambda case: case["image_path"])
+def test_exec_feature_and_score_match_real_image_baseline(baseline_case: dict):
+    """真实图片应输出已固化的 Rule11 特征和评分 baseline。"""
+    executor = Rule11Executor()
+    config = make_rule11_config()
+    small_image = make_baseline_small_image(baseline_case)
+
+    feature = executor.exec_feature(small_image, config)
+    score = executor.exec_score(config, feature)
+
+    rst = {
+        "feature": feature.model_dump(mode="json"),
+        "score": score.model_dump(mode="json"),
+    }
+    expect_rst = {
+        "feature": baseline_case["feature"],
+        "score": baseline_case["score"],
     }
     assert rst == expect_rst
 
@@ -159,18 +217,14 @@ def test_exec_score_uses_region_specific_count_limit(region: RegionEnum, count: 
 
 def test_exec_feature_rejects_non_small_image():
     """Rule11 是小图规则，不能直接接收 BigImage。"""
-    image = make_image_with_grooves([40])
-
     with pytest.raises(InputTypeError, match="SmallImage"):
-        Rule11Executor().exec_feature(make_big_image(image), make_rule11_config())
+        Rule11Executor().exec_feature(make_big_image(), make_rule11_config())
 
 
 def test_exec_feature_rejects_missing_region():
     """Rule11 评分需要 center/side 区域信息。"""
-    image = make_image_with_grooves([40])
-
     with pytest.raises(InputDataError, match="image.biz.region"):
-        Rule11Executor().exec_feature(make_small_image(image, None), make_rule11_config())
+        Rule11Executor().exec_feature(make_small_image(None), make_rule11_config())
 
 
 def test_exec_score_rejects_wrong_feature_type():
