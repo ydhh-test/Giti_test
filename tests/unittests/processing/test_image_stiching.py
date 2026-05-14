@@ -7,7 +7,7 @@ import numpy as np
 import cv2
 import base64
 from unittest.mock import patch, MagicMock
-from src.models.image_models import ImageLineage, ImageLineage
+from src.models.image_models import ImageLineage
 from src.models.scheme_models import (
     StitchingScheme, StitchingSchemeAbstract,
     RibSchemeImpl, MainGrooveImpl, DecorationImpl,
@@ -15,7 +15,7 @@ from src.models.scheme_models import (
     DecorationScheme, DecorationSchemeAbstract
 )
 from src.models.enums import (
-    RibOperation, RegionEnum, SourceTypeEnum, StitchingSchemeName
+    RibOperation, StitchingSchemeName
 )
 from src.processing.image_stiching import generate_large_image_from_lineage
 
@@ -41,22 +41,20 @@ class TestImageStiching(unittest.TestCase):
         """测试基本的大图生成功能"""
         # 创建测试数据
         rib1 = RibSchemeImpl(
-            region=RegionEnum.SIDE,
-            source_type=SourceTypeEnum.ORIGINAL,
-            operations=(RibOperation.NONE,),
+            rib_source="side",
+            rib_operation=(RibOperation.NONE,),
             rib_name="rib1",
-            small_image=self.test_base64,
+            before_image=self.test_base64,
             num_pitchs=1,
             rib_height=100,
             rib_width=100
         )
 
         rib2 = RibSchemeImpl(
-            region=RegionEnum.CENTER,
-            source_type=SourceTypeEnum.ORIGINAL,
-            operations=(RibOperation.NONE,),
+            rib_source="center",
+            rib_operation=(RibOperation.NONE,),
             rib_name="rib2",
-            small_image=self.test_base64,
+            before_image=self.test_base64,
             num_pitchs=1,
             rib_height=100,
             rib_width=100
@@ -73,7 +71,7 @@ class TestImageStiching(unittest.TestCase):
 
         # 创建包含一个主沟的方案（2个RIB需要1个主沟）
         main_groove_impl = MainGrooveImpl(
-            groove_image=self.test_base64,
+            before_image=self.test_base64,
             groove_width=50,
             groove_height=100
         )
@@ -154,7 +152,7 @@ class TestImageStiching(unittest.TestCase):
 
         self.assertIsNotNone(result)
         self.assertEqual(result.shape[0], 100)  # 高度不变
-        self.assertEqual(result.shape[1], 200)  # 总宽度 = 50 + 100 + 50
+        self.assertEqual(result.shape[1], 100)  # 覆盖模式下，宽度与底图一致
 
     def test_input_validation(self):
         """测试输入验证"""

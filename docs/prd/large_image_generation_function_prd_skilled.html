@@ -333,12 +333,12 @@
        ▼ [RIB图片预处理]
 ┌─────────────────────────────────────────────┐
 │ 遍历每个 RibSchemeImpl:                     │
-│ 1. rib_image已存在? → 跳过                  │
-│ 2. 解码 small_image (base64)                │
-│ 3. 执行operations操作管道                   │
+│ 1. after_image已存在? → 跳过                │
+│ 2. 解码 before_image (base64)               │
+│ 3. 执行rib_operation操作管道                │
 │ 4. 纵向重复 num_pitchs 次                   │
 │ 5. resize(rib_width, rib_height)            │
-│ 6. 编码为base64存入 rib_image               │
+│ 6. 编码为base64存入 after_image             │
 └─────────────────────────────────────────────┘
        │
        ▼ [主沟图片预处理]
@@ -394,17 +394,14 @@
 from typing import Tuple
 
 def generate_large_image_from_lineage(
-    lineage: ImageLineage,
-    output_format: str = "png",
+    lineage: ImageLineage
     is_debug: bool = False
 ) -> Tuple[ImageLineage, str]:
     """
     根据血缘信息生成大图
 
     Args:
-        lineage: ImageLineage - 包含完整血缘信息的对象
-        output_format: str - 输出格式，默认"png"
-        is_debug: bool - 是否启用调试模式，默认False
+        lineage: ImageLineage - 包含完整血缘信息的对象        is_debug: bool - 是否启用调试模式，默认False
 
     Returns:
         Tuple[ImageLineage, str] - (更新后的血缘对象, base64编码的大图)
@@ -420,12 +417,12 @@ def generate_large_image_from_lineage(
 
             <h3>一、RIB图片操作处理</h3>
             <div class="step-list">
-                <div class="step-item"><strong>跳过检查</strong>：如果 <code>RibSchemeImpl.rib_image</code> 已有图像数据，直接跳过该RIB的所有操作</div>
-                <div class="step-item"><strong>输入处理</strong>：每个 <code>RibSchemeImpl.small_image</code> 都是base64编码的单张图片，需要进行适当的图像处理</div>
-                <div class="step-item"><strong>执行操作管道</strong>：按顺序执行 <code>operations</code> 元组中的所有操作（管道化执行）</div>
+                <div class="step-item"><strong>跳过检查</strong>：如果 <code>RibSchemeImpl.after_image</code> 已有图像数据，直接跳过该RIB的所有操作</div>
+                <div class="step-item"><strong>输入处理</strong>：每个 <code>RibSchemeImpl.before_image</code> 都是base64编码的单张图片，需要进行适当的图像处理</div>
+                <div class="step-item"><strong>执行操作管道</strong>：按顺序执行 <code>rib_operation</code> 元组中的所有操作（管道化执行）</div>
                 <div class="step-item"><strong>纵向重复</strong>：将操作后的结果纵向重复 <code>RibSchemeImpl.num_pitchs</code> 次</div>
                 <div class="step-item"><strong>尺寸调整</strong>：按照 <code>RibSchemeImpl.rib_height</code> 和 <code>RibSchemeImpl.rib_width</code> 进行resize</div>
-                <div class="step-item"><strong>结果保存</strong>：将最终的base64图像数据保存到 <code>RibSchemeImpl.rib_image</code></div>
+                <div class="step-item"><strong>结果保存</strong>：将最终的base64图像数据保存到 <code>RibSchemeImpl.after_image</code></div>
                 <div class="step-item"><strong>循环处理</strong>：继续处理下一个 <code>RibSchemeImpl</code>，直到所有RIB处理完成</div>
             </div>
 
@@ -459,7 +456,7 @@ def generate_large_image_from_lineage(
                 <ul>
                     <li><strong>高度一致性</strong>：所有RIB图片、主沟图片、装饰图片的高度必须保持一致</li>
                     <li><strong>装饰宽度限制</strong>：装饰图片的宽度不应超过最终大图总宽度的1/2</li>
-                    <li><strong>必要字段检查</strong>：确保所有必需的图像字段（small_image、before_image等）都已提供</li>
+                    <li><strong>必要字段检查</strong>：确保所有必需的图像字段（before_image、after_image等）都已提供</li>
                     <li><strong>尺寸有效性</strong>：所有resize参数（rib_width/height、groove_width/height、decoration_width/height）必须为正整数</li>
                 </ul>
             </div>
@@ -471,10 +468,10 @@ def generate_large_image_from_lineage(
                 <h2>技术选型决定</h2>
             </div>
             <div class="tech-stack">
-                <h4>图像处理库: PIL (Pillow)</h4>
+                <h4>图像处理库: OpenCV (cv2)</h4>
                 <ul>
-                    <li><strong>理由</strong>：操作相对简单，PIL足以满足所有需求；项目中已有使用；内存占用相对较小</li>
-                    <li><strong>具体模块</strong>：<code>from PIL import Image, ImageOps</code></li>
+                    <li><strong>理由</strong>：项目已有 <code>src/utils/image_utils.py</code> 完全基于OpenCV，保持技术栈一致性；所有RIB原子操作均可通过cv2 + numpy实现；支持BGRA透明度通道保留</li>
+                    <li><strong>具体模块</strong>：<code>import cv2, numpy as np</code></li>
                 </ul>
             </div>
         </section>
@@ -538,10 +535,63 @@ def generate_large_image_from_lineage(
                 (如无法显示，请查看: tests/datasets/stitching/rib[1-5].png)
             </p>
 
+            <h3>预处理后的 after_image 拼接序列：</h3>
+            <p>横向拼接顺序：<strong>装饰 · rib1 · 主沟1 · rib2 · 主沟2 · rib3 · 主沟3 · rib4 · 主沟4 · rib5 · 装饰</strong></p>
+            <div class="rib-images-horizontal">
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/decoration_after_0.png" style="max-height: 100px; width: auto;" alt="decoration_after_0">
+                    <div class="caption">装饰</div>
+                </div>
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/rib1_after.png" style="max-height: 100px; width: auto;" alt="rib1_after">
+                    <div class="caption">rib1</div>
+                </div>
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/main_groove_after_0.png" style="max-height: 100px; width: auto;" alt="main_groove_after_0">
+                    <div class="caption">主沟1</div>
+                </div>
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/rib2_after.png" style="max-height: 100px; width: auto;" alt="rib2_after">
+                    <div class="caption">rib2</div>
+                </div>
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/main_groove_after_1.png" style="max-height: 100px; width: auto;" alt="main_groove_after_1">
+                    <div class="caption">主沟2</div>
+                </div>
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/rib3_after.png" style="max-height: 100px; width: auto;" alt="rib3_after">
+                    <div class="caption">rib3</div>
+                </div>
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/main_groove_after_2.png" style="max-height: 100px; width: auto;" alt="main_groove_after_2">
+                    <div class="caption">主沟3</div>
+                </div>
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/rib4_after.png" style="max-height: 100px; width: auto;" alt="rib4_after">
+                    <div class="caption">rib4</div>
+                </div>
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/main_groove_after_3.png" style="max-height: 100px; width: auto;" alt="main_groove_after_3">
+                    <div class="caption">主沟4</div>
+                </div>
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/rib5_after.png" style="max-height: 100px; width: auto;" alt="rib5_after">
+                    <div class="caption">rib5</div>
+                </div>
+                <div class="rib-image-item">
+                    <img src="../../tests/datasets/stitching/decoration_after_0.png" style="max-height: 100px; width: auto;" alt="decoration_after_0">
+                    <div class="caption">装饰</div>
+                </div>
+            </div>
+            <p style="text-align: center; color: var(--g500); font-size: 0.9rem; margin-top: -10px;">
+                (如无法显示，请查看: tests/datasets/stitching/)
+            </p>
+            </p>
+
             <h3>预期输出大图：</h3>
             <div style="text-align: center; margin: 2rem 0;">
-                <img src="../../tests/datasets/stitching/except.png" alt="except" style="max-width: 100%; height: auto; border: 1px solid var(--g300); border-radius: 4px;">
-                <div style="margin-top: 10px; color: var(--g500); font-size: 0.9rem;">bigimage (如无法显示，请查看: tests/datasets/stitching/except.png)</div>
+                <img src="../../tests/datasets/stitching/correct_black_decoration.png" alt="except" style="max-width: 100%; height: auto; border: 1px solid var(--g300); border-radius: 4px;">
+                <div style="margin-top: 10px; color: var(--g500); font-size: 0.9rem;">bigimage (如无法显示，请查看: tests/datasets/stitching/correct_black_decoration.png)</div>
             </div>
 
             <h3>处理流程：</h3>

@@ -13,9 +13,7 @@ import numpy as np
 import pytest
 
 from src.models.enums import (
-    RegionEnum,
     RibOperation,
-    SourceTypeEnum,
     StitchingSchemeName,
 )
 from src.models.image_models import ImageLineage
@@ -61,11 +59,11 @@ def _build_lineage_with_black_decoration() -> ImageLineage:
     - 装饰: 300×640, 纯黑色, 50% 透明度
     """
     target_rib_configs = {
-        1: {"width": 400, "height": 640, "region": RegionEnum.SIDE},
-        2: {"width": 200, "height": 640, "region": RegionEnum.CENTER},
-        3: {"width": 200, "height": 640, "region": RegionEnum.CENTER},
-        4: {"width": 200, "height": 640, "region": RegionEnum.CENTER},
-        5: {"width": 400, "height": 640, "region": RegionEnum.SIDE},
+        1: {"width": 400, "height": 640, "source": "side"},
+        2: {"width": 200, "height": 640, "source": "center"},
+        3: {"width": 200, "height": 640, "source": "center"},
+        4: {"width": 200, "height": 640, "source": "center"},
+        5: {"width": 400, "height": 640, "source": "side"},
     }
 
     ribs_scheme_implementation = []
@@ -77,11 +75,10 @@ def _build_lineage_with_black_decoration() -> ImageLineage:
         resized = _resize_image(rib_img, config["width"], config["height"])
 
         rib_impl = RibSchemeImpl(
-            region=config["region"],
-            source_type=SourceTypeEnum.ORIGINAL,
-            operations=(RibOperation.NONE,),
+            rib_source=config["source"],
+            rib_operation=(RibOperation.NONE,),
             rib_name=f"rib{i}",
-            small_image=_ndarray_to_base64(resized),
+            before_image=_ndarray_to_base64(resized),
             num_pitchs=5,
             rib_height=config["height"],
             rib_width=config["width"],
@@ -101,7 +98,7 @@ def _build_lineage_with_black_decoration() -> ImageLineage:
     groove_img = np.zeros((640, 20, 3), dtype=np.uint8)
     groove_base64 = _ndarray_to_base64(groove_img)
     main_groove_impls = [
-        MainGrooveImpl(groove_image=groove_base64, groove_width=20, groove_height=640)
+        MainGrooveImpl(before_image=groove_base64, groove_width=20, groove_height=640)
         for _ in range(4)
     ]
     main_groove_scheme = MainGrooveScheme(
@@ -113,7 +110,7 @@ def _build_lineage_with_black_decoration() -> ImageLineage:
     decoration_img = np.zeros((640, 300, 3), dtype=np.uint8)
     decoration_base64 = _ndarray_to_base64(decoration_img)
     decoration_impl = DecorationImpl(
-        decoration_image=decoration_base64,
+        before_image=decoration_base64,
         decoration_width=300,
         decoration_height=640,
         decoration_opacity=128,
@@ -186,3 +183,100 @@ class TestLargeImageStitchingIntegration:
         left_mean = float(np.mean(left_region))
         assert left_mean > 50, "左侧不应全黑"
         assert left_mean < 160, f"左侧应因黑色装饰变暗，实际均值 {left_mean}"
+
+    def test_after_image_fields_are_filled(self):
+        """验证处理完成后 after_image 被正确填充，且像素值与预期一致"""
+        lineage = _build_lineage_with_black_decoration()
+        result_lineage, result_base64 = generate_large_image_from_lineage(lineage)
+
+        # 验证输出图片
+        assert result_base64.startswith("data:image/"), "输出应为 base64 图片"
+
+        # --- 验证 RIB after_image ---
+        ribs = result_lineage.stitching_scheme.ribs_scheme_implementation
+        for rib in ribs:
+            assert rib.after_image is not None, f"{rib.rib_name} 的 after_image 为空"
+            assert rib.after_image.startswith("data:image/"), (
+                f"{rib.rib_name} 的 after_image 格式不正确"
+            )
+
+            # 解码并与预期图片逐像素对比
+            b64data = rib.after_image.split(",")[1]
+            arr = np.frombuffer(base64.b64decode(b64data), dtype=np.uint8)
+            actual = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+            expected = cv2.imread(str(DATASET_DIR / f"{rib.rib_name}_after.png"), cv2.IMREAD_UNCHANGED)
+            assert expected is not None, f"预期图片 {rib.rib_name}_after.png 不存在"
+            np.testing.assert_array_equal(actual, expected, f"{rib.rib_name} after_image 像素不一致")
+
+        # --- 验证主沟 after_image ---
+        grooves = result_lineage.main_groove_scheme.main_groove_implementation
+        for i, groove in enumerate(grooves):
+            assert groove.after_image is not None, f"主沟 {i} 的 after_image 为空"
+            assert groove.after_image.startswith("data:image/"), (
+                f"主沟 {i} 的 after_image 格式不正确"
+            )
+
+            b64data = groove.after_image.split(",")[1]
+            arr = np.frombuffer(base64.b64decode(b64data), dtype=np.uint8)
+            actual = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+            expected = cv2.imread(str(DATASET_DIR / f"main_groove_after_{i}.png"), cv2.IMREAD_UNCHANGED)
+            assert expected is not None, f"预期图片 main_groove_after_{i}.png 不存在"
+            np.testing.assert_array_equal(actual, expected, f"主沟 {i} after_image 像素不一致")
+
+        # --- 验证装饰 after_image ---
+        decorations = result_lineage.decoration_scheme.decoration_implementation
+        for i, dec in enumerate(decorations):
+            assert dec.after_image is not None, f"装饰 {i} 的 after_image 为空"
+            assert dec.after_image.startswith("data:image/"), (
+                f"装饰 {i} 的 after_image 格式不正确"
+            )
+
+            b64data = dec.after_image.split(",")[1]
+            arr = np.frombuffer(base64.b64decode(b64data), dtype=np.uint8)
+            actual = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+            expected = cv2.imread(str(DATASET_DIR / f"decoration_after_{i}.png"), cv2.IMREAD_UNCHANGED)
+            assert expected is not None, f"预期图片 decoration_after_{i}.png 不存在"
+            np.testing.assert_array_equal(actual, expected, f"装饰 {i} after_image 像素不一致")
+
+    def test_skip_when_after_image_exists(self, expected_image):
+        """验证 after_image 已存在时跳过处理，不合法 before_image 不会导致错误"""
+        lineage = _build_lineage_with_black_decoration()
+
+        # 从磁盘加载预期的 after_image，预填充到 lineage 中
+        ribs = lineage.stitching_scheme.ribs_scheme_implementation
+        for rib in ribs:
+            expected_path = DATASET_DIR / f"{rib.rib_name}_after.png"
+            expected_img = cv2.imread(str(expected_path), cv2.IMREAD_UNCHANGED)
+            assert expected_img is not None, f"预期图片 {expected_path} 不存在"
+            rib.after_image = _ndarray_to_base64(expected_img)
+            rib.before_image = "SKIPPED_GARBAGE"
+
+        grooves = lineage.main_groove_scheme.main_groove_implementation
+        for i, groove in enumerate(grooves):
+            expected_path = DATASET_DIR / f"main_groove_after_{i}.png"
+            expected_img = cv2.imread(str(expected_path), cv2.IMREAD_UNCHANGED)
+            assert expected_img is not None, f"预期图片 {expected_path} 不存在"
+            groove.after_image = _ndarray_to_base64(expected_img)
+            groove.before_image = "SKIPPED_GARBAGE"
+
+        decs = lineage.decoration_scheme.decoration_implementation
+        for i, dec in enumerate(decs):
+            expected_path = DATASET_DIR / f"decoration_after_{i}.png"
+            expected_img = cv2.imread(str(expected_path), cv2.IMREAD_UNCHANGED)
+            assert expected_img is not None, f"预期图片 {expected_path} 不存在"
+            dec.after_image = _ndarray_to_base64(expected_img)
+            dec.before_image = "SKIPPED_GARBAGE"
+
+        # 不应抛出异常（skip 逻辑跳过了解码 before_image）
+        result_lineage, result_base64 = generate_large_image_from_lineage(lineage)
+
+        # 输出应与预期完全一致
+        b64data = result_base64.split(",")[1]
+        img_array = np.frombuffer(base64.b64decode(b64data), dtype=np.uint8)
+        actual = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+
+        assert actual is not None, "解码生成的大图失败"
+        assert actual.shape == expected_image.shape, (
+            f"尺寸不匹配: 实际 {actual.shape}, 预期 {expected_image.shape}"
+        )
+        np.testing.assert_array_equal(actual, expected_image)

@@ -99,13 +99,13 @@ class TestImageOperation(unittest.TestCase):
         self.assertEqual(result.shape[1], 200)  # 宽度翻倍
 
     def test_overlay_decoration(self):
-        """测试装饰覆盖"""
+        """测试装饰覆盖 - 不改变图像分辨率，在底图左右边缘原地覆盖装饰图"""
         left_dec = np.ones((100, 50, 3), dtype=np.uint8) * 200
         right_dec = np.ones((100, 50, 3), dtype=np.uint8) * 50
 
         result = overlay_decoration(self.test_image, left_dec, right_dec)
         self.assertEqual(result.shape[0], 100)  # 高度不变
-        self.assertEqual(result.shape[1], 200)  # 总宽度 = 50 + 100 + 50
+        self.assertEqual(result.shape[1], 100)  # 宽度不变（覆盖而非拼接）
 
     def test_error_cases(self):
         """测试错误情况"""

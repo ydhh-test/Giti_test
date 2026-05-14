@@ -17,7 +17,7 @@ from src.models.scheme_models import (
     DecorationScheme, DecorationSchemeAbstract
 )
 from src.models.enums import (
-    RibOperation, RegionEnum, SourceTypeEnum, StitchingSchemeName
+    RibOperation, StitchingSchemeName
 )
 from src.processing.image_stiching import generate_large_image_from_lineage
 
@@ -54,11 +54,10 @@ class TestImageStichingReal(unittest.TestCase):
 
         # 创建测试数据 - 使用真实图片，单RIB不需要主沟
         rib1 = RibSchemeImpl(
-            region=RegionEnum.SIDE,
-            source_type=SourceTypeEnum.ORIGINAL,
-            operations=(RibOperation.NONE,),
+            rib_source="side",
+            rib_operation=(RibOperation.NONE,),
             rib_name="rib1",
-            small_image=rib5_base64,
+            before_image=rib5_base64,
             num_pitchs=1,
             rib_height=self.rib5_image.shape[0],
             rib_width=self.rib5_image.shape[1]
@@ -109,14 +108,13 @@ class TestImageStichingReal(unittest.TestCase):
 
         # 测试 resize + left 组合操作
         rib_with_operations = RibSchemeImpl(
-            region=RegionEnum.SIDE,
-            source_type=SourceTypeEnum.ORIGINAL,
-            operations=(RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.LEFT),
+            rib_source="side",
+            rib_operation=(RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.LEFT),
             rib_name="rib_with_ops",
-            small_image=rib5_base64,
+            before_image=rib5_base64,
             num_pitchs=1,
-            rib_height=self.rib5_image.shape[0],  # 注意：这里应该是处理后的高度
-            rib_width=self.rib5_image.shape[1]    # 注意：这里应该是处理后的宽度
+            rib_height=self.rib5_image.shape[0],
+            rib_width=self.rib5_image.shape[1]
         )
 
         stitching_scheme = StitchingScheme(
