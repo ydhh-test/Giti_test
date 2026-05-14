@@ -6,6 +6,12 @@
 
 规则层应基于返回的纵向细沟数量、中心位置列表和宽度列表再执行打分逻辑。
 
+## Rule11 接入约定
+
+`Rule11Executor` 负责把 `SmallImage.image_base64` 解码为 BGR 图像，并把 `Rule11Config` 中的比例配置转换为像素参数后调用 `detect_longitudinal_grooves`。
+
+由于规则评分接口只接收 `config + feature`，`Rule11Feature` 会携带小图的 `region`。评分时根据 `region` 选择 `max_count_center` 或 `max_count_side`，纵向线条数量不超过对应上限时得 `max_score`，超过上限时得 `0`。
+
 ## 输入参数
 
 - `image`：BGR 图像数组，形状必须为 `(H, W, 3)`。

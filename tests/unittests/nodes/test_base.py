@@ -70,7 +70,7 @@ class FakeRuleRunner:
         if config.name == "rule6":
             return Rule6Feature(is_continuous=True)
         if config.name == "rule11":
-            return Rule11Feature(num_longitudinal_grooves=2)
+            return Rule11Feature(num_longitudinal_grooves=2, region=RegionEnum.CENTER)
         raise AssertionError(f"unexpected feature config {config.name}")
 
     @staticmethod
