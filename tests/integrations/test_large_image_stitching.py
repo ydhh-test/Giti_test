@@ -144,7 +144,7 @@ class TestLargeImageStitchingIntegration:
         lineage = _build_lineage_with_black_decoration()
         result_lineage, result_base64 = generate_large_image_from_lineage(lineage)
 
-        assert result_base64[:len(expected_prefix)] == expected_prefix, (
+        assert result_base64[:len(self.expected_prefix)] == self.expected_prefix, (
             "输出应为 data:image 前缀的 base64"
         )
 
@@ -196,13 +196,13 @@ class TestLargeImageStitchingIntegration:
         result_lineage, result_base64 = generate_large_image_from_lineage(lineage)
 
         # 验证输出图片
-        assert result_base64[:len(expected_prefix)] == expected_prefix, "输出应为 base64 图片"
+        assert result_base64[:len(self.expected_prefix)] == self.expected_prefix, "输出应为 base64 图片"
 
         # --- 验证 RIB after_image ---
         ribs = result_lineage.stitching_scheme.ribs_scheme_implementation
         for rib in ribs:
             assert rib.after_image is not None, f"{rib.rib_name} 的 after_image 为空"
-            assert rib.after_image[:len(expected_prefix)] == expected_prefix, (
+            assert rib.after_image[:len(self.expected_prefix)] == self.expected_prefix, (
                 f"{rib.rib_name} 的 after_image 格式不正确"
             )
 
@@ -218,7 +218,7 @@ class TestLargeImageStitchingIntegration:
         grooves = result_lineage.main_groove_scheme.main_groove_implementation
         for i, groove in enumerate(grooves):
             assert groove.after_image is not None, f"主沟 {i} 的 after_image 为空"
-            assert groove.after_image[:len(expected_prefix)] == expected_prefix, (
+            assert groove.after_image[:len(self.expected_prefix)] == self.expected_prefix, (
                 f"主沟 {i} 的 after_image 格式不正确"
             )
 
@@ -233,7 +233,7 @@ class TestLargeImageStitchingIntegration:
         decorations = result_lineage.decoration_scheme.decoration_implementation
         for i, dec in enumerate(decorations):
             assert dec.after_image is not None, f"装饰 {i} 的 after_image 为空"
-            assert dec.after_image[:len(expected_prefix)] == expected_prefix, (
+            assert dec.after_image[:len(self.expected_prefix)] == self.expected_prefix, (
                 f"装饰 {i} 的 after_image 格式不正确"
             )
 
