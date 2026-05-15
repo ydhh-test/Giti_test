@@ -85,7 +85,7 @@ class TestDetectLongitudinalGrooves:
         """dev 迁移来的小图 debug 图应与当前黄金基准保持一致。"""
         image_path = copy_dataset_image_to_results(relative_image_path)
 
-        image = cv2.imdecode(np.frombuffer(image_path.read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
+        image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
         if image is None:
             pytest.fail(f"读取测试图失败: {image_path}")
 
@@ -120,7 +120,7 @@ class TestDetectLongitudinalGrooves:
         expect_rst = {"debug_output_exists": True}
         assert rst == expect_rst
 
-        saved_debug_image = cv2.imdecode(np.frombuffer(debug_output_path.read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
+        saved_debug_image = cv2.imread(str(debug_output_path), cv2.IMREAD_COLOR)
         if saved_debug_image is None:
             pytest.fail(f"读取 debug 输出图失败: {debug_output_path}")
 
@@ -133,7 +133,7 @@ class TestDetectLongitudinalGrooves:
         expect_rst = {"baseline_exists": True}
         assert rst == expect_rst
 
-        baseline_debug_image = cv2.imdecode(np.frombuffer(baseline_debug_path.read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
+        baseline_debug_image = cv2.imread(str(baseline_debug_path), cv2.IMREAD_COLOR)
         if baseline_debug_image is None:
             pytest.fail(f"读取 debug 基准图失败: {baseline_debug_path}")
 

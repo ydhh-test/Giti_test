@@ -211,5 +211,42 @@ class TestRule6ExecScore(unittest.TestCase):
         self.assertIsInstance(rst, Rule6Score)
 
 
+# ============================================================
+# exec_feature 真实算法调用（不 mock，直接调用 detect_pattern_continuity）
+# ============================================================
+
+class TestRule6ExecFeatureRealAlgorithm(unittest.TestCase):
+    """验收 exec_feature 在不 mock 算法的情况下能正确完成端到端调用。"""
+
+    def _make_all_white_image(self, height: int = 16, width: int = 16) -> SmallImage:
+        """全白 BGR 图：灰度后所有像素为 255，上下边缘无暗线，算法应判定连续。"""
+        bgr = np.full((height, width, 3), 255, dtype=np.uint8)
+        return SmallImage(
+            image_base64=ndarray_to_base64(bgr, image_type="png"),
+            meta=ImageMeta(
+                width=width,
+                height=height,
+                channels=3,
+                mode=ImageModeEnum.RGB,
+                format=ImageFormatEnum.PNG,
+                size=0,
+            ),
+            biz=ImageBiz(level=LevelEnum.SMALL, region=RegionEnum.CENTER),
+        )
+
+    def test_exec_feature_real_call_on_continuous_image(self):
+        """全白图上下边缘无暗线，真实算法应返回 is_continuous=True。"""
+        image = self._make_all_white_image(height=16, width=16)
+        config = _make_config()
+        executor = Rule6Executor()
+
+        rst = executor.exec_feature(image, config)
+
+        self.assertIsInstance(rst, Rule6Feature)
+        self.assertTrue(rst.is_continuous)
+        self.assertIsNone(rst.vis_names)
+        self.assertIsNone(rst.vis_images)
+
+
 if __name__ == "__main__":
     unittest.main()
