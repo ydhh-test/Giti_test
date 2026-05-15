@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
 """
-海陆比评分算法模块
+海陆比算法模块
 
-计算轮胎花纹样稿的海陆比（黑色 + 灰色区域占总面积的百分比），并按三级容差规则给出评分。
+计算轮胎花纹样稿的海陆比（黑色 + 灰色区域占总面积的百分比）。
 
 算法层职责边界：
-- 接收 np.ndarray 图像，返回显式的评分结果和可选的可视化图像。
-- 不保存文件，不接收 task_id 或输出路径，不计算规则得分以外的业务逻辑。
+- 接收 np.ndarray 图像，返回海陆比数值和可选的可视化图像。
+- 不保存文件，不接收 task_id 或输出路径，不含任何评分或业务配置逻辑。
 - is_debug=True 时返回带颜色叠加标注的可视化图像，由调用方决定是否保存。
 """
 
@@ -16,6 +16,7 @@ from typing import Optional, Tuple
 
 import cv2
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 from src.common.exceptions import InputDataError, RuntimeProcessError
 
@@ -33,56 +34,35 @@ _GRAY_UPPER = 200
 
 def compute_land_sea_ratio(
     image: np.ndarray,
-    target_min: float = 28.0,
-    target_max: float = 35.0,
-    margin: float = 5.0,
     is_debug: bool = False,
-) -> Tuple[int, float, str, Optional[np.ndarray]]:
+) -> Tuple[float, str, Optional[np.ndarray]]:
     """
-    计算轮胎花纹样稿的海陆比，并按三级容差规则给出评分。
+    计算轮胎花纹样稿的海陆比。
 
     Parameters
     ----------
     image : np.ndarray
         输入 BGR 图像，形状为 (H, W, 3)。
-    target_min : float
-        海陆比目标区间下界（百分比，默认 28.0）。
-    target_max : float
-        海陆比目标区间上界（百分比，默认 35.0）。
-    margin : float
-        容差宽度（百分比，默认 5.0）。落在 [target_min-margin, target_min) 或
-        (target_max, target_max+margin] 内得 1 分；超出得 0 分。
     is_debug : bool
         是否输出可视化调试图像，默认 False。
 
     Returns
     -------
-    score : int
-        评分结果：2（优秀）、1（合格）、0（不合格）。
     ratio_percent : float
         实际海陆比百分比，保留两位小数（如 30.52 表示 30.52%）。
     vis_name : str
-        建议的可视化文件名；非 debug 模式返回空字符串。
+        建议的可视化文件名（不含扩展名）；非 debug 模式返回空字符串。
     vis_image : Optional[np.ndarray]
         可视化图像（BGR）；非 debug 模式返回 None。
 
     Raises
     ------
     InputDataError
-        image 为 None、非 ndarray、非三通道 BGR，或评分参数不合法时抛出。
+        image 为 None、非 ndarray 或非三通道 BGR 时抛出。
     RuntimeProcessError
         算法内部计算失败时抛出，原始异常挂在 __cause__ 上。
-
-    Notes
-    -----
-    算法层不计算规则得分以外的业务逻辑，不保存文件，不接收 task_id 或输出路径。
     """
-    logger.debug(
-        "开始海陆比计算，target_min=%.1f, target_max=%.1f, margin=%.1f",
-        target_min,
-        target_max,
-        margin,
-    )
+    logger.debug("开始海陆比计算")
 
     if image is None:
         raise InputDataError("image", "value", "must not be None")
@@ -95,21 +75,6 @@ def compute_land_sea_ratio(
     if image.ndim != 3 or image.shape[2] != 3:
         raise InputDataError(
             "image", "shape", "expected (H, W, 3) BGR image", image.shape
-        )
-
-    if not isinstance(target_min, (int, float)) or target_min < 0:
-        raise InputDataError(
-            "target_min", "value", "must be a non-negative number", target_min
-        )
-
-    if not isinstance(target_max, (int, float)) or target_max <= target_min:
-        raise InputDataError(
-            "target_max", "value", "must be > target_min", target_max
-        )
-
-    if not isinstance(margin, (int, float)) or margin < 0:
-        raise InputDataError(
-            "margin", "value", "must be a non-negative number", margin
         )
 
     try:
@@ -136,19 +101,13 @@ def compute_land_sea_ratio(
             original_error,
         )
 
-    score = _score(ratio_percent, target_min, target_max, margin)
-
-    logger.debug(
-        "海陆比评分结果: ratio=%.2f%%, score=%d",
-        ratio_percent,
-        score,
-    )
+    logger.debug("海陆比结果: ratio=%.2f%%", ratio_percent)
 
     vis_name = ""
     vis_image = None
     if is_debug:
         try:
-            vis_image = _draw_debug_image(image, gray, ratio_percent, score)
+            vis_image = _draw_debug_image(image, gray, ratio_percent)
             vis_name = _VIS_NAME
         except Exception as original_error:
             raise RuntimeProcessError(
@@ -157,7 +116,7 @@ def compute_land_sea_ratio(
                 original_error,
             )
 
-    return score, ratio_percent, vis_name, vis_image
+    return ratio_percent, vis_name, vis_image
 
 
 # ------------------------------------------------------------------
@@ -176,25 +135,13 @@ def _compute_gray_area(gray: np.ndarray) -> int:
     return int(cv2.countNonZero(mask))
 
 
-def _score(ratio_percent: float, target_min: float, target_max: float, margin: float) -> int:
-    """根据三级容差规则计算评分。"""
-    if target_min <= ratio_percent <= target_max:
-        return 2
-    lower_margin = target_min - margin
-    upper_margin = target_max + margin
-    if lower_margin <= ratio_percent < target_min or target_max < ratio_percent <= upper_margin:
-        return 1
-    return 0
-
-
 def _draw_debug_image(
     image: np.ndarray,
     gray: np.ndarray,
     ratio_percent: float,
-    score: int,
 ) -> np.ndarray:
     """
-    生成可视化调试图：红色叠加黑色区域，绿色叠加灰色区域，左上角标注比值和评分。
+    生成可视化调试图：红色叠加黑色区域，绿色叠加灰色区域，左上角标注海陆比值。
 
     与老架构 rule13.visualize_score() 保持逐像素等价。
     """
@@ -215,10 +162,9 @@ def _draw_debug_image(
     green_masked = cv2.bitwise_and(green_overlay, green_overlay, mask=gray_mask)
     vis = cv2.addWeighted(vis, 1.0, green_masked, 0.5, 0)
 
-    # 自适应字体大小
+    # 自适应字体大小（映射到 PIL 字号）
     height, width = vis.shape[:2]
-    font_scale = min(width, height) / 500
-    font_scale = max(0.5, min(2.0, font_scale))
+    font_size = max(16, int(min(width, height) / 20))
 
     # 自适应文字颜色（根据左上角区域亮度）
     roi_h = max(1, min(100, height // 10))
@@ -226,26 +172,34 @@ def _draw_debug_image(
     avg_brightness = float(np.mean(gray[:roi_h, :roi_w]))
     text_color = (0, 0, 0) if avg_brightness > 128 else (255, 255, 255)
 
-    y_offset = int(30 * font_scale)
-    thickness = max(1, int(2 * font_scale))
-
-    cv2.putText(
-        vis,
-        f"海陆比：{ratio_percent:.2f}%",
-        (10, y_offset),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        font_scale,
-        text_color,
-        thickness,
-    )
-    cv2.putText(
-        vis,
-        f"评分：{score}",
-        (10, int(y_offset * 2.5)),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        font_scale,
-        text_color,
-        thickness,
-    )
+    vis = _put_chinese_text(vis, f"海陆比：{ratio_percent:.2f}%", (10, 10), font_size, text_color)
 
     return vis
+
+
+def _put_chinese_text(
+    bgr_image: np.ndarray,
+    text: str,
+    position: tuple,
+    font_size: int,
+    color_bgr: tuple,
+) -> np.ndarray:
+    """用 PIL 在 BGR 图像上绘制中文文字，避免 cv2.putText 中文乱码。"""
+    rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+    pil_image = Image.fromarray(rgb_image)
+    draw = ImageDraw.Draw(pil_image)
+
+    try:
+        font = ImageFont.truetype("simhei.ttf", font_size)
+    except (IOError, OSError):
+        try:
+            font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", font_size)
+        except (IOError, OSError):
+            font = ImageFont.load_default()
+
+    # PIL 颜色为 RGB
+    color_rgb = (color_bgr[2], color_bgr[1], color_bgr[0])
+    draw.text(position, text, font=font, fill=color_rgb)
+
+    result = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+    return result

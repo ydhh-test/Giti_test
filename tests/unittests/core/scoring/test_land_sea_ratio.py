@@ -1,41 +1,35 @@
 # -*- coding: utf-8 -*-
 """
-海陆比评分算法单元测试（新架构 dev2）
+海陆比算法单元测试（新架构 dev2）
 
 测试目标：src.core.scoring.land_sea_ratio
-API 注意：compute_land_sea_ratio() 使用显式参数，返回显式 tuple，不返回 dict。
+API 注意：compute_land_sea_ratio() 只接收图像和 is_debug，返回 (ratio_percent, vis_name, vis_image)。
+评分逻辑已移至规则层 Rule13Executor，本文件不测试评分。
 
-主要变更（相对 feature/dev 分支）：
-- import 路径：rules.scoring.land_sea_ratio -> src.core.scoring.land_sea_ratio
-- 输入：dict conf -> 显式参数（target_min, target_max, margin）
-- 输出：(score, details_dict) -> (score, ratio_percent, vis_name, vis_image)
-- 算法层不保存文件，不接收 task_id 或输出路径，不返回 black_area/gray_area
-- is_debug=True 时返回可视化图像，由调用方决定是否保存
+主要变更（相对旧版本）：
+- 移除 target_min / target_max / margin 参数（业务配置，属于规则层）
+- 移除 score 返回值（评分逻辑，属于规则层）
+- debug 图不再标注评分，只标注海陆比值
 
 最重要的测试验证逻辑：
-- 使用 feature/dev 原始大图（combine_horizontal/）验证评分与海陆比值与老算法一致。
-- 使用 wise_image_dev1/ 保存的老架构染色图，与新架构 is_debug=True 生成的染色图做
-  np.array 像素级比对，证明 debug 可视化迁移等价。
-- 使用合成图像验证三级评分边界（优秀/合格/不合格）及边界值精确行为。
-- 通过覆盖率工具确认 _score / _compute_black_area / _compute_gray_area / _draw_debug_image
+- 使用 feature/dev 原始大图（combine_horizontal/）验证海陆比值与老算法一致。
+- 使用合成图像验证黑色/灰色像素统计边界（_compute_black_area / _compute_gray_area）。
+- 通过覆盖率工具确认 _compute_black_area / _compute_gray_area / _draw_debug_image
   内所有分支均被覆盖。
 
 人工设计的覆盖性测试逻辑：
-- 针对公开 API 边界：覆盖 None、非 ndarray、灰度图（2D）、target_max<=target_min、
-  负 margin 等输入异常，防止调用方传入非法参数后无声地产生错误结果。
-- 针对三级评分：用精确构造的像素比例图像，分别验证目标区间内（score=2）、
-  下容差区间（score=1）、上容差区间（score=1）、超出范围（score=0）共四个分支。
-  直接构造边界值图像比依赖真实图更稳定，能防止阈值被误改。
-- 针对纯白图：海陆比应为 0%，评分为 0，验证零像素边界不崩溃。
+- 针对公开 API 边界：覆盖 None、非 ndarray、灰度图（2D）等输入异常。
+- 针对纯白图：海陆比应为 0%，验证零像素边界不崩溃。
 - 针对 debug 图：覆盖 is_debug=True/False，验证 vis_name/vis_image 的返回类型。
-- 针对等价性：对三张真实测试图逐图验证 ratio_percent 和 score 与老算法计算结果一致；
-  对同一批图做像素级 np.array_equal 比对新旧染色图，验证可视化等价。
+- 针对等价性：对三张真实测试图逐图验证 ratio_percent 与老算法计算结果一致。
+  注意：debug 图移除了评分标注，与 wise_image_dev1 不再逐像素等价，不做像素级比对。
 """
 
 import pathlib
 import unittest
 
 _DATASET_BASE = pathlib.Path(__file__).parent.parent.parent.parent / "datasets" / "test_land_sea_ratio"
+_WISE_IMAGE_DEV2 = pathlib.Path(__file__).parent.parent.parent.parent.parent / ".results" / "wise_image_dev2" / "land_sea_ratio"
 
 try:
     import cv2
@@ -45,7 +39,6 @@ except ImportError:
     _HAS_CV2 = False
 _COMBINE_HORIZONTAL = _DATASET_BASE / "combine_horizontal"
 _WISE_IMAGE_DEV1 = _DATASET_BASE / "wise_image_dev1"
-_WISE_IMAGE_DEV2 = _DATASET_BASE / "wise_image_dev2"
 
 
 def _make_ratio_image(height: int, width: int, black_ratio: float, gray_ratio: float) -> "np.ndarray":
@@ -96,126 +89,38 @@ class TestComputeLandSeaRatioApi(unittest.TestCase):
         with self.assertRaises(InputDataError):
             self._run(gray)
 
-    def test_target_max_le_target_min_raises(self):
-        from src.common.exceptions import InputDataError
-        image = _make_ratio_image(100, 100, 0.3, 0.0)
-        with self.assertRaises(InputDataError):
-            self._run(image, target_min=35.0, target_max=28.0)
-
-    def test_negative_margin_raises(self):
-        from src.common.exceptions import InputDataError
-        image = _make_ratio_image(100, 100, 0.3, 0.0)
-        with self.assertRaises(InputDataError):
-            self._run(image, margin=-1.0)
-
-    def test_negative_target_min_raises(self):
-        from src.common.exceptions import InputDataError
-        image = _make_ratio_image(100, 100, 0.3, 0.0)
-        with self.assertRaises(InputDataError):
-            self._run(image, target_min=-1.0)
-
     def test_return_types_no_debug(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
-        score, ratio_percent, vis_name, vis_image = self._run(image)
+        ratio_percent, vis_name, vis_image = self._run(image)
         expected_vis_name = ""
-        self.assertIsInstance(score, int)
         self.assertIsInstance(ratio_percent, float)
         self.assertEqual(vis_name, expected_vis_name)
         self.assertIsNone(vis_image)
 
     def test_return_types_with_debug(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
-        score, ratio_percent, vis_name, vis_image = self._run(image, is_debug=True)
+        ratio_percent, vis_name, vis_image = self._run(image, is_debug=True)
         expected_vis_name = "land_sea_ratio"
         expected_shape = image.shape
+        self.assertIsInstance(ratio_percent, float)
         self.assertEqual(vis_name, expected_vis_name)
         self.assertIsInstance(vis_image, np.ndarray)
         self.assertEqual(vis_image.shape, expected_shape)
 
-    def test_score_range(self):
+    def test_ratio_range(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
-        score, ratio_percent, _, _ = self._run(image)
-        expected_scores = [0, 1, 2]
+        ratio_percent, _, _ = self._run(image)
         expected_ratio_min = 0.0
         expected_ratio_max = 100.0
-        self.assertIn(score, expected_scores)
         self.assertGreaterEqual(ratio_percent, expected_ratio_min)
         self.assertLessEqual(ratio_percent, expected_ratio_max)
 
-
-@unittest.skipUnless(_HAS_CV2, "需要 numpy 和 opencv-python")
-class TestScoring(unittest.TestCase):
-    """三级评分边界验证。"""
-
-    def _run(self, image, **kwargs):
-        from src.core.scoring.land_sea_ratio import compute_land_sea_ratio
-        return compute_land_sea_ratio(image, **kwargs)
-
-    def test_score_2_in_target_range(self):
-        """黑色占30%，在目标区间[28, 35]内，应得 2 分。"""
-        image = _make_ratio_image(100, 100, 0.30, 0.0)
-        score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        expected = {"score": 2, "ratio_min": 28.0, "ratio_max": 35.0}
-        self.assertEqual(score, expected["score"])
-        self.assertGreaterEqual(ratio_percent, expected["ratio_min"])
-        self.assertLessEqual(ratio_percent, expected["ratio_max"])
-
-    def test_score_1_below_target_in_margin(self):
-        """黑色占25%，在下容差区间[23, 28)内，应得 1 分。"""
-        image = _make_ratio_image(100, 100, 0.25, 0.0)
-        score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        expected = {"score": 1, "ratio_min": 23.0, "ratio_max": 28.0}
-        self.assertEqual(score, expected["score"])
-        self.assertGreaterEqual(ratio_percent, expected["ratio_min"])
-        self.assertLess(ratio_percent, expected["ratio_max"])
-
-    def test_score_1_above_target_in_margin(self):
-        """黑色+灰色占38%，在上容差区间(35, 40]内，应得 1 分。"""
-        image = _make_ratio_image(100, 100, 0.38, 0.0)
-        score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        expected = {"score": 1, "ratio_min": 35.0, "ratio_max": 40.0}
-        self.assertEqual(score, expected["score"])
-        self.assertGreater(ratio_percent, expected["ratio_min"])
-        self.assertLessEqual(ratio_percent, expected["ratio_max"])
-
-    def test_score_0_far_below_range(self):
-        """黑色占10%，远低于最低容差线23%，应得 0 分。"""
-        image = _make_ratio_image(100, 100, 0.10, 0.0)
-        score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        expected_score = 0
-        expected_ratio_max = 23.0
-        self.assertEqual(score, expected_score)
-        self.assertLess(ratio_percent, expected_ratio_max)
-
-    def test_score_0_far_above_range(self):
-        """黑色+灰色占50%，远高于最高容差线40%，应得 0 分。"""
-        image = _make_ratio_image(100, 100, 0.50, 0.0)
-        score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        expected_score = 0
-        expected_ratio_min = 40.0
-        self.assertEqual(score, expected_score)
-        self.assertGreater(ratio_percent, expected_ratio_min)
-
-    def test_pure_white_image_score_0(self):
-        """纯白图：海陆比为 0%，评分为 0。验证零边界不崩溃。"""
+    def test_pure_white_image_ratio_zero(self):
+        """纯白图：海陆比为 0%。验证零边界不崩溃。"""
         image = np.full((100, 100, 3), 255, dtype=np.uint8)
-        score, ratio_percent, _, _ = self._run(image)
-        expected_score = 0
+        ratio_percent, _, _ = self._run(image)
         expected_ratio = 0.0
-        self.assertEqual(score, expected_score)
         self.assertAlmostEqual(ratio_percent, expected_ratio, places=2)
-
-    def test_target_exactly_at_min_boundary(self):
-        """ratio 精确等于 target_min 时，应得 2 分（区间含端点）。"""
-        image = _make_ratio_image(100, 100, 0.28, 0.0)
-        score, ratio_percent, _, _ = self._run(image, target_min=28.0, target_max=35.0, margin=5.0)
-        expected_score_in_range = 2
-        expected_scores_fallback = [0, 1, 2]
-        # 由于像素离散化，ratio 可能不精确等于 28.0，但应在 [28, 35] 范围内
-        if 28.0 <= ratio_percent <= 35.0:
-            self.assertEqual(score, expected_score_in_range)
-        else:
-            self.assertIn(score, expected_scores_fallback)
 
 
 @unittest.skipUnless(_HAS_CV2, "需要 numpy 和 opencv-python")
@@ -314,26 +219,26 @@ class TestDebugVisualization(unittest.TestCase):
 
     def test_no_debug_returns_none_and_empty_string(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
-        _, _, vis_name, vis_image = self._run(image, is_debug=False)
+        _, vis_name, vis_image = self._run(image, is_debug=False)
         expected_vis_name = ""
         self.assertEqual(vis_name, expected_vis_name)
         self.assertIsNone(vis_image)
 
     def test_debug_returns_correct_name(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
-        _, _, vis_name, _ = self._run(image, is_debug=True)
+        _, vis_name, _ = self._run(image, is_debug=True)
         expected_vis_name = "land_sea_ratio"
         self.assertEqual(vis_name, expected_vis_name)
 
     def test_debug_image_same_shape_as_input(self):
         image = _make_ratio_image(200, 300, 0.3, 0.1)
-        _, _, _, vis_image = self._run(image, is_debug=True)
+        _, _, vis_image = self._run(image, is_debug=True)
         expected_shape = image.shape
         self.assertEqual(vis_image.shape, expected_shape)
 
     def test_debug_image_dtype_uint8(self):
         image = _make_ratio_image(100, 100, 0.3, 0.0)
-        _, _, _, vis_image = self._run(image, is_debug=True)
+        _, _, vis_image = self._run(image, is_debug=True)
         expected_dtype = np.uint8
         self.assertEqual(vis_image.dtype, expected_dtype)
 
@@ -341,37 +246,38 @@ class TestDebugVisualization(unittest.TestCase):
 @unittest.skipUnless(_HAS_CV2, "需要 numpy 和 opencv-python")
 class TestRealImages(unittest.TestCase):
     """
-    使用真实测试图像验证评分与老算法等价。
+    使用真实测试图像验证海陆比值与老算法等价，并做 debug 图像素级比对。
+
+    只验证 ratio_percent，不验证 score（评分逻辑已移至规则层）。
+    wise_image_dev1 存放的是不带评分标注的新基准图（已人工确认），
+    新架构运行时生成的 debug 图与之做逐像素比对，保证可视化不被误改。
+    测试自动生成图保存到 .results/wise_image_dev2/land_sea_ratio/ 供人工检查。
 
     预期结果（由老算法计算，在准备数据集脚本中已确认）：
-    - sym_0_r1_0_r2_0_r3_0_r4_0_r5_0.png: ratio=24.72%, score=1
-    - sym_1_r1_0_r2_0_r3_1_r4_0_r5_0.png: ratio=24.36%, score=1
-    - sym_3_r1_0_r2_0_r3_0_r4_0_r5_0.png: ratio=25.25%, score=1
+    - sym_0_r1_0_r2_0_r3_0_r4_0_r5_0.png: ratio=24.72%
+    - sym_1_r1_0_r2_0_r3_1_r4_0_r5_0.png: ratio=24.36%
+    - sym_3_r1_0_r2_0_r3_0_r4_0_r5_0.png: ratio=25.25%
     """
 
-    EXPECTED = {
-        "sym_0_r1_0_r2_0_r3_0_r4_0_r5_0.png": (1, 24.72),
-        "sym_1_r1_0_r2_0_r3_1_r4_0_r5_0.png": (1, 24.36),
-        "sym_3_r1_0_r2_0_r3_0_r4_0_r5_0.png": (1, 25.25),
+    EXPECTED_RATIO = {
+        "sym_0_r1_0_r2_0_r3_0_r4_0_r5_0.png": 24.72,
+        "sym_1_r1_0_r2_0_r3_1_r4_0_r5_0.png": 24.36,
+        "sym_3_r1_0_r2_0_r3_0_r4_0_r5_0.png": 25.25,
     }
 
     def _run(self, image, **kwargs):
         from src.core.scoring.land_sea_ratio import compute_land_sea_ratio
         return compute_land_sea_ratio(image, **kwargs)
 
-    def test_real_image_scores_match_old_algorithm(self):
-        """逐图验证新架构评分和海陆比值与老算法计算结果一致。"""
-        for filename, (expected_score, expected_ratio) in self.EXPECTED.items():
+    def test_real_image_ratios_match_old_algorithm(self):
+        """逐图验证新架构海陆比值与老算法计算结果一致。"""
+        for filename, expected_ratio in self.EXPECTED_RATIO.items():
             image_path = _COMBINE_HORIZONTAL / filename
             if not image_path.exists():
                 self.skipTest(f"测试图像不存在: {image_path}")
             image = _load_image(image_path)
-            score, ratio_percent, _, _ = self._run(image)
+            ratio_percent, _, _ = self._run(image)
             with self.subTest(filename=filename):
-                self.assertEqual(
-                    score, expected_score,
-                    msg=f"{filename}: 评分不匹配，期望 {expected_score}，实际 {score}",
-                )
                 self.assertAlmostEqual(
                     ratio_percent, expected_ratio, places=2,
                     msg=f"{filename}: 海陆比不匹配，期望 {expected_ratio}，实际 {ratio_percent}",
@@ -379,12 +285,12 @@ class TestRealImages(unittest.TestCase):
 
     def test_debug_image_pixel_equal_to_dev1_baseline(self):
         """
-        新架构 debug 染色图与 wise_image_dev1 老架构基准图逐像素比对，证明可视化等价。
-        同时将新架构染色图保存到 wise_image_dev2 便于人工检查。
+        新架构 debug 图与 wise_image_dev1 基准图逐像素比对，防止可视化被误改。
+        同时将新架构 debug 图保存到 .results/wise_image_dev2/land_sea_ratio/ 供人工检查。
         """
         _WISE_IMAGE_DEV2.mkdir(parents=True, exist_ok=True)
 
-        for filename in self.EXPECTED:
+        for filename in self.EXPECTED_RATIO:
             image_path = _COMBINE_HORIZONTAL / filename
             dev1_path = _WISE_IMAGE_DEV1 / filename
             if not image_path.exists() or not dev1_path.exists():
@@ -393,11 +299,10 @@ class TestRealImages(unittest.TestCase):
             image = _load_image(image_path)
             dev1_image = _load_image(dev1_path)
 
-            _, _, _, vis_image = self._run(image, is_debug=True)
+            _, _, vis_image = self._run(image, is_debug=True)
 
-            # 保存到 wise_image_dev2 便于人工比对（用 imencode+tofile 规避中文路径问题）
             dev2_path = _WISE_IMAGE_DEV2 / filename
-            success, buf = cv2.imencode(dev2_path.suffix, vis_image)
+            success, buf = cv2.imencode(".png", vis_image)
             if success:
                 np.array(buf).tofile(str(dev2_path))
 
@@ -405,7 +310,7 @@ class TestRealImages(unittest.TestCase):
                 self.assertTrue(
                     np.array_equal(vis_image, dev1_image),
                     msg=(
-                        f"{filename}: 新旧架构染色图不一致，"
+                        f"{filename}: debug 图与基准不一致，"
                         f"请对比 {dev1_path} 和 {dev2_path}"
                     ),
                 )
