@@ -439,7 +439,7 @@ _EXPECTED_REAL_IMAGE_CONTINUITY = {
     },
 }
 _WISE_IMAGE_DEV1 = _DATASET_PC / "wise_image_dev1"
-_WISE_IMAGE_DEV2 = _DATASET_PC / "wise_image_dev2"
+_WISE_IMAGE_DEV2 = _ROOT / ".results" / "wise_image_dev2" / "test_pattern_continuity"
 _HAS_WISE_DEV1 = bool(list(_WISE_IMAGE_DEV1.glob("*.png"))) if _WISE_IMAGE_DEV1.exists() else False
 
 

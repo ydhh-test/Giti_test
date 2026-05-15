@@ -119,6 +119,7 @@ class BaseRuleConfig(BaseModel):
 
     description: str = Field(description="规则描述")
     max_score: int = Field(ge=0, description="最大可得分")
+
     @property
     def name(self) -> str:
         """规则名称，从类名自动提取（如Rule8Config → rule8）"""
