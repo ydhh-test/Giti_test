@@ -9,20 +9,15 @@ Rule6 执行器单元测试
 2. 算法对接（不真正调用算法）：使用 monkeypatch 替换 detect_pattern_continuity，
    验证 Rule6Executor.exec_feature：
    - 解码 image.image_base64 为 BGR ndarray，转灰度后传给算法。
-   - 把 config.is_debug 透传给算法。
-   - 把算法返回的 (is_continuous, vis_name, vis_image) 正确写入 Rule6Feature：
-     * is_continuous → Rule6Feature.is_continuous
-     * is_debug=True 且 vis_image 非 None 时，vis_name/vis_image 分别透传到
-       Rule6Feature.vis_names / vis_images（vis_image 编码为 base64）。
-     * is_debug=False 时，Rule6Feature.vis_names / vis_images 为 None。
+   - 把算法返回的 is_continuous 正确写入 Rule6Feature.is_continuous。
+   - Rule6Feature.vis_names / vis_images 始终为 None（规则层不处理 debug 可视化）。
    - exec_feature 返回 Rule6Feature 类型。
 3. 打分逻辑：exec_score 在连续时返回 max_score，不连续时返回 0；
    严格按 config.max_score，不硬编码默认值；返回 Rule6Score 类型。
 
 人工设计的覆盖性测试逻辑：
 - 算法函数仅被调用 1 次（防止重复调用）。
-- 入参精确匹配：image_base64 解码后的灰度形状、is_debug 透传值。
-- is_debug 双路径：True 与 False 分别验证 vis_names/vis_images 行为。
+- 入参精确匹配：image_base64 解码后的灰度形状。
 - 打分分支覆盖：is_continuous=True / False 两路 + max_score 自定义值。
 - 类型契约：exec_feature 返回 Rule6Feature；exec_score 返回 Rule6Score。
 """
@@ -67,8 +62,8 @@ def _make_small_image(height: int = 16, width: int = 16) -> SmallImage:
     )
 
 
-def _make_config(max_score: int = 10, is_debug: bool = False) -> Rule6Config:
-    return Rule6Config(max_score=max_score, is_debug=is_debug)
+def _make_config(max_score: int = 10) -> Rule6Config:
+    return Rule6Config(max_score=max_score)
 
 
 # ============================================================
@@ -100,10 +95,10 @@ class TestRule6ExecFeature(unittest.TestCase):
             return_value=return_value,
         )
 
-    def test_exec_feature_calls_algorithm_with_gray_and_is_debug_false(self):
-        """exec_feature 应将灰度图与 is_debug=False 透传到算法层，且仅调用一次。"""
+    def test_exec_feature_calls_algorithm_with_gray(self):
+        """exec_feature 应将灰度图传给算法层，且仅调用一次。"""
         image = _make_small_image(height=16, width=16)
-        config = _make_config(is_debug=False)
+        config = _make_config()
         executor = Rule6Executor()
 
         with self._patch_algorithm((True, "", None)) as fake_algo:
@@ -112,32 +107,17 @@ class TestRule6ExecFeature(unittest.TestCase):
         expected_call_count = 1
         self.assertEqual(fake_algo.call_count, expected_call_count)
 
-        args, kwargs = fake_algo.call_args
+        args, _ = fake_algo.call_args
         gray_arg = args[0]
         self.assertIsInstance(gray_arg, np.ndarray)
         expected_gray_shape = (16, 16)
         self.assertEqual(gray_arg.shape, expected_gray_shape)
         self.assertEqual(gray_arg.dtype, np.uint8)
-        self.assertEqual(kwargs.get("is_debug"), False)
-
-    def test_exec_feature_passes_is_debug_true(self):
-        """is_debug=True 时应将该值透传到算法层。"""
-        image = _make_small_image()
-        config = _make_config(is_debug=True)
-        executor = Rule6Executor()
-
-        with self._patch_algorithm(
-            (True, "pattern_continuity.png", np.zeros((4, 4, 3), dtype=np.uint8))
-        ) as fake_algo:
-            executor.exec_feature(image, config)
-
-        _, kwargs = fake_algo.call_args
-        self.assertEqual(kwargs.get("is_debug"), True)
 
     def test_exec_feature_maps_is_continuous_true(self):
         """算法返回 is_continuous=True 时应写入 Rule6Feature.is_continuous。"""
         image = _make_small_image()
-        config = _make_config(is_debug=False)
+        config = _make_config()
         executor = Rule6Executor()
 
         with self._patch_algorithm((True, "", None)):
@@ -149,7 +129,7 @@ class TestRule6ExecFeature(unittest.TestCase):
     def test_exec_feature_maps_is_continuous_false(self):
         """算法返回 is_continuous=False 时应写入 Rule6Feature.is_continuous。"""
         image = _make_small_image()
-        config = _make_config(is_debug=False)
+        config = _make_config()
         executor = Rule6Executor()
 
         with self._patch_algorithm((False, "", None)):
@@ -161,7 +141,7 @@ class TestRule6ExecFeature(unittest.TestCase):
     def test_exec_feature_returns_rule6feature_type(self):
         """exec_feature 应返回 Rule6Feature 实例。"""
         image = _make_small_image()
-        config = _make_config(is_debug=False)
+        config = _make_config()
         executor = Rule6Executor()
 
         with self._patch_algorithm((True, "", None)):
@@ -169,45 +149,15 @@ class TestRule6ExecFeature(unittest.TestCase):
 
         self.assertIsInstance(rst, Rule6Feature)
 
-    def test_exec_feature_does_not_pass_through_vis_when_debug_off(self):
-        """is_debug=False 时，即使算法返回 vis_image，也不应写入 Feature。"""
+    def test_exec_feature_vis_fields_are_always_none(self):
+        """规则层不处理 debug 可视化，vis_names/vis_images 始终为 None。"""
         image = _make_small_image()
-        config = _make_config(is_debug=False)
+        config = _make_config()
         executor = Rule6Executor()
 
         with self._patch_algorithm(
             (True, "pattern_continuity.png", np.zeros((4, 4, 3), dtype=np.uint8))
         ):
-            rst = executor.exec_feature(image, config)
-
-        self.assertIsNone(rst.vis_names)
-        self.assertIsNone(rst.vis_images)
-
-    def test_exec_feature_passes_through_vis_when_debug_on(self):
-        """is_debug=True 时，算法返回的 vis_name/vis_image 应透传到 Feature。"""
-        image = _make_small_image()
-        config = _make_config(is_debug=True)
-        executor = Rule6Executor()
-
-        fake_vis_image = np.zeros((4, 4, 3), dtype=np.uint8)
-        with self._patch_algorithm(
-            (False, "pattern_continuity.png", fake_vis_image)
-        ):
-            rst = executor.exec_feature(image, config)
-
-        expected_vis_names = ["pattern_continuity.png"]
-        self.assertEqual(rst.vis_names, expected_vis_names)
-        self.assertIsNotNone(rst.vis_images)
-        self.assertEqual(len(rst.vis_images), 1)
-        self.assertTrue(rst.vis_images[0].startswith("data:image/png;base64,"))
-
-    def test_exec_feature_no_vis_when_debug_on_but_algo_returns_none(self):
-        """is_debug=True 但算法仍返回 vis_image=None 时，Feature 不应填充 vis 字段。"""
-        image = _make_small_image()
-        config = _make_config(is_debug=True)
-        executor = Rule6Executor()
-
-        with self._patch_algorithm((True, "", None)):
             rst = executor.exec_feature(image, config)
 
         self.assertIsNone(rst.vis_names)
